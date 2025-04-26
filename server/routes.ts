@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { generateBulkDescriptions } from "./openai";
+import { generateBingoItems, generateItemImage } from "./generator";
 import { log } from "./vite";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -126,6 +127,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating descriptions:", error);
       res.status(500).json({ error: "Failed to generate descriptions" });
+    }
+  });
+
+  // Generate new bingo items for a city
+  app.post("/api/generate-items", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        cityId: z.string(),
+        theme: z.string()
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const { cityId, theme } = validatedData;
+      
+      // Get the current state
+      const state = await storage.getBingoState();
+      const city = state.cities[cityId];
+      
+      if (!city) {
+        return res.status(404).json({ error: `City ${cityId} not found` });
+      }
+      
+      log(`Generating bingo items for ${cityId} with theme: ${theme}`, 'ai-generation');
+      
+      // Generate bingo items
+      const items = await generateBingoItems(cityId, city.title, theme);
+      
+      if (items.length === 0) {
+        return res.status(500).json({ error: "Failed to generate bingo items" });
+      }
+      
+      res.json({ 
+        success: true, 
+        items: items,
+        message: `Generated ${items.length} bingo items for ${city.title}`
+      });
+    } catch (error) {
+      console.error("Error generating bingo items:", error);
+      res.status(500).json({ error: "Failed to generate bingo items" });
+    }
+  });
+
+  // Generate an image for a bingo item
+  app.post("/api/generate-image", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        itemText: z.string(),
+        cityId: z.string()
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const { itemText, cityId } = validatedData;
+      
+      // Get the current state
+      const state = await storage.getBingoState();
+      const city = state.cities[cityId];
+      
+      if (!city) {
+        return res.status(404).json({ error: `City ${cityId} not found` });
+      }
+      
+      log(`Generating image for "${itemText}" in ${city.title}`, 'ai-generation');
+      
+      // Generate image
+      const imageUrl = await generateItemImage(itemText, city.title);
+      
+      if (!imageUrl) {
+        return res.status(500).json({ error: "Failed to generate image" });
+      }
+      
+      res.json({ 
+        success: true, 
+        imageUrl: imageUrl,
+        message: `Generated image for "${itemText}" in ${city.title}`
+      });
+    } catch (error) {
+      console.error("Error generating image:", error);
+      res.status(500).json({ error: "Failed to generate image" });
     }
   });
   

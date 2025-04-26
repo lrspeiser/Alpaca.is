@@ -40,10 +40,7 @@ export default function Travel() {
           <p className="text-sm text-gray-600 mt-1">{city.subtitle}</p>
         </div>
         
-        {/* AI Description Generation Button */}
-        <div className="flex justify-center mb-4">
-          <GenerateDescriptionsButton />
-        </div>
+        {/* No longer showing AI generation button to regular users */}
         
         {/* Bingo Grid */}
         <BingoGrid onItemClick={setSelectedItem} />
