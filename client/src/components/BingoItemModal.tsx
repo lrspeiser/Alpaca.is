@@ -74,6 +74,9 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   
   const imageUrl = getImageUrl(item);
   
+  // Log the item data to help with debugging
+  console.log('BingoItemModal - Item data:', item);
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl max-w-md w-11/12 max-h-[90vh] overflow-y-auto">
@@ -99,9 +102,18 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
           </div>
           
           <div className="mb-6">
-            <p className="text-sm">
-              {item.description || `Have you completed "${item.text}" yet? Mark it as done when you have!`}
-            </p>
+            {item.description ? (
+              <div>
+                <h4 className="text-sm font-bold mb-1">About this activity:</h4>
+                <p className="text-sm bg-gray-50 p-3 rounded-md border">
+                  {item.description}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm">
+                Have you completed "{item.text}" yet? Mark it as done when you have!
+              </p>
+            )}
           </div>
           
           <div className="flex space-x-3">
