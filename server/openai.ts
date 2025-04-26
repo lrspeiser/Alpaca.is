@@ -2,9 +2,9 @@ import OpenAI from 'openai';
 import { log } from './vite';
 
 // Initialize OpenAI client
-const apiKey = process.env.OPEN_AI_KEY;
+const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
-  log('Warning: OPEN_AI_KEY environment variable is not set. AI description generation will not work.', 'openai');
+  log('Warning: OPENAI_API_KEY environment variable is not set. AI description generation will not work.', 'openai');
 }
 
 const openai = new OpenAI({

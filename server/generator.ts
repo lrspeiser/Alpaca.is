@@ -4,9 +4,9 @@ import { v4 as uuidv4 } from "uuid";
 import type { BingoItem } from "../shared/schema";
 
 // Initialize OpenAI client
-const apiKey = process.env.OPEN_AI_KEY;
+const apiKey = process.env.OPENAI_API_KEY;
 if (!apiKey) {
-  log('Warning: OPEN_AI_KEY environment variable is not set. AI generation will not work.', 'openai');
+  log('Warning: OPENAI_API_KEY environment variable is not set. AI generation will not work.', 'openai');
 }
 
 const openai = new OpenAI({

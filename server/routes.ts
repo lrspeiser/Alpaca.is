@@ -169,16 +169,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate an image for a bingo item
-  app.post("/api/generate-image", async (req: Request, res: Response) => {
+  // Generate a description for a single bingo item
+  app.post("/api/generate-description", async (req: Request, res: Response) => {
     try {
       const schema = z.object({
-        itemText: z.string(),
+        itemId: z.string(),
         cityId: z.string()
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemText, cityId } = validatedData;
+      const { itemId, cityId } = validatedData;
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -188,13 +188,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: `City ${cityId} not found` });
       }
       
+      // Find the item
+      const item = city.items.find(item => item.id === itemId);
+      
+      if (!item) {
+        return res.status(404).json({ error: `Item ${itemId} not found in city ${cityId}` });
+      }
+      
+      log(`Generating description for "${item.text}" in ${city.title}`, 'ai-generation');
+      
+      // Generate description
+      const description = await generateItemDescription(item.text, city.title);
+      
+      // Update the item with the new description
+      const updatedItems = city.items.map(i => 
+        i.id === itemId ? { ...i, description } : i
+      );
+      
+      // Update the city
+      const updatedCity = {
+        ...city,
+        items: updatedItems
+      };
+      
+      // Update the state
+      const updatedState = {
+        ...state,
+        cities: {
+          ...state.cities,
+          [cityId]: updatedCity
+        }
+      };
+      
+      // Save the updated state
+      await storage.saveBingoState(updatedState);
+      
+      res.json({ 
+        success: true, 
+        description,
+        message: `Generated description for "${item.text}" in ${city.title}`
+      });
+    } catch (error) {
+      console.error("Error generating description:", error);
+      res.status(500).json({ error: "Failed to generate description" });
+    }
+  });
+
+  // Generate an image for a bingo item
+  app.post("/api/generate-image", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        itemId: z.string().optional(),
+        itemText: z.string().optional(),
+        cityId: z.string()
+      }).refine(data => data.itemId || data.itemText, {
+        message: "Either itemId or itemText must be provided"
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const { itemId, itemText: providedItemText, cityId } = validatedData;
+      
+      // Get the current state
+      const state = await storage.getBingoState();
+      const city = state.cities[cityId];
+      
+      if (!city) {
+        return res.status(404).json({ error: `City ${cityId} not found` });
+      }
+      
+      let itemText = providedItemText;
+      let targetItem;
+      
+      // If itemId is provided, find the item
+      if (itemId) {
+        targetItem = city.items.find(item => item.id === itemId);
+        if (!targetItem) {
+          return res.status(404).json({ error: `Item ${itemId} not found in city ${cityId}` });
+        }
+        itemText = targetItem.text;
+      }
+      
       log(`Generating image for "${itemText}" in ${city.title}`, 'ai-generation');
       
       // Generate image
-      const imageUrl = await generateItemImage(itemText, city.title);
+      const imageUrl = await generateItemImage(itemText!, city.title);
       
       if (!imageUrl) {
         return res.status(500).json({ error: "Failed to generate image" });
+      }
+      
+      // If we have an itemId, update the item with the new image
+      if (itemId && targetItem) {
+        const updatedItems = city.items.map(i => 
+          i.id === itemId ? { ...i, image: imageUrl } : i
+        );
+        
+        // Update the city
+        const updatedCity = {
+          ...city,
+          items: updatedItems
+        };
+        
+        // Update the state
+        const updatedState = {
+          ...state,
+          cities: {
+            ...state.cities,
+            [cityId]: updatedCity
+          }
+        };
+        
+        // Save the updated state
+        await storage.saveBingoState(updatedState);
       }
       
       res.json({ 
