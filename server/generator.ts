@@ -47,7 +47,7 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Using gpt-4o which is OpenAI's latest model
+      model: "gpt-4.1", // Using gpt-4.1 which is the latest model as of April 26, 2025
       messages: [
         {
           role: "system",
@@ -109,24 +109,17 @@ export async function generateItemImage(
     
     // Call OpenAI to generate the image
     const response = await openai.images.generate({
-      model: "gpt-image-1", // Using the latest GPT model with image capability
+      model: "gpt-image-1", // Using gpt-image-1 which is the latest image model as of April 26, 2025
       prompt: prompt,
       n: 1,
       size: "1024x1024",
       quality: "medium"
     });
 
-    // Return the image URL or base64 data
-    if (response.data && response.data.length > 0) {
-      // If using b64_json response_format, return the URL from the server
-      // We're continuing to return the URL as that's what our client expects
-      // The base64 data is available in response.data[0].b64_json
-      if (response.data[0].url) {
-        return response.data[0].url;
-      } else if (response.data[0].b64_json) {
-        // Convert base64 to a data URL
-        return `data:image/png;base64,${response.data[0].b64_json}`;
-      }
+    // Return the image URL
+    if (response.data && response.data.length > 0 && response.data[0].url) {
+      // With gpt-image-1, we get a URL directly, not base64 data
+      return response.data[0].url;
     }
     return "";
   } catch (error: any) {
