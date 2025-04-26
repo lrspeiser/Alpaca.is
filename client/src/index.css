@@ -70,6 +70,9 @@
   aspect-ratio: 1/1;
   transition: all 0.3s ease;
   min-height: 60px;
+  border-width: 1px;
+  margin: 0;
+  padding: 0;
 }
 
 /* We no longer need this styling since we're using images */
@@ -78,7 +81,10 @@
 }
 
 /* Using Tailwind classes in component directly */
-/* .bingo-grid styling is now applied directly in the component */
+.bingo-grid {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
 
 .center-space {
   @apply bg-primary/15;
@@ -86,7 +92,7 @@
 
 /* Make tiles more visible */
 .bingo-tile {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
 /* Prevent scrolling when modal is open */

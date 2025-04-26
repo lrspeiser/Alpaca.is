@@ -17,13 +17,13 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   };
   
   return (
-    <div className="bingo-grid mx-auto max-w-md mb-6 grid grid-cols-5 gap-1">
+    <div className="bingo-grid mx-auto max-w-md mb-6 grid grid-cols-5 gap-0">
       {items.map((item) => (
         <div
           key={item.id}
           onClick={() => onItemClick(item)}
           className={cn(
-            "bingo-tile border rounded-lg shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
+            "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
             item.completed ? "completed" : "bg-white",
             item.isCenterSpace && "center-space bg-blue-100 font-semibold"
           )}
