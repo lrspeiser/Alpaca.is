@@ -162,7 +162,7 @@ export class DatabaseStorage implements IStorage {
             console.log(`[DB] Found ${cityItems.length} items for city ${city.id}`);
             
             // Get all tips for this city
-            const cityTips = await db
+            const cityTipItems = await db
               .select()
               .from(cityTips)
               .where(eq(cityTips.cityId, city.id));
@@ -177,11 +177,11 @@ export class DatabaseStorage implements IStorage {
                 id: item.id,
                 text: item.text,
                 completed: item.completed,
-                isCenterSpace: item.isCenterSpace,
-                image: item.image,
-                description: item.description
+                isCenterSpace: item.isCenterSpace || false,
+                image: item.image || undefined,
+                description: item.description || undefined
               })),
-              tips: cityTips.map(tip => ({
+              tips: cityTipItems.map((tip: any) => ({
                 title: tip.title,
                 text: tip.text
               }))
