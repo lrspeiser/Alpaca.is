@@ -315,10 +315,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       log(`Generating image for "${itemText}" in ${city.title}`, 'ai-generation');
       
       // Generate image
-      const imageUrl = await generateItemImage(itemText!, city.title);
-      
-      if (!imageUrl) {
-        return res.status(500).json({ error: "Failed to generate image" });
+      let imageUrl = "";
+      try {
+        log(`Starting image generation for "${itemText}" in ${city.title}`, 'ai-generation');
+        imageUrl = await generateItemImage(itemText!, city.title);
+        
+        if (!imageUrl) {
+          log(`Image generation failed - empty URL returned`, 'ai-generation');
+          return res.status(500).json({ error: "Failed to generate image - empty URL returned" });
+        }
+        
+        log(`Successfully generated image for "${itemText}"`, 'ai-generation');
+      } catch (imageError: any) {
+        log(`Image generation error: ${imageError?.message || 'Unknown error'}`, 'ai-generation');
+        return res.status(500).json({ 
+          error: "Failed to generate image", 
+          message: imageError?.message || 'Unknown error' 
+        });
       }
       
       // If we have an itemId, update the item with the new image

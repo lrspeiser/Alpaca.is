@@ -109,10 +109,11 @@ export async function generateItemImage(
     
     // Call OpenAI to generate the image with base64 encoding
     const response = await openai.images.generate({
-      model: "gpt-image-1", // Using gpt-image-1 as requested by the user
+      model: "dall-e-3", // Using dall-e-3 for the best image quality
       prompt: prompt,
       n: 1,
       size: "1024x1024",
+      quality: "standard",
       response_format: "b64_json", // Request base64 encoded image
     });
 
