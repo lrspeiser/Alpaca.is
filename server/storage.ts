@@ -135,8 +135,86 @@ export class DatabaseStorage implements IStorage {
       // Log request to help with debugging
       console.log(`[DB] Getting bingo state. userId: ${userId || 'none'}, hasInMemoryState: ${!!this.inMemoryState}`);
       
-      // STRATEGY 1: Try to get the global app state (for admin view)
-      // This is a record with no userId (null)
+      // RETRIEVAL STRATEGY 1: Try to load items from individual tables first
+      try {
+        console.log('[DB] Checking for individual records in database tables');
+        
+        // Get all cities
+        const dbCities = await db.select().from(cities);
+        
+        if (dbCities.length > 0) {
+          console.log(`[DB] Found ${dbCities.length} cities in database`);
+          
+          // Start building state
+          const reconstructedState: BingoStateType = {
+            currentCity: "prague", // Default
+            cities: {}
+          };
+          
+          // Process each city
+          for (const city of dbCities) {
+            // Get all items for this city
+            const cityItems = await db
+              .select()
+              .from(bingoItems)
+              .where(eq(bingoItems.cityId, city.id));
+              
+            console.log(`[DB] Found ${cityItems.length} items for city ${city.id}`);
+            
+            // Get all tips for this city
+            const cityTips = await db
+              .select()
+              .from(cityTips)
+              .where(eq(cityTips.cityId, city.id));
+            
+            // Add city to state
+            reconstructedState.cities[city.id] = {
+              id: city.id,
+              title: city.title,
+              subtitle: city.subtitle || '',
+              backgroundImage: city.backgroundImage,
+              items: cityItems.map(item => ({
+                id: item.id,
+                text: item.text,
+                completed: item.completed,
+                isCenterSpace: item.isCenterSpace,
+                image: item.image,
+                description: item.description
+              })),
+              tips: cityTips.map(tip => ({
+                title: tip.title,
+                text: tip.text
+              }))
+            };
+          }
+          
+          // Debug the content to verify descriptions are there
+          if (reconstructedState.cities.prague) {
+            const testItem = reconstructedState.cities.prague.items.find(i => i.id === 'prague-4');
+            if (testItem) {
+              console.log('[DB DEBUG] prague-4 item from individual tables:', { 
+                id: testItem.id,
+                text: testItem.text,
+                hasDescription: !!testItem.description,
+                description: testItem.description ? `${testItem.description.substring(0, 50)}...` : 'none',
+                hasImage: !!testItem.image
+              });
+            }
+            
+            // If we have items with descriptions, use this reconstructed state
+            const itemsWithDescriptions = reconstructedState.cities.prague.items.filter(i => !!i.description).length;
+            if (itemsWithDescriptions > 1) { // More than just the center space
+              console.log(`[DB] Using reconstructed state with ${itemsWithDescriptions} descriptions`);
+              this.inMemoryState = JSON.parse(JSON.stringify(reconstructedState));
+              return reconstructedState;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[DB] Error loading from individual tables:', error);
+      }
+      
+      // RETRIEVAL STRATEGY 2: Try to get the global app state (for admin view)
       try {
         const [globalState] = await db
           .select()
@@ -151,7 +229,7 @@ export class DatabaseStorage implements IStorage {
           if (stateData.cities.prague) {
             const testItem = stateData.cities.prague.items.find(i => i.id === 'prague-4');
             if (testItem) {
-              console.log('[DB DEBUG] prague-4 item from DB:', { 
+              console.log('[DB DEBUG] prague-4 item from global state:', { 
                 id: testItem.id,
                 text: testItem.text,
                 hasDescription: !!testItem.description,
@@ -169,13 +247,13 @@ export class DatabaseStorage implements IStorage {
         console.error('[DB] Error getting global state:', error);
       }
       
-      // STRATEGY 2: If we have a stored in-memory state, use it as a fallback/cache
+      // RETRIEVAL STRATEGY 3: If we have a stored in-memory state, use it as a fallback/cache
       if (this.inMemoryState) {
-        console.log('[DB DEBUG] Using in-memory state for getBingoState');
+        console.log('[DB] Using in-memory state');
         return JSON.parse(JSON.stringify(this.inMemoryState)); // Deep clone to avoid reference issues
       }
       
-      // STRATEGY 3: Use user-specific state if provided
+      // RETRIEVAL STRATEGY 4: Use user-specific state if provided
       if (userId) {
         // Try to get state for this user
         const [userState] = await db
@@ -190,10 +268,10 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      // STRATEGY 4: If we get here, use initialState and save it to DB
+      // RETRIEVAL STRATEGY 5: If we get here, use initialState and save it to DB
       console.log('[DB] No existing state found, creating initial state');
       
-      // Create a global state entry
+      // Create a global state entry and save initial items
       try {
         await this.saveBingoState(initialState);
       } catch (error) {
@@ -276,6 +354,94 @@ export class DatabaseStorage implements IStorage {
         }
       } catch (error) {
         console.error('[DB] Error saving global state:', error);
+      }
+
+      // SAVE STRATEGY 1B: ALSO save individual items to their own tables for redundancy
+      // This ensures we have multiple ways to recover data
+      try {
+        console.log('[DB] Saving individual records to database tables');
+        
+        // Process each city in the state
+        for (const cityId in state.cities) {
+          const city = state.cities[cityId];
+          
+          // Save/update the city record
+          try {
+            const [existingCity] = await db
+              .select()
+              .from(cities)
+              .where(eq(cities.id, cityId));
+            
+            if (existingCity) {
+              await db
+                .update(cities)
+                .set({
+                  title: city.title,
+                  subtitle: city.subtitle || '',
+                  backgroundImage: city.backgroundImage
+                })
+                .where(eq(cities.id, cityId));
+            } else {
+              await db
+                .insert(cities)
+                .values({
+                  id: cityId,
+                  title: city.title,
+                  subtitle: city.subtitle || '',
+                  backgroundImage: city.backgroundImage
+                });
+            }
+          } catch (cityError) {
+            console.error(`[DB] Error saving city ${cityId}:`, cityError);
+          }
+          
+          // Save each bingo item individually
+          for (const item of city.items) {
+            try {
+              const [existingItem] = await db
+                .select()
+                .from(bingoItems)
+                .where(eq(bingoItems.id, item.id));
+              
+              // Debug our test item
+              if (item.id === 'prague-4') {
+                console.log('[DB] Saving item prague-4 with data:', { 
+                  hasDescription: !!item.description,
+                  description: item.description ? `${item.description.substring(0, 50)}...` : 'none'
+                });
+              }
+              
+              if (existingItem) {
+                await db
+                  .update(bingoItems)
+                  .set({
+                    text: item.text,
+                    completed: item.completed,
+                    isCenterSpace: item.isCenterSpace || false,
+                    image: item.image,
+                    description: item.description
+                  })
+                  .where(eq(bingoItems.id, item.id));
+              } else {
+                await db
+                  .insert(bingoItems)
+                  .values({
+                    id: item.id,
+                    text: item.text,
+                    completed: item.completed,
+                    isCenterSpace: item.isCenterSpace || false,
+                    image: item.image,
+                    description: item.description,
+                    cityId: cityId
+                  });
+              }
+            } catch (itemError) {
+              console.error(`[DB] Error saving item ${item.id}:`, itemError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[DB] Error saving individual records:', error);
       }
       
       // SAVE STRATEGY 2: If we have a userId, save to user-specific state
