@@ -380,7 +380,16 @@ export default function Admin() {
                     variant="outline"
                     disabled={isLoading || processingItemId === item.id}
                     onClick={async () => {
-                      await handleGenerateItemDescription(item.id, city.id);
+                      const result = await handleGenerateItemDescription(item.id, city.id);
+                      console.log("Generated description result:", result);
+                      
+                      // After generating, refresh the state to see updated data
+                      const bingoState = await fetch('/api/bingo-state').then(res => res.json());
+                      await saveState(bingoState);
+                      
+                      // Force view refresh by re-rendering the component
+                      setViewingCity(null);
+                      setTimeout(() => setViewingCity(city.id), 100);
                     }}
                   >
                     <BrainCircuit className="h-3 w-3 mr-1" />
@@ -392,7 +401,16 @@ export default function Admin() {
                     variant="outline"
                     disabled={isLoading || processingItemId === item.id}
                     onClick={async () => {
-                      await handleGenerateItemImage(item.id, city.id);
+                      const result = await handleGenerateItemImage(item.id, city.id);
+                      console.log("Generated image result:", result);
+                      
+                      // After generating, refresh the state to see updated data
+                      const bingoState = await fetch('/api/bingo-state').then(res => res.json());
+                      await saveState(bingoState);
+                      
+                      // Force view refresh by re-rendering the component
+                      setViewingCity(null);
+                      setTimeout(() => setViewingCity(city.id), 100);
                     }}
                   >
                     <ImagePlus className="h-3 w-3 mr-1" />
