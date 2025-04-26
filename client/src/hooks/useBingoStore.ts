@@ -40,7 +40,7 @@ export function useBingoStore() {
       const cityItems = [...prev.cities[currentCity].items];
       const itemIndex = cityItems.findIndex(item => item.id === itemId);
       
-      if (itemIndex !== -1) {
+      if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
         cityItems[itemIndex] = {
           ...cityItems[itemIndex],
           completed: !cityItems[itemIndex].completed
@@ -64,12 +64,12 @@ export function useBingoStore() {
     });
   };
   
-  // Reset all items for current city (except free space)
+  // Reset all items for current city (except center space)
   const resetCity = () => {
     setState(prev => {
       const currentCity = prev.currentCity;
       const updatedItems = prev.cities[currentCity].items.map(item => {
-        if (item.isFreeSpace) return item;
+        if (item.isCenterSpace) return item;
         return { ...item, completed: false };
       });
       
