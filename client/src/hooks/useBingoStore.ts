@@ -39,7 +39,7 @@ export function useBingoStore() {
           
           // Check specifically for prague-4 item (that we're testing)
           if (data.cities.prague && data.cities.prague.items) {
-            const testItem = data.cities.prague.items.find(item => item.id === 'prague-4');
+            const testItem = data.cities.prague.items.find((item: BingoItem) => item.id === 'prague-4');
             if (testItem) {
               console.log('[STORE] Test item (prague-4):', {
                 text: testItem.text,

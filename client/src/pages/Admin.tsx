@@ -51,6 +51,23 @@ export default function Admin() {
       );
 
       const data = await response.json();
+      
+      // Refresh data from API after bulk generation
+      console.log("[ADMIN] Descriptions generated, refreshing data from API");
+      const stateResponse = await fetch('/api/bingo-state');
+      const freshState = await stateResponse.json();
+      
+      // Update local state
+      console.log("[ADMIN] Updating local state with fresh data after bulk generation");
+      await saveState(freshState);
+      
+      // If we're currently viewing this city, refresh the view
+      if (viewingCity === cityId) {
+        console.log("[ADMIN] Refreshing city view");
+        setViewingCity(null);
+        setTimeout(() => setViewingCity(cityId), 100);
+      }
+      
       toast({
         title: "Success!",
         description: data.message || "Descriptions generated successfully.",
