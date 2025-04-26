@@ -2,7 +2,9 @@ export interface BingoItem {
   id: string;
   text: string;
   completed: boolean;
-  isFreeSpace?: boolean;
+  isCenterSpace?: boolean;
+  image?: string;
+  description?: string;
 }
 
 export interface CityTip {
