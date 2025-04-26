@@ -452,7 +452,7 @@ export default function Admin() {
                       
                       // Check if our item has an image in the fresh state
                       const updatedCity = bingoState.cities[city.id];
-                      const updatedItem = updatedCity?.items.find(i => i.id === item.id);
+                      const updatedItem = updatedCity?.items.find((i: BingoItem) => i.id === item.id);
                       console.log("[ADMIN] Item in fresh API state after image generation:", updatedItem);
                       
                       console.log("[ADMIN] Updating local state with fresh API data");

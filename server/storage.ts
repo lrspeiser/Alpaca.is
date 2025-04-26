@@ -131,6 +131,12 @@ export class DatabaseStorage implements IStorage {
       }
     };
     
+    // If we have a stored in-memory state, use that first
+    if (this.inMemoryState) {
+      console.log('[DB DEBUG] Using in-memory state for getBingoState');
+      return JSON.parse(JSON.stringify(this.inMemoryState)); // Deep clone to avoid reference issues
+    }
+    
     if (userId) {
       // Try to get state for this user
       const [dbState] = await db
@@ -147,6 +153,9 @@ export class DatabaseStorage implements IStorage {
     // Default: return initial state if no saved state exists
     return initialState;
   }
+  
+  // In-memory fallback when not using a database
+  private inMemoryState: BingoStateType | null = null;
   
   async saveBingoState(state: BingoStateType, userId?: number): Promise<void> {
     // Log the incoming state to debug
@@ -167,8 +176,21 @@ export class DatabaseStorage implements IStorage {
       })
     });
     
+    // Check for prague-4 item to debug description saving issue
+    if (state.cities.prague) {
+      const item = state.cities.prague.items.find(i => i.id === 'prague-4');
+      if (item) {
+        console.log('[DB DEBUG] SAVING prague-4 item with:', {
+          text: item.text,
+          hasDescription: !!item.description,
+          descriptionPreview: item.description ? item.description.substring(0, 50) + '...' : 'none'
+        });
+      }
+    }
+    
     // For in-memory storage, we just replace the state completely
     // This ensures we always have the latest data
+    this.inMemoryState = JSON.parse(JSON.stringify(state)); // Deep clone to avoid reference issues
     
     // If we have a userId, save to database
     if (userId) {
