@@ -11,61 +11,76 @@ export function useBingoStore() {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
-  // Fetch initial state from API
-  useEffect(() => {
-    const fetchBingoState = async () => {
-      try {
-        setIsLoading(true);
-        console.log('[STORE] Fetching initial bingo state from API');
-        const response = await fetch('/api/bingo-state');
-        if (response.ok) {
-          const data = await response.json();
-          console.log('[STORE] Received bingo state from API', {
-            currentCity: data.currentCity,
-            cities: Object.keys(data.cities).map(cityId => {
-              const city = data.cities[cityId];
-              return {
-                id: city.id,
-                title: city.title,
-                itemCount: city.items.length,
-                itemsWithDescriptions: city.items.filter((item: BingoItem) => !!item.description).length,
-                itemsWithImages: city.items.filter((item: BingoItem) => !!item.image).length,
-                itemsWithDescriptionsIds: city.items
-                  .filter((item: BingoItem) => !!item.description)
-                  .map((item: BingoItem) => item.id)
-              };
-            })
-          });
-          
-          // Check specifically for prague-4 item (that we're testing)
-          if (data.cities.prague && data.cities.prague.items) {
-            const testItem = data.cities.prague.items.find((item: BingoItem) => item.id === 'prague-4');
-            if (testItem) {
-              console.log('[STORE] Test item (prague-4):', {
-                text: testItem.text,
-                hasDescription: !!testItem.description,
-                descriptionPreview: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none'
-              });
-            }
-          }
-          
-          setState(data);
-          saveToLocalStorage(STORAGE_KEY, data);
-        } else {
-          throw new Error('Failed to fetch bingo state from API');
-        }
-      } catch (error) {
-        console.error('[STORE] Failed to fetch bingo state:', error);
-        // Fallback to local storage if API fails
-        const localState = loadFromLocalStorage<BingoState>(STORAGE_KEY, initialBingoState);
-        setState(localState);
-      } finally {
-        setIsLoading(false);
+  // Fetch state from API with an option to force refresh
+  const fetchBingoState = useCallback(async (forceRefresh = false) => {
+    try {
+      setIsLoading(true);
+      console.log(`[STORE] Fetching bingo state from API${forceRefresh ? ' (force refresh)' : ''}`);
+      
+      // Setup request options
+      const requestOptions: RequestInit = {};
+      if (forceRefresh) {
+        requestOptions.cache = 'no-store';
+        requestOptions.headers = {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        };
       }
-    };
-    
-    fetchBingoState();
+      
+      const response = await fetch('/api/bingo-state', requestOptions);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[STORE] Received bingo state from API', {
+          currentCity: data.currentCity,
+          cities: Object.keys(data.cities).map(cityId => {
+            const city = data.cities[cityId];
+            return {
+              id: city.id,
+              title: city.title,
+              itemCount: city.items.length,
+              itemsWithDescriptions: city.items.filter((item: BingoItem) => !!item.description).length,
+              itemsWithImages: city.items.filter((item: BingoItem) => !!item.image).length,
+              itemsWithDescriptionsIds: city.items
+                .filter((item: BingoItem) => !!item.description)
+                .map((item: BingoItem) => item.id)
+            };
+          })
+        });
+        
+        // Check specifically for prague-4 item (that we're testing)
+        if (data.cities.prague && data.cities.prague.items) {
+          const testItem = data.cities.prague.items.find((item: BingoItem) => item.id === 'prague-4');
+          if (testItem) {
+            console.log('[STORE] Test item (prague-4):', {
+              text: testItem.text,
+              hasDescription: !!testItem.description,
+              descriptionPreview: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none'
+            });
+          }
+        }
+        
+        setState(data);
+        saveToLocalStorage(STORAGE_KEY, data);
+        return data;
+      } else {
+        throw new Error('Failed to fetch bingo state from API');
+      }
+    } catch (error) {
+      console.error('[STORE] Failed to fetch bingo state:', error);
+      // Fallback to local storage if API fails
+      const localState = loadFromLocalStorage<BingoState>(STORAGE_KEY, initialBingoState);
+      setState(localState);
+      return localState;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+  
+  // Initial fetch of bingo state on component mount
+  useEffect(() => {
+    fetchBingoState(false);
+  }, [fetchBingoState]);
   
   // Save state to API and localStorage whenever it changes
   const saveState = useCallback(async (newState: BingoState) => {
@@ -300,6 +315,7 @@ export function useBingoStore() {
     setCurrentCity,
     toggleItemCompletion,
     resetCity,
-    saveState // Expose this for the Admin page
+    saveState, // Expose this for the Admin page
+    fetchBingoState // Expose this for forced refresh
   };
 }

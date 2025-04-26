@@ -13,7 +13,7 @@ import type { BingoItem, City } from "@/types";
 import { Link } from "wouter";
 
 export default function Admin() {
-  const { cities, currentCity, saveState } = useBingoStore();
+  const { cities, currentCity, saveState, fetchBingoState } = useBingoStore();
   const [activeTab, setActiveTab] = useState("manage");
   const [selectedCity, setSelectedCity] = useState(currentCity);
   const [viewingCity, setViewingCity] = useState<string | null>(null);
@@ -44,6 +44,8 @@ export default function Admin() {
         duration: 3000
       });
 
+      // Step 1: Call the API to generate descriptions
+      console.log("[ADMIN] Starting bulk description generation for city:", cityId);
       const response = await apiRequest(
         "POST",
         "/api/generate-descriptions",
@@ -51,26 +53,51 @@ export default function Admin() {
       );
 
       const data = await response.json();
+      console.log("[ADMIN] Generation API response:", data);
       
-      // Refresh data from API after bulk generation
+      // Step 2: Fetch the LATEST state directly from the server
       console.log("[ADMIN] Descriptions generated, refreshing data from API");
-      const stateResponse = await fetch('/api/bingo-state');
+      const stateResponse = await fetch('/api/bingo-state', {
+        headers: { 'Cache-Control': 'no-cache' },
+        cache: 'no-store'
+      });
       const freshState = await stateResponse.json();
       
-      // Update local state
-      console.log("[ADMIN] Updating local state with fresh data after bulk generation");
-      await saveState(freshState);
-      
-      // If we're currently viewing this city, refresh the view
-      if (viewingCity === cityId) {
-        console.log("[ADMIN] Refreshing city view");
-        setViewingCity(null);
-        setTimeout(() => setViewingCity(cityId), 100);
+      // Step 3: Verify descriptions were actually added
+      if (freshState.cities[cityId]) {
+        const city = freshState.cities[cityId];
+        const withDescriptions = city.items.filter(item => !!item.description).length;
+        console.log(`[ADMIN] Verification: City ${cityId} now has ${withDescriptions}/${city.items.length} items with descriptions`);
+        
+        // Test one specific item
+        const testItem = city.items.find(item => item.id === `${cityId}-4`);
+        if (testItem) {
+          console.log(`[ADMIN] Test item (${testItem.id}) verification:`, {
+            text: testItem.text,
+            hasDescription: !!testItem.description,
+            descriptionPreview: testItem.description ? 
+              `${testItem.description.substring(0, 50)}...` : 'none'
+          });
+        }
       }
       
+      // Step 4: Update local state with fresh data from server
+      console.log("[ADMIN] Updating local state with verified fresh data");
+      await saveState(freshState);
+      
+      // Step 5: Force a complete reload of the component view
+      if (viewingCity === cityId) {
+        console.log("[ADMIN] Forcing complete city view refresh");
+        setViewingCity(null);
+        // Use a longer timeout to ensure state is fully updated
+        setTimeout(() => setViewingCity(cityId), 500);
+      }
+      
+      // Step 6: Provide detailed success feedback
+      const descriptionsCount = freshState.cities[cityId]?.items.filter(item => !!item.description).length || 0;
       toast({
         title: "Success!",
-        description: data.message || "Descriptions generated successfully.",
+        description: `Generated ${descriptionsCount} descriptions for ${freshState.cities[cityId]?.title}.`,
         duration: 5000
       });
     } catch (error) {
