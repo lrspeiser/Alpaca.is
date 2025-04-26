@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
-import { LucideBrainCircuit } from "lucide-react";
+import { BrainCircuit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function GenerateDescriptionsButton() {
@@ -19,24 +19,18 @@ export default function GenerateDescriptionsButton() {
         duration: 3000
       });
 
-      const response = await apiRequest("/api/generate-descriptions", {
-        method: "POST",
-        body: JSON.stringify({ cityId: currentCity }),
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-descriptions",
+        { cityId: currentCity }
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        toast({
-          title: "Success!",
-          description: data.message || "Descriptions generated successfully. Click on any bingo item to view detailed information.",
-          duration: 5000
-        });
-      } else {
-        throw new Error("Failed to generate descriptions");
-      }
+      const data = await response.json();
+      toast({
+        title: "Success!",
+        description: data.message || "Descriptions generated successfully. Click on any bingo item to view detailed information.",
+        duration: 5000
+      });
     } catch (error) {
       console.error("Error generating descriptions:", error);
       toast({
@@ -57,7 +51,7 @@ export default function GenerateDescriptionsButton() {
       variant="outline"
       className="mb-4 bg-white/90 hover:bg-white"
     >
-      <LucideBrainCircuit className="mr-2 h-4 w-4" />
+      <BrainCircuit className="mr-2 h-4 w-4" />
       {isGenerating ? "Generating..." : "Get AI Descriptions"}
     </Button>
   );

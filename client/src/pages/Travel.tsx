@@ -4,6 +4,7 @@ import BingoGrid from "@/components/BingoGrid";
 import BingoItemModal from "@/components/BingoItemModal";
 import InfoModal from "@/components/InfoModal";
 import Footer from "@/components/Footer";
+import GenerateDescriptionsButton from "@/components/GenerateDescriptionsButton";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import type { BingoItem } from "@/types";
 
@@ -37,6 +38,11 @@ export default function Travel() {
         <div className="mb-6 text-center">
           <h2 className="text-2xl font-heading font-bold">{city.title}</h2>
           <p className="text-sm text-gray-600 mt-1">{city.subtitle}</p>
+        </div>
+        
+        {/* AI Description Generation Button */}
+        <div className="flex justify-center mb-4">
+          <GenerateDescriptionsButton />
         </div>
         
         {/* Bingo Grid */}
