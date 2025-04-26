@@ -20,7 +20,7 @@ const openai = new OpenAI({
 export async function generateItemDescription(itemText: string, cityName: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1", // Updated to use gpt-4.1 as requested by the user
+      model: "gpt-4o", // Using gpt-4o which is OpenAI's latest model
       messages: [
         {
           role: "system",

@@ -47,7 +47,7 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1", // Updated to use gpt-4.1 as requested by the user
+      model: "gpt-4o", // Using gpt-4o which is OpenAI's latest model
       messages: [
         {
           role: "system",
@@ -93,7 +93,7 @@ export async function generateBingoItems(
 }
 
 /**
- * Generate an image for a bingo item using DALL-E
+ * Generate an image for a bingo item using OpenAI's GPT-Image model
  * 
  * @param itemText The text of the bingo item
  * @param cityName The name of the city
@@ -107,14 +107,13 @@ export async function generateItemImage(
     // Create a detailed prompt for the image
     const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
     
-    // Call OpenAI to generate the image with base64 encoding
+    // Call OpenAI to generate the image
     const response = await openai.images.generate({
-      model: "dall-e-3", // Using dall-e-3 for the best image quality
+      model: "gpt-image-1", // Using the latest GPT model with image capability
       prompt: prompt,
       n: 1,
       size: "1024x1024",
-      quality: "standard",
-      response_format: "b64_json", // Request base64 encoded image
+      quality: "medium"
     });
 
     // Return the image URL or base64 data
