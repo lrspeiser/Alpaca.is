@@ -1,10 +1,71 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Since this is a client-only app using localStorage,
-  // we don't need any API routes
+  // Get the current bingo state
+  app.get("/api/bingo-state", async (req: Request, res: Response) => {
+    try {
+      // For now, we're not implementing authentication, so userId is undefined
+      // In a real app, you would get the userId from the session
+      const state = await storage.getBingoState();
+      res.json(state);
+    } catch (error) {
+      console.error("Error fetching bingo state:", error);
+      res.status(500).json({ error: "Failed to fetch bingo state" });
+    }
+  });
+
+  // Save the bingo state
+  app.post("/api/bingo-state", async (req: Request, res: Response) => {
+    try {
+      const state = req.body;
+      // For now, we're not implementing authentication, so userId is undefined
+      await storage.saveBingoState(state);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving bingo state:", error);
+      res.status(500).json({ error: "Failed to save bingo state" });
+    }
+  });
+
+  // Toggle completion status of a bingo item
+  app.post("/api/toggle-item", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        itemId: z.string(),
+        cityId: z.string()
+      });
+      
+      const validatedData = schema.parse(req.body);
+      
+      // For now, we're not implementing authentication, so userId is undefined
+      await storage.toggleItemCompletion(validatedData.itemId, validatedData.cityId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error toggling item completion:", error);
+      res.status(500).json({ error: "Failed to toggle item completion" });
+    }
+  });
+
+  // Reset all items for a city
+  app.post("/api/reset-city", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        cityId: z.string()
+      });
+      
+      const validatedData = schema.parse(req.body);
+      
+      // For now, we're not implementing authentication, so userId is undefined
+      await storage.resetCity(validatedData.cityId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error resetting city:", error);
+      res.status(500).json({ error: "Failed to reset city" });
+    }
+  });
   
   const httpServer = createServer(app);
 
