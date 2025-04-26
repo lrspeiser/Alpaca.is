@@ -250,6 +250,7 @@ export function useBingoStore() {
     isLoading,
     setCurrentCity,
     toggleItemCompletion,
-    resetCity
+    resetCity,
+    saveState // Expose this for the Admin page
   };
 }
