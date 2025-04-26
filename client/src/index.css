@@ -69,23 +69,22 @@
 .bingo-tile {
   aspect-ratio: 1/1;
   transition: all 0.3s ease;
+  min-height: 60px;
 }
 
+/* We no longer need this styling since we're using images */
 .bingo-tile.completed {
-  @apply bg-secondary/20 border-secondary;
+  @apply border-secondary;
 }
 
-.bingo-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.5rem;
-}
+/* Using Tailwind classes in component directly */
+/* .bingo-grid styling is now applied directly in the component */
 
 .center-space {
   @apply bg-primary/15;
 }
 
-/* Make tiles more visible over background */
+/* Make tiles more visible */
 .bingo-tile {
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
