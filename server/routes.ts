@@ -2,6 +2,8 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
+import { generateBulkDescriptions } from "./openai";
+import { log } from "./vite";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get the current bingo state
@@ -64,6 +66,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error resetting city:", error);
       res.status(500).json({ error: "Failed to reset city" });
+    }
+  });
+
+  // Generate OpenAI descriptions for all items in a city
+  app.post("/api/generate-descriptions", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        cityId: z.string()
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const cityId = validatedData.cityId;
+      
+      // Get the current state
+      const state = await storage.getBingoState();
+      const city = state.cities[cityId];
+      
+      if (!city) {
+        return res.status(404).json({ error: `City ${cityId} not found` });
+      }
+      
+      // Map the items to the format expected by generateBulkDescriptions
+      const items = city.items.map(item => ({
+        id: item.id,
+        text: item.text
+      }));
+      
+      log(`Generating descriptions for ${items.length} items in ${cityId}`, 'ai-generation');
+      
+      // Generate descriptions
+      const descriptions = await generateBulkDescriptions(items, city.title);
+      
+      // Update the items with the new descriptions
+      const updatedCity = {
+        ...city,
+        items: city.items.map(item => ({
+          ...item,
+          description: descriptions[item.id] || item.description
+        }))
+      };
+      
+      // Update the state
+      const updatedState = {
+        ...state,
+        cities: {
+          ...state.cities,
+          [cityId]: updatedCity
+        }
+      };
+      
+      // Save the updated state
+      await storage.saveBingoState(updatedState);
+      
+      res.json({ 
+        success: true, 
+        message: `Generated descriptions for ${Object.keys(descriptions).length} items in ${city.title}`
+      });
+    } catch (error) {
+      console.error("Error generating descriptions:", error);
+      res.status(500).json({ error: "Failed to generate descriptions" });
     }
   });
   
