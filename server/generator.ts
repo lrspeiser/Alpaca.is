@@ -107,6 +107,8 @@ export async function generateItemImage(
     // Create a detailed prompt for the image
     const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
     
+    log(`Starting image generation with model gpt-image-1, prompt: ${prompt}`, "openai-debug");
+    
     // Call OpenAI to generate the image
     const response = await openai.images.generate({
       model: "gpt-image-1", // Using gpt-image-1 which is the latest image model as of April 26, 2025
@@ -116,14 +118,22 @@ export async function generateItemImage(
       quality: "medium"
     });
 
+    log(`Image generation API response: ${JSON.stringify(response)}`, "openai-debug");
+    
     // Return the image URL
     if (response.data && response.data.length > 0 && response.data[0].url) {
+      log(`Successfully generated image with URL: ${response.data[0].url}`, "openai-debug");
       // With gpt-image-1, we get a URL directly, not base64 data
       return response.data[0].url;
     }
+    
+    log(`No image URL found in response: ${JSON.stringify(response.data)}`, "openai-debug");
     return "";
   } catch (error: any) {
+    // Log detailed error information
     log(`Error generating image for ${itemText}: ${error?.message || "Unknown error"}`, "openai");
+    log(`Error details: ${JSON.stringify(error)}`, "openai-debug");
+    log(`Error stack: ${error?.stack}`, "openai-debug");
     return "";
   }
 }

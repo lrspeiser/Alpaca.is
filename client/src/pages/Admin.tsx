@@ -172,6 +172,7 @@ export default function Admin() {
   // Generate image for a single item
   const handleGenerateItemImage = async (itemId: string, cityId: string) => {
     try {
+      console.log(`[ADMIN] Starting image generation flow for:`, itemId);
       console.log(`[ADMIN] Starting image generation for item: ${itemId} in city: ${cityId}`);
       setProcessingItemId(itemId);
       toast({
@@ -187,27 +188,50 @@ export default function Admin() {
       console.log(`[ADMIN] Item before image generation:`, beforeItem);
 
       // Call the API to generate an image
-      const response = await apiRequest(
-        "POST",
-        "/api/generate-image",
-        { itemId, cityId }
-      );
+      let response;
+      try {
+        response = await apiRequest(
+          "POST",
+          "/api/generate-image",
+          { itemId, cityId }
+        );
+      } catch (fetchError: any) {
+        console.error("[ADMIN] Network error during image generation:", fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
+      }
 
-      const data = await response.json();
-      console.log(`[ADMIN] Image generation response:`, data);
+      let data;
+      try {
+        data = await response.json();
+        console.log(`[ADMIN] Generated image result:`, data.imageUrl || null);
+      } catch (jsonError) {
+        console.error("[ADMIN] Error parsing JSON response:", jsonError);
+        throw new Error("Invalid response from server");
+      }
+
+      if (!response.ok) {
+        console.error("[ADMIN] Error from server:", data);
+        throw new Error(data.error || data.details?.message || "Unknown server error");
+      }
       
+      console.log(`[ADMIN] Fetching latest state from API after image generation`);
       // Force-fetch the updated state to verify changes
       const afterState = await fetchBingoState(true); // true = force refresh from server
       const afterCity = afterState.cities[cityId];
       const afterItem = afterCity.items.find((i: BingoItem) => i.id === itemId);
-      console.log(`[ADMIN] Item after image generation:`, afterItem);
-      console.log(`[ADMIN] Image updated: ${beforeItem.image !== afterItem.image ? 'YES' : 'NO'}`);
+      console.log(`[ADMIN] Item in fresh API state after image generation:`, afterItem);
       
+      // Check if image was actually added
+      if (!afterItem.image && data.imageUrl) {
+        console.warn("[ADMIN] Image URL was returned but not saved to the item:", data.imageUrl);
+      }
+      
+      console.log(`[ADMIN] Updating local state with fresh API data`);
       // Force a refresh of the city view if we're currently viewing this city
       if (viewingCity === cityId) {
         console.log("[ADMIN] Forcing city view refresh for item update");
         setViewingCity(null);
-        setTimeout(() => setViewingCity(cityId), 500);
+        setTimeout(() => setViewingCity(cityId), 300);
       }
       
       toast({
@@ -217,11 +241,11 @@ export default function Admin() {
       });
       
       return data.imageUrl;
-    } catch (error) {
+    } catch (error: any) {
       console.error("[ADMIN] Error generating image:", error);
       toast({
-        title: "Error",
-        description: "Failed to generate image. Please try again.",
+        title: "Image Generation Failed",
+        description: error.message || "Failed to generate image. Please try again.",
         variant: "destructive",
         duration: 5000
       });

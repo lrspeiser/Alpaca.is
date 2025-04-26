@@ -318,19 +318,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let imageUrl = "";
       try {
         log(`Starting image generation for "${itemText}" in ${city.title}`, 'ai-generation');
+        
+        // Log OPENAI_API_KEY status (without revealing the actual key)
+        const hasApiKey = !!process.env.OPENAI_API_KEY;
+        log(`OPENAI_API_KEY is ${hasApiKey ? 'set' : 'NOT SET'}`, 'ai-generation');
+        
+        // Log city title and item text to make sure they are valid
+        log(`City title: "${city.title}", Item text: "${itemText}"`, 'ai-generation');
+        
+        // Attempt to generate the image
         imageUrl = await generateItemImage(itemText!, city.title);
         
         if (!imageUrl) {
-          log(`Image generation failed - empty URL returned`, 'ai-generation');
-          return res.status(500).json({ error: "Failed to generate image - empty URL returned" });
+          const errorMsg = `Image generation failed - empty URL returned for "${itemText}" in ${city.title}`;
+          log(errorMsg, 'ai-generation');
+          return res.status(500).json({ error: errorMsg });
         }
         
-        log(`Successfully generated image for "${itemText}"`, 'ai-generation');
+        log(`Successfully generated image for "${itemText}" - URL: ${imageUrl}`, 'ai-generation');
       } catch (imageError: any) {
-        log(`Image generation error: ${imageError?.message || 'Unknown error'}`, 'ai-generation');
+        const errorDetails = {
+          message: imageError?.message || 'Unknown error',
+          code: imageError?.code,
+          status: imageError?.status,
+          type: imageError?.type,
+          stack: imageError?.stack?.split('\n').slice(0, 3).join('\n') // First 3 lines only
+        };
+        
+        log(`Image generation error: ${JSON.stringify(errorDetails)}`, 'ai-generation');
         return res.status(500).json({ 
           error: "Failed to generate image", 
-          message: imageError?.message || 'Unknown error' 
+          details: errorDetails
         });
       }
       
