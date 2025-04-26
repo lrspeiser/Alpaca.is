@@ -55,46 +55,40 @@ export default function Admin() {
       const data = await response.json();
       console.log("[ADMIN] Generation API response:", data);
       
-      // Step 2: Fetch the LATEST state directly from the server
-      console.log("[ADMIN] Descriptions generated, refreshing data from API");
-      const stateResponse = await fetch('/api/bingo-state', {
-        headers: { 'Cache-Control': 'no-cache' },
-        cache: 'no-store'
-      });
-      const freshState = await stateResponse.json();
+      // Step 2: Force refresh from the database with cache bypassing
+      console.log("[ADMIN] Descriptions generated, force-refreshing data from API");
+      const freshState = await fetchBingoState(true); // true = force refresh
       
       // Step 3: Verify descriptions were actually added
       if (freshState.cities[cityId]) {
         const city = freshState.cities[cityId];
-        const withDescriptions = city.items.filter(item => !!item.description).length;
+        const withDescriptions = city.items.filter((item: BingoItem) => !!item.description).length;
         console.log(`[ADMIN] Verification: City ${cityId} now has ${withDescriptions}/${city.items.length} items with descriptions`);
         
-        // Test one specific item
-        const testItem = city.items.find(item => item.id === `${cityId}-4`);
-        if (testItem) {
-          console.log(`[ADMIN] Test item (${testItem.id}) verification:`, {
-            text: testItem.text,
-            hasDescription: !!testItem.description,
-            descriptionPreview: testItem.description ? 
-              `${testItem.description.substring(0, 50)}...` : 'none'
-          });
+        // Test several items to ensure descriptions are being loaded
+        for (let itemIdx = 1; itemIdx <= 5; itemIdx++) {
+          const testItem = city.items.find((item: BingoItem) => item.id === `${cityId}-${itemIdx}`);
+          if (testItem) {
+            console.log(`[ADMIN] Test item (${testItem.id}) verification:`, {
+              text: testItem.text,
+              hasDescription: !!testItem.description,
+              descriptionPreview: testItem.description ? 
+                `${testItem.description.substring(0, 50)}...` : 'none'
+            });
+          }
         }
       }
       
-      // Step 4: Update local state with fresh data from server
-      console.log("[ADMIN] Updating local state with verified fresh data");
-      await saveState(freshState);
-      
-      // Step 5: Force a complete reload of the component view
+      // Step 4: Force a complete reload of the component view
       if (viewingCity === cityId) {
         console.log("[ADMIN] Forcing complete city view refresh");
         setViewingCity(null);
         // Use a longer timeout to ensure state is fully updated
-        setTimeout(() => setViewingCity(cityId), 500);
+        setTimeout(() => setViewingCity(cityId), 1000);
       }
       
-      // Step 6: Provide detailed success feedback
-      const descriptionsCount = freshState.cities[cityId]?.items.filter(item => !!item.description).length || 0;
+      // Step 5: Provide detailed success feedback
+      const descriptionsCount = freshState.cities[cityId]?.items.filter((item: BingoItem) => !!item.description).length || 0;
       toast({
         title: "Success!",
         description: `Generated ${descriptionsCount} descriptions for ${freshState.cities[cityId]?.title}.`,
@@ -124,12 +118,13 @@ export default function Admin() {
         duration: 3000
       });
 
-      // Fetch the current state to log the item before changes
-      const beforeState = await fetch('/api/bingo-state').then(res => res.json());
+      // Get the current state before changes
+      const beforeState = await fetchBingoState(false);
       const beforeCity = beforeState.cities[cityId];
-      const beforeItem = beforeCity.items.find((i: any) => i.id === itemId);
+      const beforeItem = beforeCity.items.find((i: BingoItem) => i.id === itemId);
       console.log(`[ADMIN] Item before generation:`, beforeItem);
 
+      // Call the API to generate a description
       const response = await apiRequest(
         "POST",
         "/api/generate-description",
@@ -139,12 +134,19 @@ export default function Admin() {
       const data = await response.json();
       console.log(`[ADMIN] Description generation response:`, data);
       
-      // Fetch the updated state to verify changes
-      const afterState = await fetch('/api/bingo-state').then(res => res.json());
+      // Force-fetch the updated state to verify changes
+      const afterState = await fetchBingoState(true); // true = force refresh from server
       const afterCity = afterState.cities[cityId];
-      const afterItem = afterCity.items.find((i: any) => i.id === itemId);
+      const afterItem = afterCity.items.find((i: BingoItem) => i.id === itemId);
       console.log(`[ADMIN] Item after generation:`, afterItem);
       console.log(`[ADMIN] Description updated: ${beforeItem.description !== afterItem.description ? 'YES' : 'NO'}`);
+      
+      // Force a refresh of the city view if we're currently viewing this city
+      if (viewingCity === cityId) {
+        console.log("[ADMIN] Forcing city view refresh for item update");
+        setViewingCity(null);
+        setTimeout(() => setViewingCity(cityId), 500);
+      }
       
       toast({
         title: "Success!",
@@ -178,12 +180,13 @@ export default function Admin() {
         duration: 3000
       });
 
-      // Fetch the current state to log the item before changes
-      const beforeState = await fetch('/api/bingo-state').then(res => res.json());
+      // Get the current state before changes
+      const beforeState = await fetchBingoState(false);
       const beforeCity = beforeState.cities[cityId];
-      const beforeItem = beforeCity.items.find((i: any) => i.id === itemId);
+      const beforeItem = beforeCity.items.find((i: BingoItem) => i.id === itemId);
       console.log(`[ADMIN] Item before image generation:`, beforeItem);
 
+      // Call the API to generate an image
       const response = await apiRequest(
         "POST",
         "/api/generate-image",
@@ -193,12 +196,19 @@ export default function Admin() {
       const data = await response.json();
       console.log(`[ADMIN] Image generation response:`, data);
       
-      // Fetch the updated state to verify changes
-      const afterState = await fetch('/api/bingo-state').then(res => res.json());
+      // Force-fetch the updated state to verify changes
+      const afterState = await fetchBingoState(true); // true = force refresh from server
       const afterCity = afterState.cities[cityId];
-      const afterItem = afterCity.items.find((i: any) => i.id === itemId);
+      const afterItem = afterCity.items.find((i: BingoItem) => i.id === itemId);
       console.log(`[ADMIN] Item after image generation:`, afterItem);
       console.log(`[ADMIN] Image updated: ${beforeItem.image !== afterItem.image ? 'YES' : 'NO'}`);
+      
+      // Force a refresh of the city view if we're currently viewing this city
+      if (viewingCity === cityId) {
+        console.log("[ADMIN] Forcing city view refresh for item update");
+        setViewingCity(null);
+        setTimeout(() => setViewingCity(cityId), 500);
+      }
       
       toast({
         title: "Success!",

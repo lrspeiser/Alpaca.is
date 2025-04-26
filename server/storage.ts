@@ -131,30 +131,84 @@ export class DatabaseStorage implements IStorage {
       }
     };
     
-    // If we have a stored in-memory state, use that first
-    if (this.inMemoryState) {
-      console.log('[DB DEBUG] Using in-memory state for getBingoState');
-      return JSON.parse(JSON.stringify(this.inMemoryState)); // Deep clone to avoid reference issues
-    }
-    
-    if (userId) {
-      // Try to get state for this user
-      const [dbState] = await db
-        .select()
-        .from(bingoState)
-        .where(eq(bingoState.userId, userId));
+    try {
+      // Log request to help with debugging
+      console.log(`[DB] Getting bingo state. userId: ${userId || 'none'}, hasInMemoryState: ${!!this.inMemoryState}`);
       
-      if (dbState) {
-        // User has saved state
-        return dbState.data as unknown as BingoStateType;
+      // STRATEGY 1: Try to get the global app state (for admin view)
+      // This is a record with no userId (null)
+      try {
+        const [globalState] = await db
+          .select()
+          .from(bingoState)
+          .where(eq(bingoState.id, 1)); // Use ID 1 for global state
+        
+        if (globalState) {
+          console.log('[DB] Found global bingo state in database');
+          const stateData = globalState.data as unknown as BingoStateType;
+          
+          // Debug the content to verify descriptions are there
+          if (stateData.cities.prague) {
+            const testItem = stateData.cities.prague.items.find(i => i.id === 'prague-4');
+            if (testItem) {
+              console.log('[DB DEBUG] prague-4 item from DB:', { 
+                id: testItem.id,
+                text: testItem.text,
+                hasDescription: !!testItem.description,
+                description: testItem.description ? `${testItem.description.substring(0, 50)}...` : 'none',
+                hasImage: !!testItem.image
+              });
+            }
+          }
+          
+          // Cache the result in memory for faster access
+          this.inMemoryState = JSON.parse(JSON.stringify(stateData));
+          return stateData;
+        }
+      } catch (error) {
+        console.error('[DB] Error getting global state:', error);
       }
+      
+      // STRATEGY 2: If we have a stored in-memory state, use it as a fallback/cache
+      if (this.inMemoryState) {
+        console.log('[DB DEBUG] Using in-memory state for getBingoState');
+        return JSON.parse(JSON.stringify(this.inMemoryState)); // Deep clone to avoid reference issues
+      }
+      
+      // STRATEGY 3: Use user-specific state if provided
+      if (userId) {
+        // Try to get state for this user
+        const [userState] = await db
+          .select()
+          .from(bingoState)
+          .where(eq(bingoState.userId, userId));
+        
+        if (userState) {
+          // User has saved state
+          console.log('[DB] Found user-specific bingo state in database');
+          return userState.data as unknown as BingoStateType;
+        }
+      }
+      
+      // STRATEGY 4: If we get here, use initialState and save it to DB
+      console.log('[DB] No existing state found, creating initial state');
+      
+      // Create a global state entry
+      try {
+        await this.saveBingoState(initialState);
+      } catch (error) {
+        console.error('[DB] Failed to save initial state:', error);
+      }
+      
+      return initialState;
+    } catch (error) {
+      console.error('[DB] Error in getBingoState:', error);
+      return initialState;
     }
-    
-    // Default: return initial state if no saved state exists
-    return initialState;
   }
   
-  // In-memory fallback when not using a database
+  // Persistent state storage
+  // We'll use in-memory for caching but prioritize database storage for persistence
   private inMemoryState: BingoStateType | null = null;
   
   async saveBingoState(state: BingoStateType, userId?: number): Promise<void> {
@@ -192,32 +246,73 @@ export class DatabaseStorage implements IStorage {
     // This ensures we always have the latest data
     this.inMemoryState = JSON.parse(JSON.stringify(state)); // Deep clone to avoid reference issues
     
-    // If we have a userId, save to database
-    if (userId) {
-      const [existingState] = await db
-        .select()
-        .from(bingoState)
-        .where(eq(bingoState.userId, userId));
-      
-      if (existingState) {
-        // Update existing state
-        await db
-          .update(bingoState)
-          .set({ 
-            currentCity: state.currentCity,
-            data: state as any
-          })
-          .where(eq(bingoState.userId, userId));
-      } else {
-        // Insert new state
-        await db
-          .insert(bingoState)
-          .values({
-            userId,
-            currentCity: state.currentCity,
-            data: state as any
-          });
+    try {
+      // SAVE STRATEGY 1: Always save a global app state (id=1) for admin access
+      // This ensures descriptions and images are preserved between server restarts
+      try {
+        const [globalState] = await db
+          .select()
+          .from(bingoState)
+          .where(eq(bingoState.id, 1));
+        
+        if (globalState) {
+          console.log('[DB] Updating global bingo state (id=1)');
+          await db
+            .update(bingoState)
+            .set({ 
+              currentCity: state.currentCity,
+              data: state as any
+            })
+            .where(eq(bingoState.id, 1));
+        } else {
+          console.log('[DB] Creating new global bingo state (id=1)');
+          await db
+            .insert(bingoState)
+            .values({
+              id: 1,
+              currentCity: state.currentCity,
+              data: state as any
+            });
+        }
+      } catch (error) {
+        console.error('[DB] Error saving global state:', error);
       }
+      
+      // SAVE STRATEGY 2: If we have a userId, save to user-specific state
+      if (userId) {
+        try {
+          const [userState] = await db
+            .select()
+            .from(bingoState)
+            .where(eq(bingoState.userId, userId));
+          
+          if (userState) {
+            // Update existing state
+            console.log(`[DB] Updating user state for userId=${userId}`);
+            await db
+              .update(bingoState)
+              .set({ 
+                currentCity: state.currentCity,
+                data: state as any
+              })
+              .where(eq(bingoState.userId, userId));
+          } else {
+            // Insert new state
+            console.log(`[DB] Creating new user state for userId=${userId}`);
+            await db
+              .insert(bingoState)
+              .values({
+                userId,
+                currentCity: state.currentCity,
+                data: state as any
+              });
+          }
+        } catch (error) {
+          console.error('[DB] Error saving user state:', error);
+        }
+      }
+    } catch (error) {
+      console.error('[DB] Error in saveBingoState:', error);
     }
   }
   
