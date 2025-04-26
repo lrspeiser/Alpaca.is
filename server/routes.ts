@@ -26,6 +26,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
+      // Check for prague-4 (Pilsner) item specifically
+      if (state.cities.prague) {
+        const testItem = state.cities.prague.items.find((item: any) => item.id === 'prague-4');
+        if (testItem) {
+          console.log('[DB DEBUG] prague-4 item in bingo state API:', {
+            id: testItem.id,
+            text: testItem.text,
+            hasDescription: !!testItem.description,
+            description: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none',
+            hasImage: !!testItem.image
+          });
+        }
+      }
+      
       log(`[SERVER] Sending bingo state to client: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
       res.json(state);
     } catch (error) {

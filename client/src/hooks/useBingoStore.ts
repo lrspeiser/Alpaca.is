@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { initialBingoState } from '@/data/cities';
 import { loadFromLocalStorage, saveToLocalStorage } from '@/lib/utils';
-import type { BingoState, City } from '@/types';
+import type { BingoState, City, BingoItem } from '@/types';
 
 const STORAGE_KEY = 'travelBingoState';
 
