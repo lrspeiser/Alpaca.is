@@ -10,10 +10,43 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   const { cities, currentCity } = useBingoStore();
   const items = cities[currentCity]?.items || [];
   
+  // Collection of reliable travel-themed images
+  const travelImages = [
+    "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1504150558240-0b4fd8946624?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1499678329028-101435549a4e?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1504542982118-59308b40fe0c?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1513581166391-887a96ddeafd?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1502791451862-7bd8c1df43a7?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1502920514313-52581002a659?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1517760444937-f6397edcbbcd?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1504150558240-0b4fd8946624?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1491331568367-8f21c7269f6d?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1503221043305-f7498f8b7888?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1?auto=format&fit=crop&w=300&h=300&q=80",
+    "https://images.unsplash.com/photo-1498307833015-e7b400441eb8?auto=format&fit=crop&w=300&h=300&q=80"
+  ];
+  
   // Function to get image URL for an item
   const getImageUrl = (item: BingoItem) => {
     if (item.image) return item.image;
-    return `https://source.unsplash.com/featured/?${encodeURIComponent(item.text.split(' ').slice(0, 3).join(' '))}`;
+    
+    // Generate a consistent image for the same item by using the id as a hash
+    const idNumber = parseInt(item.id.replace(/[^0-9]/g, "")) || 0;
+    const imageIndex = idNumber % travelImages.length;
+    return travelImages[imageIndex];
   };
   
   return (
