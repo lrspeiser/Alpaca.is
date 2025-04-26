@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { generateBulkDescriptions } from "./openai";
+import { generateBulkDescriptions, generateItemDescription } from "./openai";
 import { generateBingoItems, generateItemImage } from "./generator";
 import { log } from "./vite";
 

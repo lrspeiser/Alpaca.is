@@ -8,14 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { BrainCircuit, ImagePlus, Plus, X, Save, RefreshCw } from "lucide-react";
+import { BrainCircuit, ImagePlus, Info, Plus, X, Save, RefreshCw, ArrowLeft } from "lucide-react";
 import type { BingoItem, City } from "@/types";
+import { Link } from "wouter";
 
 export default function Admin() {
   const { cities, currentCity, saveState } = useBingoStore();
   const [activeTab, setActiveTab] = useState("manage");
   const [selectedCity, setSelectedCity] = useState(currentCity);
+  const [viewingCity, setViewingCity] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // New city form state
@@ -63,6 +66,84 @@ export default function Admin() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Generate description for a single item
+  const handleGenerateItemDescription = async (itemId: string, cityId: string) => {
+    try {
+      setProcessingItemId(itemId);
+      toast({
+        title: "Generating description",
+        description: "Please wait while we create an interesting description...",
+        duration: 3000
+      });
+
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-description",
+        { itemId, cityId }
+      );
+
+      const data = await response.json();
+      
+      toast({
+        title: "Success!",
+        description: "Description generated successfully.",
+        duration: 3000
+      });
+      
+      return data.description;
+    } catch (error) {
+      console.error("Error generating description:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate description. Please try again.",
+        variant: "destructive",
+        duration: 5000
+      });
+      return null;
+    } finally {
+      setProcessingItemId(null);
+    }
+  };
+
+  // Generate image for a single item
+  const handleGenerateItemImage = async (itemId: string, cityId: string) => {
+    try {
+      setProcessingItemId(itemId);
+      toast({
+        title: "Generating image",
+        description: "Please wait while we create a custom image...",
+        duration: 3000
+      });
+
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-image",
+        { itemId, cityId }
+      );
+
+      const data = await response.json();
+      
+      toast({
+        title: "Success!",
+        description: "Image generated successfully.",
+        duration: 3000
+      });
+      
+      return data.imageUrl;
+    } catch (error) {
+      console.error("Error generating image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate image. Please try again.",
+        variant: "destructive",
+        duration: 5000
+      });
+      return null;
+    } finally {
+      setProcessingItemId(null);
     }
   };
 
@@ -243,196 +324,297 @@ export default function Admin() {
     }
   };
 
-  return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
-      
-      <Tabs defaultValue="manage" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="manage">Manage Cities</TabsTrigger>
-          <TabsTrigger value="create">Create City</TabsTrigger>
-          <TabsTrigger value="generate">Generate Content</TabsTrigger>
-        </TabsList>
+  // Render the details of a city, including all items
+  const renderCityDetails = () => {
+    if (!viewingCity || !cities[viewingCity]) return null;
+    
+    const city = cities[viewingCity];
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setViewingCity(null)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Cities
+          </Button>
+          <h2 className="text-2xl font-bold">{city.title}</h2>
+          {city.subtitle && <span className="text-gray-500">({city.subtitle})</span>}
+        </div>
         
-        {/* Manage Existing Cities */}
-        <TabsContent value="manage">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {Object.values(cities).map((city) => (
-              <Card key={city.id} className="p-4">
-                <h3 className="text-xl font-bold">{city.title}</h3>
-                <p className="text-sm text-gray-500 mb-2">{city.subtitle}</p>
-                <p className="text-sm mb-4">Items: {city.items.length}</p>
-                
-                <div className="flex space-x-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {city.items.map((item) => (
+            <Card key={item.id} className="p-4 relative overflow-hidden">
+              {item.isCenterSpace && (
+                <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs px-2 py-1 rounded-bl">
+                  Center
+                </div>
+              )}
+              
+              <h3 className="font-bold mb-2">{item.text}</h3>
+              
+              {/* Show description if available */}
+              {item.description ? (
+                <div className="text-sm text-gray-700 mb-3 p-2 bg-gray-50 rounded border">
+                  {item.description}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 mb-3">No description yet</div>
+              )}
+              
+              {/* Show image if available */}
+              {item.image && (
+                <div className="mb-3 rounded overflow-hidden h-32">
+                  <img 
+                    src={item.image} 
+                    alt={item.text} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              
+              {/* Item actions */}
+              {!item.isCenterSpace && (
+                <div className="flex flex-wrap gap-2 mt-2">
                   <Button 
-                    size="sm"
-                    onClick={() => handleGenerateDescriptions(city.id)}
-                    disabled={isLoading}
+                    size="sm" 
+                    variant="outline"
+                    disabled={isLoading || processingItemId === item.id}
+                    onClick={async () => {
+                      await handleGenerateItemDescription(item.id, city.id);
+                    }}
                   >
-                    <BrainCircuit className="mr-2 h-4 w-4" />
-                    Generate Descriptions
+                    <BrainCircuit className="h-3 w-3 mr-1" />
+                    {!item.description ? "Generate Description" : "Regenerate"}
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    disabled={isLoading || processingItemId === item.id}
+                    onClick={async () => {
+                      await handleGenerateItemImage(item.id, city.id);
+                    }}
+                  >
+                    <ImagePlus className="h-3 w-3 mr-1" />
+                    {!item.image ? "Generate Image" : "Regenerate"}
                   </Button>
                 </div>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-        
-        {/* Create New City */}
-        <TabsContent value="create">
-          <div className="max-w-lg mx-auto">
-            <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4">Create New City</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">City ID</label>
-                  <Input 
-                    placeholder="e.g., paris, rome, tokyo (lowercase, no spaces)" 
-                    value={newCity.id}
-                    onChange={(e) => setNewCity({...newCity, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">City Name</label>
-                  <Input 
-                    placeholder="e.g., Paris" 
-                    value={newCity.title}
-                    onChange={(e) => setNewCity({...newCity, title: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Subtitle (Optional)</label>
-                  <Input 
-                    placeholder="e.g., City of Lights" 
-                    value={newCity.subtitle}
-                    onChange={(e) => setNewCity({...newCity, subtitle: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Background Image URL (Optional)</label>
-                  <Input 
-                    placeholder="https://example.com/image.jpg" 
-                    value={newCity.backgroundImage}
-                    onChange={(e) => setNewCity({...newCity, backgroundImage: e.target.value})}
-                  />
-                </div>
-                
-                <Button 
-                  onClick={handleCreateCity}
-                  className="w-full"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create City
-                </Button>
-              </div>
+              )}
             </Card>
-          </div>
-        </TabsContent>
-        
-        {/* Generate Content */}
-        <TabsContent value="generate">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Generation Form */}
-            <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4">Generate Bingo Items</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Select City</label>
-                  <Select 
-                    value={generatingFor} 
-                    onValueChange={setGeneratingFor}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(cities).map((city) => (
-                        <SelectItem key={city.id} value={city.id}>
-                          {city.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-1">Theme/Focus</label>
-                  <Textarea 
-                    placeholder="e.g., Must-see tourist attractions, Hidden gems, Foodie experiences, etc." 
-                    value={cityTheme}
-                    onChange={(e) => setCityTheme(e.target.value)}
-                  />
-                </div>
-                
-                <Button 
-                  onClick={handleGenerateItems}
-                  disabled={isLoading || !generatingFor || !cityTheme}
-                  className="w-full"
-                >
-                  <BrainCircuit className="mr-2 h-4 w-4" />
-                  Generate 24 Bingo Items
-                </Button>
-              </div>
-            </Card>
-            
-            {/* Generated Items Preview */}
-            <Card className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Generated Items</h2>
-                
-                {generatedItems.length > 0 && (
-                  <div className="flex space-x-2">
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <Link href="/">
+          <Button variant="outline">Back to Bingo</Button>
+        </Link>
+      </div>
+      
+      {viewingCity ? (
+        renderCityDetails()
+      ) : (
+        <Tabs defaultValue="manage" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="manage">Manage Cities</TabsTrigger>
+            <TabsTrigger value="create">Create City</TabsTrigger>
+            <TabsTrigger value="generate">Generate Content</TabsTrigger>
+          </TabsList>
+          
+          {/* Manage Existing Cities */}
+          <TabsContent value="manage">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {Object.values(cities).map((city) => (
+                <Card key={city.id} className="p-4">
+                  <h3 className="text-xl font-bold mb-2">{city.title}</h3>
+                  <p className="text-sm text-gray-500 mb-2">{city.subtitle}</p>
+                  <p className="text-sm mb-4">Items: {city.items.length}</p>
+                  
+                  <div className="flex flex-wrap gap-2">
                     <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => setGeneratedItems([])}
+                      size="sm"
+                      onClick={() => handleGenerateDescriptions(city.id)}
+                      disabled={isLoading}
                     >
-                      <X className="mr-2 h-4 w-4" />
-                      Clear
+                      <BrainCircuit className="mr-2 h-4 w-4" />
+                      Generate All Descriptions
                     </Button>
                     
                     <Button 
                       size="sm"
-                      onClick={handleSaveItems}
+                      variant="outline"
+                      onClick={() => setViewingCity(city.id)}
                     >
-                      <Save className="mr-2 h-4 w-4" />
-                      Save to City
+                      <Info className="mr-2 h-4 w-4" />
+                      View Items
                     </Button>
                   </div>
-                )}
-              </div>
-              
-              {generatedItems.length > 0 ? (
-                <div className="h-[500px] overflow-y-auto space-y-2">
-                  {generatedItems.map((item, index) => (
-                    <div key={item.id} className="p-2 border rounded">
-                      <div className="flex justify-between">
-                        <span className="font-medium">#{index + 1}</span>
-                      </div>
-                      <div className="text-sm">{item.text}</div>
-                      {item.description && (
-                        <div className="mt-1 text-xs text-gray-500">{item.description}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="h-[500px] flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <BrainCircuit className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p>Generated items will appear here</p>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+          
+          {/* Create New City */}
+          <TabsContent value="create">
+            <div className="max-w-lg mx-auto">
+              <Card className="p-6">
+                <h2 className="text-xl font-bold mb-4">Create New City</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">City ID</label>
+                    <Input 
+                      placeholder="e.g., paris, rome, tokyo (lowercase, no spaces)" 
+                      value={newCity.id}
+                      onChange={(e) => setNewCity({...newCity, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
+                    />
                   </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">City Name</label>
+                    <Input 
+                      placeholder="e.g., Paris" 
+                      value={newCity.title}
+                      onChange={(e) => setNewCity({...newCity, title: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Subtitle (Optional)</label>
+                    <Input 
+                      placeholder="e.g., City of Lights" 
+                      value={newCity.subtitle}
+                      onChange={(e) => setNewCity({...newCity, subtitle: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Background Image URL (Optional)</label>
+                    <Input 
+                      placeholder="https://example.com/image.jpg" 
+                      value={newCity.backgroundImage}
+                      onChange={(e) => setNewCity({...newCity, backgroundImage: e.target.value})}
+                    />
+                  </div>
+                  
+                  <Button 
+                    onClick={handleCreateCity}
+                    className="w-full"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create City
+                  </Button>
                 </div>
-              )}
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          {/* Generate Content */}
+          <TabsContent value="generate">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Generation Form */}
+              <Card className="p-6">
+                <h2 className="text-xl font-bold mb-4">Generate Bingo Items</h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Select City</label>
+                    <Select 
+                      value={generatingFor} 
+                      onValueChange={setGeneratingFor}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a city" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(cities).map((city) => (
+                          <SelectItem key={city.id} value={city.id}>
+                            {city.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Theme/Focus</label>
+                    <Textarea 
+                      placeholder="e.g., Must-see tourist attractions, Hidden gems, Foodie experiences, etc." 
+                      value={cityTheme}
+                      onChange={(e) => setCityTheme(e.target.value)}
+                    />
+                  </div>
+                  
+                  <Button 
+                    onClick={handleGenerateItems}
+                    disabled={isLoading || !generatingFor || !cityTheme}
+                    className="w-full"
+                  >
+                    <BrainCircuit className="mr-2 h-4 w-4" />
+                    Generate 24 Bingo Items
+                  </Button>
+                </div>
+              </Card>
+              
+              {/* Generated Items Preview */}
+              <Card className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">Generated Items</h2>
+                  
+                  {generatedItems.length > 0 && (
+                    <div className="flex space-x-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => setGeneratedItems([])}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Clear
+                      </Button>
+                      
+                      <Button 
+                        size="sm"
+                        onClick={handleSaveItems}
+                      >
+                        <Save className="mr-2 h-4 w-4" />
+                        Save to City
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {generatedItems.length > 0 ? (
+                  <div className="h-[500px] overflow-y-auto space-y-2">
+                    {generatedItems.map((item, index) => (
+                      <div key={item.id} className="p-2 border rounded">
+                        <div className="flex justify-between">
+                          <span className="font-medium">#{index + 1}</span>
+                        </div>
+                        <div className="text-sm">{item.text}</div>
+                        {item.description && (
+                          <div className="mt-1 text-xs text-gray-500">{item.description}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-[500px] flex items-center justify-center text-gray-400">
+                    <div className="text-center">
+                      <BrainCircuit className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                      <p>Generated items will appear here</p>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
