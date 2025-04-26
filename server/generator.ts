@@ -9,7 +9,13 @@ if (!apiKey) {
   log('Warning: OPENAI_API_KEY environment variable is not set. AI generation will not work.', 'openai');
 }
 
+// Client for text generation
 const openai = new OpenAI({
+  apiKey: apiKey,
+});
+
+// Separate client for image generation to avoid configuration conflicts
+const imageOpenAI = new OpenAI({
   apiKey: apiKey,
 });
 
@@ -109,8 +115,8 @@ export async function generateItemImage(
     
     log(`Starting image generation with model gpt-image-1, prompt: ${prompt}`, "openai-debug");
     
-    // Call OpenAI to generate the image
-    const response = await openai.images.generate({
+    // Call OpenAI to generate the image (using separate client)
+    const response = await imageOpenAI.images.generate({
       model: "gpt-image-1", // Using gpt-image-1 which is the latest image model as of April 26, 2025
       prompt: prompt,
       n: 1,
