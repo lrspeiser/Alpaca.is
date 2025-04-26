@@ -79,12 +79,14 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   const imageUrl = getImageUrl(item);
   
   // Detailed logging for item data and content
-  console.log('[MODAL] Opening bingo item:', {
+  console.log('[MODAL] Opening bingo item:', item);
+  console.log('[MODAL] Item details:', {
     id: item.id,
     text: item.text,
     completed: item.completed,
     isCenterSpace: item.isCenterSpace || false,
     hasDescription: !!item.description,
+    description: item.description ? item.description.substring(0, 50) + '...' : 'none',
     descriptionLength: item.description?.length || 0,
     hasImage: !!item.image,
     imageUrl: imageUrl.slice(0, 50) + '...'

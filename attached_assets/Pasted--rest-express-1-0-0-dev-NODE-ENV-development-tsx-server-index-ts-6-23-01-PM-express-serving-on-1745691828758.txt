@@ -1,0 +1,22 @@
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+6:23:01 PM [express] serving on port 5000
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+6:23:12 PM [state] [SERVER] Sending bingo state to client: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":1,"itemsWithImages":0}]
+6:23:12 PM [express] GET /api/bingo-state 304 in 4ms :: {"currentCity":"prague","cities":{"prague":{…
+6:23:12 PM [state] [SERVER] Sending bingo state to client: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":1,"itemsWithImages":0}]
+6:23:12 PM [express] GET /api/bingo-state 304 in 2ms :: {"currentCity":"prague","cities":{"prague":{…
+6:23:26 PM [state] [SERVER] Sending bingo state to client: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":1,"itemsWithImages":0}]
+6:23:26 PM [express] GET /api/bingo-state 304 in 5ms :: {"currentCity":"prague","cities":{"prague":{…
+6:23:26 PM [ai-generation] Generating description for "Drink a Pilsner Urquell" in Prague Bingo
+Generated description for "Drink a Pilsner Urquell": Sipping a Pilsner Urquell in Prague is a must for beer enthusiasts, as this iconic Czech lager originates from nearby Plzeň. For an authentic experience, visit Lokál, a popular pub chain with several locations across the city, known for its fresh, unpasteurized Pilsner. Enjoy your drink in the early evening to soak in the lively atmosphere as locals unwind after work.
+6:23:28 PM [express] POST /api/generate-description 200 in 2003ms :: {"success":true,"description":"…
+6:23:28 PM [state] [SERVER] Sending bingo state to client: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":1,"itemsWithImages":0}]
+6:23:28 PM [express] GET /api/bingo-state 304 in 1ms :: {"currentCity":"prague","cities":{"prague":{…
+6:23:28 PM [state] [SERVER] Sending bingo state to client: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":1,"itemsWithImages":0}]
+6:23:28 PM [express] GET /api/bingo-state 304 in 2ms :: {"currentCity":"prague","cities":{"prague":{…
+6:23:28 PM [state] [SERVER] Saving bingo state: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":1,"itemsWithImages":0}]
+6:23:28 PM [express] POST /api/bingo-state 200 in 1ms :: {"success":true}

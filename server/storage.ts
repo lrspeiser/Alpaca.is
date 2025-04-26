@@ -149,6 +149,27 @@ export class DatabaseStorage implements IStorage {
   }
   
   async saveBingoState(state: BingoStateType, userId?: number): Promise<void> {
+    // Log the incoming state to debug
+    console.log("[DB] Saving bingo state:", {
+      currentCity: state.currentCity,
+      cities: Object.keys(state.cities).map(cityId => {
+        const city = state.cities[cityId];
+        return {
+          id: city.id,
+          title: city.title,
+          items: city.items.map(item => ({
+            id: item.id,
+            text: item.text,
+            hasDescription: !!item.description,
+            hasImage: !!item.image
+          }))
+        };
+      })
+    });
+    
+    // For in-memory storage, we just replace the state completely
+    // This ensures we always have the latest data
+    
     // If we have a userId, save to database
     if (userId) {
       const [existingState] = await db

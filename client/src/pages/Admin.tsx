@@ -410,11 +410,21 @@ export default function Admin() {
                     variant="outline"
                     disabled={isLoading || processingItemId === item.id}
                     onClick={async () => {
+                      console.log("[ADMIN] Starting generation flow for:", item.id);
                       const result = await handleGenerateItemDescription(item.id, city.id);
-                      console.log("Generated description result:", result);
+                      console.log("[ADMIN] Generated description result:", result);
                       
-                      // After generating, refresh the state to see updated data
-                      const bingoState = await fetch('/api/bingo-state').then(res => res.json());
+                      // Fetch the current state directly from API to ensure fresh data
+                      console.log("[ADMIN] Fetching latest state from API");
+                      const response = await fetch('/api/bingo-state');
+                      const bingoState = await response.json();
+                      
+                      // Check if our item has a description in the fresh state
+                      const updatedCity = bingoState.cities[city.id];
+                      const updatedItem = updatedCity?.items.find((i: BingoItem) => i.id === item.id);
+                      console.log("[ADMIN] Item in fresh API state:", updatedItem);
+                      
+                      console.log("[ADMIN] Updating local state with fresh API data");
                       await saveState(bingoState);
                       
                       // Force view refresh by re-rendering the component
@@ -431,11 +441,21 @@ export default function Admin() {
                     variant="outline"
                     disabled={isLoading || processingItemId === item.id}
                     onClick={async () => {
+                      console.log("[ADMIN] Starting image generation flow for:", item.id);
                       const result = await handleGenerateItemImage(item.id, city.id);
-                      console.log("Generated image result:", result);
+                      console.log("[ADMIN] Generated image result:", result);
                       
-                      // After generating, refresh the state to see updated data
-                      const bingoState = await fetch('/api/bingo-state').then(res => res.json());
+                      // Fetch the current state directly from API to ensure fresh data
+                      console.log("[ADMIN] Fetching latest state from API after image generation");
+                      const response = await fetch('/api/bingo-state');
+                      const bingoState = await response.json();
+                      
+                      // Check if our item has an image in the fresh state
+                      const updatedCity = bingoState.cities[city.id];
+                      const updatedItem = updatedCity?.items.find(i => i.id === item.id);
+                      console.log("[ADMIN] Item in fresh API state after image generation:", updatedItem);
+                      
+                      console.log("[ADMIN] Updating local state with fresh API data");
                       await saveState(bingoState);
                       
                       // Force view refresh by re-rendering the component

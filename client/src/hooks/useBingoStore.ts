@@ -16,16 +16,46 @@ export function useBingoStore() {
     const fetchBingoState = async () => {
       try {
         setIsLoading(true);
+        console.log('[STORE] Fetching initial bingo state from API');
         const response = await fetch('/api/bingo-state');
         if (response.ok) {
           const data = await response.json();
+          console.log('[STORE] Received bingo state from API', {
+            currentCity: data.currentCity,
+            cities: Object.keys(data.cities).map(cityId => {
+              const city = data.cities[cityId];
+              return {
+                id: city.id,
+                title: city.title,
+                itemCount: city.items.length,
+                itemsWithDescriptions: city.items.filter((item: BingoItem) => !!item.description).length,
+                itemsWithImages: city.items.filter((item: BingoItem) => !!item.image).length,
+                itemsWithDescriptionsIds: city.items
+                  .filter((item: BingoItem) => !!item.description)
+                  .map((item: BingoItem) => item.id)
+              };
+            })
+          });
+          
+          // Check specifically for prague-4 item (that we're testing)
+          if (data.cities.prague && data.cities.prague.items) {
+            const testItem = data.cities.prague.items.find(item => item.id === 'prague-4');
+            if (testItem) {
+              console.log('[STORE] Test item (prague-4):', {
+                text: testItem.text,
+                hasDescription: !!testItem.description,
+                descriptionPreview: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none'
+              });
+            }
+          }
+          
           setState(data);
           saveToLocalStorage(STORAGE_KEY, data);
         } else {
           throw new Error('Failed to fetch bingo state from API');
         }
       } catch (error) {
-        console.error('Failed to fetch bingo state:', error);
+        console.error('[STORE] Failed to fetch bingo state:', error);
         // Fallback to local storage if API fails
         const localState = loadFromLocalStorage<BingoState>(STORAGE_KEY, initialBingoState);
         setState(localState);
