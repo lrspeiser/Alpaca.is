@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { initialBingoState } from '@/data/cities';
 import { loadFromLocalStorage, saveToLocalStorage } from '@/lib/utils';
-import { apiRequest } from '@/lib/queryClient';
 import type { BingoState, City } from '@/types';
 
 const STORAGE_KEY = 'travelBingoState';
@@ -177,13 +176,17 @@ export function useBingoStore() {
     
     try {
       // Call API to reset city
-      await apiRequest('/api/reset-city', {
+      const response = await fetch('/api/reset-city', {
         method: 'POST',
         body: JSON.stringify({ cityId: currentCity }),
         headers: {
           'Content-Type': 'application/json'
         }
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to reset city via API');
+      }
       
       // Update local state
       setState(prev => {
