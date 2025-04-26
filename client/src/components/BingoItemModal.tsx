@@ -78,8 +78,8 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   console.log('BingoItemModal - Item data:', item);
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl max-w-md w-11/12 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
           <h3 className="font-heading font-bold text-lg">{item.text}</h3>
           <Button 
@@ -93,7 +93,8 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
         </div>
         
         <div className="p-5">
-          <div className="mb-4 h-48 overflow-hidden rounded-lg">
+          {/* Display AI-generated image if available, or fallback to placeholder */}
+          <div className="mb-4 h-56 overflow-hidden rounded-lg">
             <img 
               src={imageUrl} 
               alt={item.text} 
@@ -101,16 +102,17 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
             />
           </div>
           
+          {/* AI-generated description with improved styling */}
           <div className="mb-6">
             {item.description ? (
               <div>
-                <h4 className="text-sm font-bold mb-1">About this activity:</h4>
-                <p className="text-sm bg-gray-50 p-3 rounded-md border">
+                <h4 className="text-base font-bold mb-2 text-primary">About this activity:</h4>
+                <div className="text-sm bg-gray-50 p-4 rounded-lg border border-gray-200 leading-relaxed shadow-sm">
                   {item.description}
-                </p>
+                </div>
               </div>
             ) : (
-              <p className="text-sm">
+              <p className="text-sm text-gray-600 italic">
                 Have you completed "{item.text}" yet? Mark it as done when you have!
               </p>
             )}
