@@ -39,11 +39,28 @@ export function useBingoStore() {
   
   // Save state to API and localStorage whenever it changes
   const saveState = useCallback(async (newState: BingoState) => {
+    console.log('[STORE] Saving bingo state to localStorage and API', {
+      currentCity: newState.currentCity,
+      cityCount: Object.keys(newState.cities).length,
+      cities: Object.keys(newState.cities).map(cityId => {
+        const city = newState.cities[cityId];
+        return {
+          id: city.id,
+          title: city.title,
+          itemCount: city.items.length,
+          itemsWithDescriptions: city.items.filter(item => !!item.description).length,
+          itemsWithImages: city.items.filter(item => !!item.image).length,
+          completedItems: city.items.filter(item => item.completed).length
+        };
+      })
+    });
+    
     // Always save to local storage as backup
     saveToLocalStorage(STORAGE_KEY, newState);
     
     // Try to save to API
     try {
+      console.log('[STORE] Sending state to API endpoint /api/bingo-state');
       const response = await fetch('/api/bingo-state', {
         method: 'POST',
         body: JSON.stringify(newState),
@@ -55,8 +72,10 @@ export function useBingoStore() {
       if (!response.ok) {
         throw new Error('Failed to save bingo state to API');
       }
+      
+      console.log('[STORE] Successfully saved state to API');
     } catch (error) {
-      console.error('Failed to save bingo state to API:', error);
+      console.error('[STORE] Failed to save bingo state to API:', error);
       // We already saved to localStorage as backup
     }
   }, []);

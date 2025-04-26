@@ -13,9 +13,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For now, we're not implementing authentication, so userId is undefined
       // In a real app, you would get the userId from the session
       const state = await storage.getBingoState();
+      
+      // Log summary of the state being sent to client
+      const citySummary = Object.keys(state.cities).map(cityId => {
+        const city = state.cities[cityId];
+        return {
+          id: city.id,
+          title: city.title,
+          itemCount: city.items.length,
+          itemsWithDescriptions: city.items.filter((item: any) => !!item.description).length,
+          itemsWithImages: city.items.filter((item: any) => !!item.image).length
+        };
+      });
+      
+      log(`[SERVER] Sending bingo state to client: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
       res.json(state);
     } catch (error) {
-      console.error("Error fetching bingo state:", error);
+      console.error("[SERVER] Error fetching bingo state:", error);
       res.status(500).json({ error: "Failed to fetch bingo state" });
     }
   });
@@ -24,11 +38,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bingo-state", async (req: Request, res: Response) => {
     try {
       const state = req.body;
+      
+      // Log summary of the state being saved
+      const citySummary = Object.keys(state.cities).map(cityId => {
+        const city = state.cities[cityId];
+        return {
+          id: city.id,
+          title: city.title,
+          itemCount: city.items.length,
+          itemsWithDescriptions: city.items.filter((item: any) => !!item.description).length,
+          itemsWithImages: city.items.filter((item: any) => !!item.image).length
+        };
+      });
+      
+      log(`[SERVER] Saving bingo state: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
+      
       // For now, we're not implementing authentication, so userId is undefined
       await storage.saveBingoState(state);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error saving bingo state:", error);
+      console.error("[SERVER] Error saving bingo state:", error);
       res.status(500).json({ error: "Failed to save bingo state" });
     }
   });

@@ -72,12 +72,19 @@ export default function Admin() {
   // Generate description for a single item
   const handleGenerateItemDescription = async (itemId: string, cityId: string) => {
     try {
+      console.log(`[ADMIN] Starting description generation for item: ${itemId} in city: ${cityId}`);
       setProcessingItemId(itemId);
       toast({
         title: "Generating description",
         description: "Please wait while we create an interesting description...",
         duration: 3000
       });
+
+      // Fetch the current state to log the item before changes
+      const beforeState = await fetch('/api/bingo-state').then(res => res.json());
+      const beforeCity = beforeState.cities[cityId];
+      const beforeItem = beforeCity.items.find((i: any) => i.id === itemId);
+      console.log(`[ADMIN] Item before generation:`, beforeItem);
 
       const response = await apiRequest(
         "POST",
@@ -86,6 +93,14 @@ export default function Admin() {
       );
 
       const data = await response.json();
+      console.log(`[ADMIN] Description generation response:`, data);
+      
+      // Fetch the updated state to verify changes
+      const afterState = await fetch('/api/bingo-state').then(res => res.json());
+      const afterCity = afterState.cities[cityId];
+      const afterItem = afterCity.items.find((i: any) => i.id === itemId);
+      console.log(`[ADMIN] Item after generation:`, afterItem);
+      console.log(`[ADMIN] Description updated: ${beforeItem.description !== afterItem.description ? 'YES' : 'NO'}`);
       
       toast({
         title: "Success!",
@@ -95,7 +110,7 @@ export default function Admin() {
       
       return data.description;
     } catch (error) {
-      console.error("Error generating description:", error);
+      console.error("[ADMIN] Error generating description:", error);
       toast({
         title: "Error",
         description: "Failed to generate description. Please try again.",
@@ -111,12 +126,19 @@ export default function Admin() {
   // Generate image for a single item
   const handleGenerateItemImage = async (itemId: string, cityId: string) => {
     try {
+      console.log(`[ADMIN] Starting image generation for item: ${itemId} in city: ${cityId}`);
       setProcessingItemId(itemId);
       toast({
         title: "Generating image",
         description: "Please wait while we create a custom image...",
         duration: 3000
       });
+
+      // Fetch the current state to log the item before changes
+      const beforeState = await fetch('/api/bingo-state').then(res => res.json());
+      const beforeCity = beforeState.cities[cityId];
+      const beforeItem = beforeCity.items.find((i: any) => i.id === itemId);
+      console.log(`[ADMIN] Item before image generation:`, beforeItem);
 
       const response = await apiRequest(
         "POST",
@@ -125,6 +147,14 @@ export default function Admin() {
       );
 
       const data = await response.json();
+      console.log(`[ADMIN] Image generation response:`, data);
+      
+      // Fetch the updated state to verify changes
+      const afterState = await fetch('/api/bingo-state').then(res => res.json());
+      const afterCity = afterState.cities[cityId];
+      const afterItem = afterCity.items.find((i: any) => i.id === itemId);
+      console.log(`[ADMIN] Item after image generation:`, afterItem);
+      console.log(`[ADMIN] Image updated: ${beforeItem.image !== afterItem.image ? 'YES' : 'NO'}`);
       
       toast({
         title: "Success!",
@@ -134,7 +164,7 @@ export default function Admin() {
       
       return data.imageUrl;
     } catch (error) {
-      console.error("Error generating image:", error);
+      console.error("[ADMIN] Error generating image:", error);
       toast({
         title: "Error",
         description: "Failed to generate image. Please try again.",

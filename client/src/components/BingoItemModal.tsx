@@ -64,18 +64,31 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
 
   // Get image URL using same logic as in BingoGrid
   const getImageUrl = (item: BingoItem) => {
-    if (item.image) return item.image;
+    if (item.image) {
+      console.log(`[MODAL] Using AI-generated image for ${item.id}: ${item.image.slice(0, 50)}...`);
+      return item.image;
+    }
     
     // Generate a consistent image for the same item by using the id as a hash
     const idNumber = parseInt(item.id.replace(/[^0-9]/g, "")) || 0;
     const imageIndex = idNumber % travelImages.length;
+    console.log(`[MODAL] Using fallback image for ${item.id} from travelImages[${imageIndex}]`);
     return travelImages[imageIndex];
   };
   
   const imageUrl = getImageUrl(item);
   
-  // Log the item data to help with debugging
-  console.log('BingoItemModal - Item data:', item);
+  // Detailed logging for item data and content
+  console.log('[MODAL] Opening bingo item:', {
+    id: item.id,
+    text: item.text,
+    completed: item.completed,
+    isCenterSpace: item.isCenterSpace || false,
+    hasDescription: !!item.description,
+    descriptionLength: item.description?.length || 0,
+    hasImage: !!item.image,
+    imageUrl: imageUrl.slice(0, 50) + '...'
+  });
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
