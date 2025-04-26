@@ -379,25 +379,72 @@ export default function Admin() {
     
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => setViewingCity(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Cities
-          </Button>
-          <h2 className="text-2xl font-bold">{city.title}</h2>
-          {city.subtitle && <span className="text-gray-500">({city.subtitle})</span>}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={() => setViewingCity(null)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Cities
+            </Button>
+            <h2 className="text-2xl font-bold">{city.title}</h2>
+            {city.subtitle && <span className="text-gray-500">({city.subtitle})</span>}
+          </div>
+          
+          <div className="flex gap-4 items-center">
+            <div className="flex gap-2">
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
+                {city.items.filter(item => !!item.description).length} with descriptions
+              </span>
+              <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
+                {city.items.filter(item => !!item.image).length} with images
+              </span>
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-full text-xs">
+                {city.items.filter(item => item.completed).length} completed
+              </span>
+            </div>
+            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-500 transition-all duration-500"
+                style={{ width: `${(city.items.filter(item => item.completed).length / city.items.length) * 100}%` }}
+              ></div>
+            </div>
+          </div>
         </div>
         
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {city.items.map((item) => (
-            <Card key={item.id} className="p-4 relative overflow-hidden">
-              {item.isCenterSpace && (
-                <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs px-2 py-1 rounded-bl">
-                  Center
-                </div>
-              )}
+            <Card 
+              key={item.id} 
+              className={`p-4 relative overflow-hidden ${item.completed ? 'border-green-500 border-2' : ''}`}
+            >
+              {/* Status badges */}
+              <div className="absolute top-0 right-0 flex">
+                {item.isCenterSpace && (
+                  <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-bl">
+                    Center
+                  </div>
+                )}
+                {item.completed && (
+                  <div className="bg-green-500 text-white text-xs px-2 py-1 rounded-bl">
+                    Completed
+                  </div>
+                )}
+              </div>
               
-              <h3 className="font-bold mb-2">{item.text}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="font-bold">{item.text}</h3>
+                <div className="flex gap-1">
+                  {item.description && (
+                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px]">
+                      Description
+                    </span>
+                  )}
+                  {item.image && (
+                    <span className="px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full text-[10px]">
+                      Image
+                    </span>
+                  )}
+                </div>
+              </div>
               
               {/* Show description if available */}
               {item.description ? (
@@ -409,13 +456,17 @@ export default function Admin() {
               )}
               
               {/* Show image if available */}
-              {item.image && (
-                <div className="mb-3 rounded overflow-hidden h-32">
+              {item.image ? (
+                <div className="mb-3 rounded overflow-hidden h-48 border shadow-sm">
                   <img 
                     src={item.image} 
                     alt={item.text} 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                   />
+                </div>
+              ) : (
+                <div className="mb-3 h-12 flex items-center justify-center bg-gray-50 rounded border text-gray-400 text-sm">
+                  No image yet
                 </div>
               )}
               
@@ -483,6 +534,62 @@ export default function Admin() {
                     <ImagePlus className="h-3 w-3 mr-1" />
                     {!item.image ? "Generate Image" : "Regenerate"}
                   </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    variant={item.completed ? "destructive" : "default"}
+                    onClick={async () => {
+                      try {
+                        // Call API to toggle item completion
+                        const response = await fetch('/api/toggle-item', {
+                          method: 'POST',
+                          body: JSON.stringify({ itemId: item.id, cityId: city.id }),
+                          headers: {
+                            'Content-Type': 'application/json'
+                          }
+                        });
+                        
+                        if (!response.ok) throw new Error("Failed to toggle completion");
+                        
+                        // Fetch fresh state after toggling
+                        console.log("[ADMIN] Fetching latest state after toggling completion");
+                        const stateResponse = await fetch('/api/bingo-state');
+                        const bingoState = await stateResponse.json();
+                        
+                        // Update local state
+                        console.log("[ADMIN] Updating local state with fresh data");
+                        await saveState(bingoState);
+                        
+                        // Refresh view
+                        setViewingCity(null);
+                        setTimeout(() => setViewingCity(city.id), 100);
+                        
+                        toast({
+                          title: item.completed ? "Item marked incomplete" : "Item marked complete",
+                          duration: 2000
+                        });
+                      } catch (error) {
+                        console.error("[ADMIN] Error toggling completion:", error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to toggle item completion status",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                  >
+                    {item.completed ? (
+                      <>
+                        <X className="h-3 w-3 mr-1" />
+                        Mark Incomplete
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Mark Complete
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
             </Card>
@@ -518,7 +625,17 @@ export default function Admin() {
                 <Card key={city.id} className="p-4">
                   <h3 className="text-xl font-bold mb-2">{city.title}</h3>
                   <p className="text-sm text-gray-500 mb-2">{city.subtitle}</p>
-                  <p className="text-sm mb-4">Items: {city.items.length}</p>
+                  <div className="text-sm mb-4 space-y-1">
+                    <p>Items: {city.items.length}</p>
+                    <div className="flex gap-2">
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
+                        {city.items.filter(item => !!item.description).length} with descriptions
+                      </span>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
+                        {city.items.filter(item => !!item.image).length} with images
+                      </span>
+                    </div>
+                  </div>
                   
                   <div className="flex flex-wrap gap-2">
                     <Button 
