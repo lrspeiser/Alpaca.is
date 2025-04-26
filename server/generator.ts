@@ -47,7 +47,7 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      model: "gpt-4.1", // Updated to use gpt-4.1 as requested by the user
       messages: [
         {
           role: "system",
@@ -107,19 +107,26 @@ export async function generateItemImage(
     // Create a detailed prompt for the image
     const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
     
-    // Call OpenAI to generate the image
+    // Call OpenAI to generate the image with base64 encoding
     const response = await openai.images.generate({
-      model: "dall-e-3",
+      model: "gpt-image-1", // Using gpt-image-1 as requested by the user
       prompt: prompt,
       n: 1,
       size: "1024x1024",
-      quality: "standard",
-      style: "natural", // Use a natural photography style
+      response_format: "b64_json", // Request base64 encoded image
     });
 
-    // Return the image URL
+    // Return the image URL or base64 data
     if (response.data && response.data.length > 0) {
-      return response.data[0].url || "";
+      // If using b64_json response_format, return the URL from the server
+      // We're continuing to return the URL as that's what our client expects
+      // The base64 data is available in response.data[0].b64_json
+      if (response.data[0].url) {
+        return response.data[0].url;
+      } else if (response.data[0].b64_json) {
+        // Convert base64 to a data URL
+        return `data:image/png;base64,${response.data[0].b64_json}`;
+      }
     }
     return "";
   } catch (error: any) {
