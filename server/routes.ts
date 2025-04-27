@@ -35,7 +35,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             text: testItem.text,
             hasDescription: !!testItem.description,
             description: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none',
-            hasImage: !!testItem.image
+            hasImage: !!testItem.image,
+            imageUrl: testItem.image ? testItem.image.substring(0, 30) + '...' : 'none'
           });
         }
       }

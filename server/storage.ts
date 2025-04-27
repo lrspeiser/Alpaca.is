@@ -407,7 +407,9 @@ export class DatabaseStorage implements IStorage {
               if (item.id === 'prague-4') {
                 console.log('[DB] Saving item prague-4 with data:', { 
                   hasDescription: !!item.description,
-                  description: item.description ? `${item.description.substring(0, 50)}...` : 'none'
+                  description: item.description ? `${item.description.substring(0, 50)}...` : 'none',
+                  hasImage: !!item.image,
+                  imageUrl: item.image ? `${item.image.substring(0, 30)}...` : 'none'
                 });
               }
               
