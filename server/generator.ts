@@ -12,11 +12,14 @@ if (!apiKey) {
 // Client for text generation
 const openai = new OpenAI({
   apiKey: apiKey,
+  defaultQuery: {} // Ensure no shared default query parameters
 });
 
-// Separate client for image generation to avoid configuration conflicts
+// Completely separate client for image generation - no shared configuration
 const imageOpenAI = new OpenAI({
   apiKey: apiKey,
+  defaultQuery: {}, // Explicit empty default query to prevent inheritance
+  defaultHeaders: {} // Explicit empty default headers to prevent inheritance
 });
 
 /**
@@ -100,6 +103,7 @@ export async function generateBingoItems(
 
 /**
  * Generate an image for a bingo item using OpenAI's GPT-Image model
+ * Skips the OpenAI SDK and uses direct fetch to avoid configuration issues
  * 
  * @param itemText The text of the bingo item
  * @param cityName The name of the city
@@ -113,27 +117,49 @@ export async function generateItemImage(
     // Create a detailed prompt for the image
     const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
     
-    log(`Starting image generation with model gpt-image-1, prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via direct API call with model gpt-image-1, prompt: ${prompt}`, "openai-debug");
     
-    // Call OpenAI to generate the image (using separate client)
-    const response = await imageOpenAI.images.generate({
-      model: "gpt-image-1", // Using gpt-image-1 which is the latest image model as of April 26, 2025
-      prompt: prompt,
+    // Prepare request body
+    const reqBody = {
+      model: "gpt-image-1", // Using gpt-image-1 which is the latest model as of April 26, 2025
+      prompt,
       n: 1,
       size: "1024x1024",
       quality: "medium"
-    });
-
-    log(`Image generation API response: ${JSON.stringify(response)}`, "openai-debug");
+    };
     
-    // Return the image URL
-    if (response.data && response.data.length > 0 && response.data[0].url) {
-      log(`Successfully generated image with URL: ${response.data[0].url}`, "openai-debug");
-      // With gpt-image-1, we get a URL directly, not base64 data
-      return response.data[0].url;
+    log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
+    
+    // Make direct API call to OpenAI
+    const fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify(reqBody)
+    });
+    
+    // Handle error responses
+    if (!fetchResponse.ok) {
+      const errorText = await fetchResponse.text();
+      log(`OpenAI API error (${fetchResponse.status}): ${errorText}`, "openai-debug");
+      throw new Error(`OpenAI API error: ${fetchResponse.status} - ${errorText}`);
     }
     
-    log(`No image URL found in response: ${JSON.stringify(response.data)}`, "openai-debug");
+    // Process successful response
+    const data = await fetchResponse.json();
+    log(`OpenAI API success response: ${JSON.stringify(data)}`, "openai-debug");
+    
+    // Extract image URL from response
+    if (data.data && data.data.length > 0 && data.data[0].url) {
+      const imageUrl = data.data[0].url;
+      log(`Successfully generated image with URL: ${imageUrl}`, "openai-debug");
+      return imageUrl;
+    }
+    
+    // No URL found in response
+    log(`No image URL found in response: ${JSON.stringify(data)}`, "openai-debug");
     return "";
   } catch (error: any) {
     // Log detailed error information
