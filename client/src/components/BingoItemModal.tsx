@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { useEffect, useState } from "react";
 import type { BingoItem } from "@/types";
+import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
 
 interface BingoItemModalProps {
   item: BingoItem | null;
@@ -115,16 +116,17 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
         </div>
         
         <div className="p-5">
-          {/* Only display image if one is available from the database */}
-          {imageUrl && typeof imageUrl === 'string' && (
-            <div className="mb-4 h-56 overflow-hidden rounded-lg">
-              <img 
-                src={imageUrl} 
-                alt={localItem.text} 
+          {/* Use ImageDebugger to diagnose image loading issues */}
+          <div className="mb-4 h-56 overflow-hidden rounded-lg">
+            {localItem && (
+              <ImageDebugger
+                src={imageUrl}
+                alt={localItem.text}
                 className="w-full h-full object-cover"
+                onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] ${localItem.id}:`, info)}
               />
-            </div>
-          )}
+            )}
+          </div>
           
           {/* AI-generated description with improved styling */}
           <div className="mb-6">

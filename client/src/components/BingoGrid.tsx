@@ -2,6 +2,7 @@ import { useBingoStore } from "@/hooks/useBingoStore";
 import { cn } from "@/lib/utils";
 import type { BingoItem } from "@/types";
 import { useState, useEffect } from "react";
+import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
 
 interface BingoGridProps {
   onItemClick: (item: BingoItem) => void;
@@ -169,20 +170,15 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
               
               {item.completed ? (
                 <div className="w-full h-full relative">
-                  {/* More direct approach to displaying the image */}
-                  {(() => {
-                    // Try both image and imageUrl properties directly
-                    const imageSource = item.image || (item as any).imageUrl;
-                    console.log(`[GRID-COMPLETED] Item ${item.id} image source: ${imageSource ? imageSource.substring(0, 30) + '...' : 'none'}`);
-                    
-                    return imageSource ? (
-                      <img 
-                        src={imageSource} 
-                        alt={item.text}
-                        className="w-full h-full object-cover absolute inset-0"
-                      />
-                    ) : null;
-                  })()}
+                  {/* Use ImageDebugger to diagnose image loading issues */}
+                  <ImageDebugger
+                    src={item.image || (item as any).imageUrl}
+                    alt={item.text}
+                    className="absolute inset-0"
+                    onLoadInfo={(info: ImageLoadInfo) => {
+                      console.log(`[GRID-COMPLETED-DEBUG] ${item.id}:`, info);
+                    }}
+                  />
                   <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-1">
                     <p className="text-[10px] leading-tight font-medium text-white">{item.text}</p>
                   </div>
