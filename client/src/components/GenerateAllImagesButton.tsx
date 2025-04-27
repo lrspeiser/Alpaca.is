@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { ImageIcon } from 'lucide-react';
 import { useBingoStore } from '@/hooks/useBingoStore';
 import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
 import type { BingoItem, City } from '@/types';
 
 // Define the expected response type from our API
