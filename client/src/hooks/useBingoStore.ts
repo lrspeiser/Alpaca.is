@@ -203,13 +203,19 @@ export function useBingoStore() {
         throw new Error('Failed to toggle item completion via API');
       }
       
+      // Fetch updated state after change is persisted to ensure everything is in sync
+      // This makes sure all components using this state get the update
+      setTimeout(() => {
+        fetchBingoState(true);
+      }, 300);
+      
       return await newStatePromise;
     } catch (error) {
       console.error('Failed to toggle item completion via API:', error);
       // We've already updated the local state, so just return that
       return await newStatePromise;
     }
-  }, [state.currentCity, saveState]);
+  }, [state.currentCity, saveState, fetchBingoState]);
   
   // Reset all items for current city (except center space)
   const resetCity = useCallback(async () => {

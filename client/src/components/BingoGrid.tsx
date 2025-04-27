@@ -47,7 +47,10 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   
   // Function to get image URL for an item
   const getImageUrl = (item: BingoItem) => {
-    if (item.image) return item.image;
+    if (item.image) {
+      // Use the AI-generated image from the item
+      return item.image;
+    }
     
     // Generate a consistent image for the same item by using the id as a hash
     const idNumber = parseInt(item.id.replace(/[^0-9]/g, "")) || 0;
