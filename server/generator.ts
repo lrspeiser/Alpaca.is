@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { log } from "./vite";
 import { v4 as uuidv4 } from "uuid";
+import fs from 'fs';
+import path from 'path';
 import type { BingoItem } from "../shared/schema";
 
 // Initialize OpenAI client
@@ -171,11 +173,11 @@ export async function generateItemImage(
       const filePath = `./public/images/${filename}`;
       
       try {
-        // Make sure the directory exists
-        const fs = require('fs');
-        const path = require('path');
-        const dirPath = './public/images';
+        // Use the path module to ensure consistent path handling
+        const dirPath = path.join(process.cwd(), 'public', 'images');
+        const fullFilePath = path.join(process.cwd(), 'public', 'images', filename);
         
+        // Make sure the directory exists
         if (!fs.existsSync(dirPath)) {
           fs.mkdirSync(dirPath, { recursive: true });
           log(`Created images directory at ${dirPath}`, "openai-debug");
@@ -183,16 +185,17 @@ export async function generateItemImage(
         
         // Convert base64 to buffer and save to file
         const imageBuffer = Buffer.from(imageBase64, 'base64');
-        fs.writeFileSync(filePath, imageBuffer);
+        fs.writeFileSync(fullFilePath, imageBuffer);
         
         // Return the path to the saved image
         const imageUrl = `/images/${filename}`;
-        log(`Successfully saved base64 image to ${filePath}`, "openai-debug");
+        log(`Successfully saved base64 image to ${fullFilePath}`, "openai-debug");
         return imageUrl;
       } catch (err) {
         // Handle as generic error object
         const error = err as Error;
         log(`Error saving base64 image: ${error.message || 'Unknown error'}`, "openai-debug");
+        console.error('Image saving error details:', error);
         return "";
       }
     }
