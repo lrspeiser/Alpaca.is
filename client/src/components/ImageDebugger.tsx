@@ -57,10 +57,69 @@ export function ImageDebugger({ src, alt, className = '', onLoadInfo }: ImageDeb
       url: proxiedSrc || src,
     });
 
+    // For debugging
+    console.log(`[IMAGE-DEBUGGER] Loading image from: ${proxiedSrc || src}`);
+
     // Start timer
     const startTime = performance.now();
 
-    // Fetch the image to get detailed status
+    // Special case for local images that start with /images/
+    // These are stored locally and don't need a HEAD request
+    if (src.startsWith('/images/')) {
+      // Create an Image element to load the image
+      const img = new Image();
+      img.onload = () => {
+        const endTime = performance.now();
+        // Estimate size based on dimensions (this is just a rough estimate)
+        const estimatedSize = (img.width * img.height * 4); // 4 bytes per pixel (RGBA)
+        
+        setLoadInfo({
+          loaded: true,
+          bytesLoaded: estimatedSize,
+          error: null,
+          status: 'success',
+          timeTaken: endTime - startTime,
+          url: src,
+        });
+        
+        console.log(`[IMAGE-DEBUG] Successfully loaded local image in ${Math.round(endTime - startTime)}ms: ${src}`);
+        
+        if (onLoadInfo) {
+          onLoadInfo({
+            loaded: true,
+            bytesLoaded: estimatedSize,
+            error: null,
+            status: 'success',
+            timeTaken: endTime - startTime,
+            url: src,
+          });
+        }
+      };
+      
+      img.onerror = (error) => {
+        const endTime = performance.now();
+        const errorInfo = {
+          loaded: false,
+          bytesLoaded: 0,
+          error: 'Failed to load local image',
+          status: 'error',
+          timeTaken: endTime - startTime,
+          url: src,
+        };
+        
+        setLoadInfo(errorInfo);
+        console.error(`[IMAGE-DEBUG] Error loading local image: ${src}`);
+        
+        if (onLoadInfo) {
+          onLoadInfo(errorInfo);
+        }
+      };
+      
+      img.src = src;
+      return;
+    }
+
+    // For remote images, fetch with HEAD first
     fetch(proxiedSrc || src, { method: 'HEAD' })
       .then(response => {
         if (!response.ok) {

@@ -20,23 +20,31 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   const [isToggling, setIsToggling] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   
-  // Simplified function to get image URL directly from either property and proxy if needed
+  // Improved function to get image URL from either property and handle local image paths
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
     console.log(`[MODAL DEBUG] Item ${item.id} full data:`, item);
     
     // Try to get the image directly from either property
     const directImageUrl = item.image || (item as any).imageUrl;
     
-    if (directImageUrl && typeof directImageUrl === 'string' && directImageUrl.startsWith('http')) {
-      console.log(`[MODAL] Found image URL for ${item.id}: ${directImageUrl.substring(0, 30)}...`);
+    if (directImageUrl && typeof directImageUrl === 'string') {
+      // Handle local image paths starting with /images
+      if (directImageUrl.startsWith('/images/')) {
+        console.log(`[MODAL] Found local image for ${item.id}: ${directImageUrl}`);
+        return directImageUrl;
+      }
       
-      // Use the proxy for OpenAI URLs to avoid CORS and expiration issues
-      const proxiedUrl = getProxiedImageUrl(directImageUrl);
-      return proxiedUrl || directImageUrl;
+      // Handle URLs starting with http
+      if (directImageUrl.startsWith('http')) {
+        console.log(`[MODAL] Found remote image URL for ${item.id}: ${directImageUrl.substring(0, 30)}...`);
+        // Use the proxy for OpenAI URLs to avoid CORS and expiration issues
+        const proxiedUrl = getProxiedImageUrl(directImageUrl);
+        return proxiedUrl || directImageUrl;
+      }
     }
     
     // No fallback - return null if no image is found
-    console.log(`[MODAL] No image found for ${item.id}`);
+    console.log(`[MODAL] No valid image URL found for ${item.id}:`, directImageUrl);
     return null;
   };
   

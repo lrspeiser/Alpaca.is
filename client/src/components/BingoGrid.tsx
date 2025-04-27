@@ -47,37 +47,45 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   
   // No more placeholder images - we only use database images
   
-  // Function to get image URL for an item using cached URLs - only from database, no placeholders
+  // Improved function to get image URL for an item - supports local and remote URLs
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
-    // First check our cached image URLs from state
+    // First check our cached image URLs from state for performance
     if (itemImages[item.id] && itemImages[item.id].length > 0) {
       return itemImages[item.id];
     }
     
-    // Try item.image first
-    if (item.image && typeof item.image === 'string' && item.image.startsWith('http')) {
-      console.log(`[GRID] Using item.image URL for ${item.id}: ${item.image.substring(0, 30)}...`);
+    // Get the image URL from either item.image or item.imageUrl property
+    const imageSource = item.image || (item as any).imageUrl;
+    
+    if (!imageSource || typeof imageSource !== 'string') {
+      console.log(`[GRID] No image found for ${item.id}`);
+      return null;
+    }
+    
+    // Handle local image paths that start with /images/
+    if (imageSource.startsWith('/images/')) {
+      console.log(`[GRID] Using local image for ${item.id}: ${imageSource}`);
       // Cache the URL for future use
       setItemImages(prev => ({
         ...prev,
-        [item.id]: item.image as string
+        [item.id]: imageSource
       }));
-      return item.image;
+      return imageSource;
     }
     
-    // Try imageUrl next
-    if ((item as any).imageUrl && typeof (item as any).imageUrl === 'string' && (item as any).imageUrl.startsWith('http')) {
-      console.log(`[GRID] Using item.imageUrl for ${item.id}: ${(item as any).imageUrl.substring(0, 30)}...`);
+    // Handle remote URLs that start with http
+    if (imageSource.startsWith('http')) {
+      console.log(`[GRID] Using remote URL for ${item.id}: ${imageSource.substring(0, 30)}...`);
       // Cache the URL for future use
       setItemImages(prev => ({
         ...prev,
-        [item.id]: (item as any).imageUrl
+        [item.id]: imageSource
       }));
-      return (item as any).imageUrl;
+      return imageSource;
     }
     
-    // No fallback images, return null
-    console.log(`[GRID] No image found for ${item.id}`);
+    // If we get here, the image URL format is unsupported
+    console.log(`[GRID] Unsupported image format for ${item.id}: ${imageSource}`);
     return null;
   };
   
@@ -201,7 +209,7 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
                 <div className="w-full h-full relative">
                   {/* Use ImageDebugger to diagnose image loading issues */}
                   <ImageDebugger
-                    src={item.image || (item as any).imageUrl}
+                    src={getImageUrl(item)}
                     alt={item.text}
                     className="absolute inset-0"
                     onLoadInfo={(info: ImageLoadInfo) => {
