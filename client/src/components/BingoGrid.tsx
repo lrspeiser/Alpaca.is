@@ -49,17 +49,32 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
     return travelImages[imageIndex];
   };
   
+  // Sort items to ensure center space is in middle position
+  const sortedItems = [...items].sort((a, b) => {
+    if (a.isCenterSpace) return 1; // Place center space last
+    if (b.isCenterSpace) return -1;
+    return 0;
+  });
+  
+  // Find index of center space (should be 12 in a 0-based 5x5 grid)
+  const centerIndex = sortedItems.findIndex(item => item.isCenterSpace);
+  
+  // Move center space to middle position if it exists
+  if (centerIndex !== -1) {
+    const centerItem = sortedItems.splice(centerIndex, 1)[0];
+    sortedItems.splice(12, 0, centerItem);
+  }
+  
   return (
     <div className="bingo-grid mx-auto max-w-md mb-6 grid grid-cols-5 gap-0">
-      {items.map((item) => (
+      {sortedItems.map((item) => (
         <div
           key={item.id}
           onClick={() => onItemClick(item)}
           className={cn(
             "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
             item.completed ? "completed" : "bg-white",
-            item.isCenterSpace && !item.completed && "center-space bg-blue-50 font-semibold",
-            item.isCenterSpace && item.completed && "center-space completed"
+            item.isCenterSpace && "center-space font-semibold"
           )}
         >
           {item.completed ? (

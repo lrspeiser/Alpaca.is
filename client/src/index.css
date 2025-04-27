@@ -87,25 +87,9 @@
 }
 
 .center-space {
-  @apply bg-primary/10;
-  /* Add a subtle star pattern or distinctive visual */
-  background-image: 
-    radial-gradient(white 1px, transparent 0),
-    radial-gradient(white 1px, transparent 0);
-  background-size: 8px 8px;
-  background-position: 0 0, 4px 4px;
+  /* No special styling - use same white background as other uncompleted items */
   position: relative;
-}
-
-/* Add a small star in the corner of center space */
-.center-space:before {
-  content: '★';
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 10px;
-  color: var(--primary);
-  opacity: 0.6;
+  order: 12; /* Position the center space in middle of 25-item grid */
 }
 
 /* Make tiles more visible */
