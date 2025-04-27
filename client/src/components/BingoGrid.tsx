@@ -17,7 +17,7 @@ interface BingoGridProps {
 }
 
 export default function BingoGrid({ onItemClick }: BingoGridProps) {
-  const { cities, currentCity, toggleItemCompletion, fetchBingoState } = useBingoStore();
+  const { cities, currentCity, setCurrentCity, fetchBingoState } = useBingoStore();
   const items = cities[currentCity]?.items || [];
   // Track when we need to force a re-render
   const [forceRefresh, setForceRefresh] = useState(0);
@@ -143,9 +143,10 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
       {/* Traditional Bingo Card Title - Now includes dropdown */}
       <div className="bg-primary text-white font-bold py-3 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm flex justify-center items-center">
         <div className="flex items-center justify-center space-x-2">
-          <Select value={currentCity} onValueChange={city => {
+          <Select value={currentCity} onValueChange={(newCity: string) => {
+            // Update to the new selected city and refresh
+            setCurrentCity(newCity);
             setForceRefresh(prev => prev + 1);
-            setTimeout(() => toggleItemCompletion(currentCity, ''), 10);
           }}>
             <SelectTrigger className="w-[120px] h-8 bg-primary border-white/30 text-white">
               <SelectValue placeholder="Select a city" />

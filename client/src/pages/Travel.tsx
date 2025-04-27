@@ -30,14 +30,11 @@ export default function Travel() {
   const city = cities[currentCity];
   
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-white">
       <Header onOpenInfoModal={() => setIsInfoModalOpen(true)} />
       
-      <main className="flex-grow container mx-auto px-4 py-6">
-        {/* City subtitle */}
-        <div className="mb-6 text-center">
-          <p className="text-sm text-gray-600">{city.subtitle}</p>
-        </div>
+      <main className="flex-grow w-full px-0 py-2">
+        {/* City subtitle - moved inside the BingoGrid component */}
         
         {/* Bingo Grid with title */}
         <BingoGrid onItemClick={setSelectedItem} />
