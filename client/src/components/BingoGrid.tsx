@@ -3,6 +3,14 @@ import { cn } from "@/lib/utils";
 import type { BingoItem } from "@/types";
 import { useState, useEffect } from "react";
 import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
+import { 
+  Select, 
+  SelectContent, 
+  SelectGroup, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 interface BingoGridProps {
   onItemClick: (item: BingoItem) => void;
@@ -122,18 +130,38 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   const gridContainerStyle: React.CSSProperties = {
     display: 'grid',
     gridTemplateRows: 'repeat(5, minmax(60px, 1fr))',
-    gridTemplateColumns: 'repeat(5, minmax(60px, 1fr))',
+    gridTemplateColumns: 'repeat(5, 1fr)',
     gap: '0',
     border: '1px solid #ddd',
     borderRadius: '0.5rem',
     overflow: 'hidden',
+    width: '100%'
   };
   
   return (
-    <div className="bingo-container mx-auto max-w-md mb-6 shadow-md rounded-md">
-      {/* Traditional Bingo Card Title */}
-      <div className="bg-primary text-white font-bold py-3 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm">
-        {cities[currentCity]?.title.replace("Bingo", "").trim()} <span className="tracking-widest">BINGO</span>
+    <div className="bingo-container w-full mb-6 shadow-md rounded-md">
+      {/* Traditional Bingo Card Title - Now includes dropdown */}
+      <div className="bg-primary text-white font-bold py-3 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm flex justify-center items-center">
+        <div className="flex items-center justify-center space-x-2">
+          <Select value={currentCity} onValueChange={city => {
+            setForceRefresh(prev => prev + 1);
+            setTimeout(() => toggleItemCompletion(currentCity, ''), 10);
+          }}>
+            <SelectTrigger className="w-[120px] h-8 bg-primary border-white/30 text-white">
+              <SelectValue placeholder="Select a city" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {Object.keys(cities).sort().map((cityId) => (
+                  <SelectItem key={cityId} value={cityId}>
+                    {cities[cityId].title.replace(" Bingo", "")}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <span className="tracking-widest">BINGO</span>
+        </div>
       </div>
       
       <div style={gridContainerStyle} className="bingo-grid">
