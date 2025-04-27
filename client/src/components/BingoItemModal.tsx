@@ -36,14 +36,23 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   ];
   
   // Get image URL for an item
-  const getImageUrl = (item: BingoItem) => {
+  const getImageUrl = (item: BingoItem & { imageUrl?: string }) => {
+    // Check both image and imageUrl fields since the API returns imageUrl
     if (item.image) {
+      console.log(`[MODAL] Using item.image for ${item.id}`);
       return item.image;
+    }
+    
+    // Check if imageUrl exists (from API)
+    if ((item as any).imageUrl) {
+      console.log(`[MODAL] Using item.imageUrl for ${item.id}`);
+      return (item as any).imageUrl;
     }
     
     // Fallback to placeholder image
     const idNumber = parseInt(item.id.replace(/[^0-9]/g, "")) || 0;
     const imageIndex = idNumber % travelImages.length;
+    console.log(`[MODAL] Using fallback image for ${item.id} (index: ${imageIndex})`);
     return travelImages[imageIndex];
   };
   

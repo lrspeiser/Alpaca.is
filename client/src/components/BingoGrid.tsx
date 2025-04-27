@@ -66,21 +66,29 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   ];
   
   // Function to get image URL for an item using cached URLs
-  const getImageUrl = (item: BingoItem) => {
+  const getImageUrl = (item: BingoItem & { imageUrl?: string }) => {
     // First check our cached image URLs from state
     if (itemImages[item.id] && itemImages[item.id].length > 0) {
       return itemImages[item.id];
     }
     
-    // Then check the item itself
+    // Then check the item itself for the image property
     if (item.image) {
       // Use the AI-generated image from the item
+      console.log(`[GRID] Using item.image for ${item.id}`);
       return item.image;
+    }
+    
+    // Check for imageUrl (from API response)
+    if ((item as any).imageUrl) {
+      console.log(`[GRID] Using item.imageUrl for ${item.id}`);
+      return (item as any).imageUrl;
     }
     
     // Generate a consistent image for the same item by using the id as a hash
     const idNumber = parseInt(item.id.replace(/[^0-9]/g, "")) || 0;
     const imageIndex = idNumber % travelImages.length;
+    console.log(`[GRID] Using fallback image for ${item.id} (index: ${imageIndex})`);
     return travelImages[imageIndex];
   };
   
