@@ -34,15 +34,14 @@ export default function Travel() {
       <Header onOpenInfoModal={() => setIsInfoModalOpen(true)} />
       
       <main className="flex-grow container mx-auto px-4 py-6">
-        {/* City Header */}
+        {/* City subtitle */}
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-heading font-bold">{city.title}</h2>
-          <p className="text-sm text-gray-600 mt-1">{city.subtitle}</p>
+          <p className="text-sm text-gray-600">{city.subtitle}</p>
         </div>
         
         {/* No longer showing AI generation button to regular users */}
         
-        {/* Bingo Grid */}
+        {/* Bingo Grid with title */}
         <BingoGrid onItemClick={setSelectedItem} />
       </main>
       

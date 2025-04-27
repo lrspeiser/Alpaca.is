@@ -98,7 +98,13 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   const flattenedItems = grid.flat().filter(item => item !== null) as BingoItem[];
   
   return (
-    <div className="bingo-grid mx-auto max-w-md mb-6 grid grid-cols-5 gap-0">
+    <div className="bingo-container mx-auto max-w-md mb-6 shadow-md rounded-md">
+      {/* Traditional Bingo Card Title */}
+      <div className="bg-primary text-white font-bold py-3 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm">
+        {cities[currentCity]?.title.replace("Bingo", "").trim()} <span className="tracking-widest">BINGO</span>
+      </div>
+      
+      <div className="bingo-grid grid grid-cols-5 gap-0">
       {flattenedItems.map((item) => (
         <div
           key={item.id}
@@ -127,6 +133,7 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
           )}
         </div>
       ))}
+      </div>
     </div>
   );
 }
