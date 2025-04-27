@@ -117,15 +117,15 @@ export async function generateItemImage(
     // Create a detailed prompt for the image
     const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
     
-    log(`Starting image generation via direct API call with model gpt-image-1, prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via direct API call with model dall-e-3, prompt: ${prompt}`, "openai-debug");
     
     // Prepare request body
     const reqBody = {
-      model: "gpt-image-1", // Using gpt-image-1 which is the latest model as of April 26, 2025
+      model: "dall-e-3", // Using dall-e-3 for image generation
       prompt,
       n: 1,
-      size: "1024x1024",
-      quality: "medium"
+      size: "1024x1024", 
+      quality: "standard"
     };
     
     log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
@@ -144,6 +144,16 @@ export async function generateItemImage(
     if (!fetchResponse.ok) {
       const errorText = await fetchResponse.text();
       log(`OpenAI API error (${fetchResponse.status}): ${errorText}`, "openai-debug");
+      
+      // Try to parse the error response
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error('Detailed OpenAI error:', JSON.stringify(errorJson, null, 2));
+      } catch (e) {
+        // If it's not valid JSON, just use the raw text
+        console.error('OpenAI error (raw text):', errorText);
+      }
+      
       throw new Error(`OpenAI API error: ${fetchResponse.status} - ${errorText}`);
     }
     
