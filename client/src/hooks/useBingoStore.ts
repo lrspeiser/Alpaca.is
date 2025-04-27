@@ -11,6 +11,11 @@ export function useBingoStore() {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
+  // Alias for fetchBingoState with forceRefresh=true for easier access
+  const refreshState = useCallback(async () => {
+    return fetchBingoState(true);
+  }, []);
+  
   // Fetch state from API with an option to force refresh
   const fetchBingoState = useCallback(async (forceRefresh = false) => {
     try {
@@ -299,6 +304,7 @@ export function useBingoStore() {
     toggleItemCompletion,
     resetCity,
     saveState, // Expose this for the Admin page
-    fetchBingoState // Expose this for forced refresh
+    fetchBingoState, // Expose this for forced refresh
+    refreshState // Simple alias for fetchBingoState(true)
   };
 }

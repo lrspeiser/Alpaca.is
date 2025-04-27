@@ -5,6 +5,7 @@ import BingoItemModal from "@/components/BingoItemModal";
 import InfoModal from "@/components/InfoModal";
 import Footer from "@/components/Footer";
 import GenerateDescriptionsButton from "@/components/GenerateDescriptionsButton";
+import GenerateAllImagesButton from "@/components/GenerateAllImagesButton";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import type { BingoItem } from "@/types";
 
