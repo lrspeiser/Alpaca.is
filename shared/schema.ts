@@ -24,6 +24,8 @@ export const bingoItems = pgTable("bingo_items", {
   image: text("image"), // Image URL can be any length
   description: text("description"),
   cityId: text("city_id").notNull(),
+  gridRow: integer("grid_row"), // 0-based row index (0-4)
+  gridCol: integer("grid_col"), // 0-based column index (0-4)
 });
 
 export const cities = pgTable("cities", {

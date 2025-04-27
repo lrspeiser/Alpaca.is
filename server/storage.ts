@@ -27,6 +27,8 @@ interface BingoItemType {
   isCenterSpace?: boolean;
   image?: string;
   description?: string;
+  gridRow?: number; // 0-based row index (0-4)
+  gridCol?: number; // 0-based column index (0-4)
 }
 
 interface CityTipType {
@@ -185,7 +187,11 @@ export class DatabaseStorage implements IStorage {
                   completed: item.completed,
                   isCenterSpace: item.isCenterSpace || false,
                   image: item.image || undefined, 
-                  description: item.description || undefined
+                  description: item.description || undefined,
+                  gridRow: item.gridRow,
+                  gridCol: item.gridCol,
+                  // Ensure center space is at position (2,2)
+                  ...(item.isCenterSpace && (!item.gridRow || !item.gridCol) ? { gridRow: 2, gridCol: 2 } : {})
                 };
               }),
               tips: cityTipItems.map((tip: any) => ({
@@ -427,6 +433,10 @@ export class DatabaseStorage implements IStorage {
               }
               
               if (existingItem) {
+                // Set center space (position 2,2 or 3,3 in one-based indexing) 
+                const gridRow = item.gridRow !== undefined ? item.gridRow : (item.isCenterSpace ? 2 : undefined);
+                const gridCol = item.gridCol !== undefined ? item.gridCol : (item.isCenterSpace ? 2 : undefined);
+                
                 await db
                   .update(bingoItems)
                   .set({
@@ -434,10 +444,16 @@ export class DatabaseStorage implements IStorage {
                     completed: item.completed,
                     isCenterSpace: item.isCenterSpace || false,
                     image: item.image,
-                    description: item.description
+                    description: item.description,
+                    gridRow: gridRow,
+                    gridCol: gridCol
                   })
                   .where(eq(bingoItems.id, item.id));
               } else {
+                // Set center space (position 2,2 or 3,3 in one-based indexing) 
+                const gridRow = item.gridRow !== undefined ? item.gridRow : (item.isCenterSpace ? 2 : undefined);
+                const gridCol = item.gridCol !== undefined ? item.gridCol : (item.isCenterSpace ? 2 : undefined);
+                
                 await db
                   .insert(bingoItems)
                   .values({
@@ -447,7 +463,9 @@ export class DatabaseStorage implements IStorage {
                     isCenterSpace: item.isCenterSpace || false,
                     image: item.image,
                     description: item.description,
-                    cityId: cityId
+                    cityId: cityId,
+                    gridRow: gridRow,
+                    gridCol: gridCol
                   });
               }
             } catch (itemError) {

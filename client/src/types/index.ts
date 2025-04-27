@@ -5,6 +5,8 @@ export interface BingoItem {
   isCenterSpace?: boolean;
   image?: string;
   description?: string;
+  gridRow?: number; // 0-based row index (0-4)
+  gridCol?: number; // 0-based column index (0-4)
 }
 
 export interface CityTip {
