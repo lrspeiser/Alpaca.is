@@ -58,7 +58,8 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
           className={cn(
             "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
             item.completed ? "completed" : "bg-white",
-            item.isCenterSpace && "center-space bg-blue-100 font-semibold"
+            item.isCenterSpace && !item.completed && "center-space bg-blue-50 font-semibold",
+            item.isCenterSpace && item.completed && "center-space completed"
           )}
         >
           {item.completed ? (
