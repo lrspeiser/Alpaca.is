@@ -21,7 +21,7 @@ export const bingoItems = pgTable("bingo_items", {
   text: text("text").notNull(),
   completed: boolean("completed").notNull().default(false),
   isCenterSpace: boolean("is_center_space").default(false),
-  image: text("image"),
+  image: text("image"), // Image URL can be any length
   description: text("description"),
   cityId: text("city_id").notNull(),
 });

@@ -392,6 +392,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Save the updated state to the database
         await storage.saveBingoState(updatedState);
+        
+        // Also directly update the database item 
+        try {
+          log(`Directly updating image URL in database for item ${itemId}`, 'ai-generation');
+          
+          // Import necessary modules
+          const { eq } = await import('drizzle-orm');
+          const { bingoItems } = await import('@shared/schema');
+          const { db } = await import('./db');
+          
+          // Update the database directly
+          await db
+            .update(bingoItems)
+            .set({ image: imageUrl })
+            .where(eq(bingoItems.id, itemId));
+            
+          log(`Direct database update completed for item ${itemId}`, 'ai-generation');
+        } catch (error: any) {
+          log(`Error during direct database update: ${error?.message || 'Unknown error'}`, 'ai-generation');
+        }
       }
       
       res.json({ 
