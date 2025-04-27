@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -6,8 +7,17 @@ import { generateBulkDescriptions, generateItemDescription } from "./openai";
 import { generateBingoItems, generateItemImage } from "./generator";
 import { log } from "./vite";
 import { setupImageProxy } from "./imageProxy";
+import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up image proxy for handling OpenAI image URLs
+  setupImageProxy(app);
+  
+  // Set up static serving for stored images
+  const imageDir = setupImageServing(app);
+  
+  // Set up additional static route for the image directory
+  app.use('/images', express.static(imageDir));
   // Get the current bingo state
   app.get("/api/bingo-state", async (req: Request, res: Response) => {
     try {
@@ -337,8 +347,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ error: errorMsg });
         }
         
-        log(`Successfully generated image for "${itemText}" - URL: ${imageUrl}`, 'ai-generation');
-        log(`Image URL for storage: ${imageUrl.slice(0, 50)}...`, 'ai-generation');
+        log(`Successfully generated image from OpenAI for "${itemText}" - URL: ${imageUrl.slice(0, 50)}...`, 'ai-generation');
+        
+        // Now store the OpenAI image locally
+        log(`Storing OpenAI image locally...`, 'ai-generation');
+        try {
+          const localImageUrl = await processOpenAIImageUrl(
+            imageUrl,
+            cityId,
+            itemId || `generated-${Date.now()}`,
+            itemText || 'Generated Image'
+          );
+          
+          log(`Image stored locally at ${localImageUrl}`, 'ai-generation');
+          
+          // Replace the OpenAI URL with our local URL
+          imageUrl = localImageUrl;
+        } catch (storageError: any) {
+          log(`Warning: Failed to store image locally: ${storageError.message}`, 'ai-generation');
+          log(`Falling back to original OpenAI URL (this may expire)`, 'ai-generation');
+        }
       } catch (imageError: any) {
         const errorDetails = {
           message: imageError?.message || 'Unknown error',

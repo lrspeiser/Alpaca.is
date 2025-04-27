@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getProxiedImageUrl } from '../lib/imageUtils';
 
 interface ImageDebuggerProps {
   src: string | null | undefined;
@@ -21,13 +22,16 @@ export interface ImageLoadInfo {
  * Will display the image if it loads successfully, or error information if it fails
  */
 export function ImageDebugger({ src, alt, className = '', onLoadInfo }: ImageDebuggerProps) {
+  // Get a proxied URL if the source is from OpenAI
+  const proxiedSrc = getProxiedImageUrl(src);
+  
   const [loadInfo, setLoadInfo] = useState<ImageLoadInfo>({
     loaded: false,
     bytesLoaded: 0,
     error: null,
     status: 'initializing',
     timeTaken: 0,
-    url: src || '',
+    url: proxiedSrc || '',
   });
 
   useEffect(() => {
@@ -50,14 +54,14 @@ export function ImageDebugger({ src, alt, className = '', onLoadInfo }: ImageDeb
       error: null,
       status: 'loading',
       timeTaken: 0,
-      url: src,
+      url: proxiedSrc || src,
     });
 
     // Start timer
     const startTime = performance.now();
 
     // Fetch the image to get detailed status
-    fetch(src, { method: 'HEAD' })
+    fetch(proxiedSrc || src, { method: 'HEAD' })
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
@@ -72,7 +76,7 @@ export function ImageDebugger({ src, alt, className = '', onLoadInfo }: ImageDeb
           status: `head-success: ${contentType}, size=${contentLength || 'unknown'} bytes`,
         }));
         
-        return fetch(src);
+        return fetch(proxiedSrc || src);
       })
       .then(response => {
         if (!response.ok) {
