@@ -16,27 +16,10 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   // All state declarations must come before any other code
   const [localItem, setLocalItem] = useState<BingoItem | null>(null);
   const [isToggling, setIsToggling] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   
-  // Collection of reliable travel-themed images (same as in BingoGrid)
-  const travelImages = [
-    "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1504150558240-0b4fd8946624?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1499678329028-101435549a4e?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1504542982118-59308b40fe0c?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1513581166391-887a96ddeafd?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1502791451862-7bd8c1df43a7?auto=format&fit=crop&w=600&h=400&q=80",
-    "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=600&h=400&q=80"
-  ];
-  
-  // Simple function to get an appropriate image URL
-  const getImageUrl = (item: BingoItem & { imageUrl?: string }) => {
+  // Function to get image URL from the database only - no placeholder images
+  const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
     console.log(`[MODAL DEBUG] Item ${item.id} full data:`, item);
     
     // Try item.image first
@@ -51,10 +34,9 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
       return (item as any).imageUrl;
     }
     
-    // Use a reliable fallback
-    const fallbackUrl = "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=600&h=400&q=80";
-    console.log(`[MODAL] Using hardcoded fallback for ${item.id}`);
-    return fallbackUrl;
+    // No fallback - return null if no image is found
+    console.log(`[MODAL] No image found for ${item.id}`);
+    return null;
   };
   
   // Update local state when item changes
@@ -137,14 +119,16 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
         </div>
         
         <div className="p-5">
-          {/* Display AI-generated image if available, or fallback to placeholder */}
-          <div className="mb-4 h-56 overflow-hidden rounded-lg">
-            <img 
-              src={imageUrl} 
-              alt={localItem.text} 
-              className="w-full h-full object-cover"
-            />
-          </div>
+          {/* Only display image if one is available from the database */}
+          {imageUrl && typeof imageUrl === 'string' && (
+            <div className="mb-4 h-56 overflow-hidden rounded-lg">
+              <img 
+                src={imageUrl} 
+                alt={localItem.text} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
           
           {/* AI-generated description with improved styling */}
           <div className="mb-6">

@@ -36,37 +36,10 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
     }, 300);
   };
   
-  // Collection of reliable travel-themed images
-  const travelImages = [
-    "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1507608869274-d3177c8bb4c7?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1504150558240-0b4fd8946624?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1499678329028-101435549a4e?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1504542982118-59308b40fe0c?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1513581166391-887a96ddeafd?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1502791451862-7bd8c1df43a7?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1502920514313-52581002a659?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1517760444937-f6397edcbbcd?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1504150558240-0b4fd8946624?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1491331568367-8f21c7269f6d?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1503221043305-f7498f8b7888?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1?auto=format&fit=crop&w=300&h=300&q=80",
-    "https://images.unsplash.com/photo-1498307833015-e7b400441eb8?auto=format&fit=crop&w=300&h=300&q=80"
-  ];
+  // No more placeholder images - we only use database images
   
-  // Function to get image URL for an item using cached URLs
-  const getImageUrl = (item: BingoItem & { imageUrl?: string }) => {
+  // Function to get image URL for an item using cached URLs - only from database, no placeholders
+  const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
     // First check our cached image URLs from state
     if (itemImages[item.id] && itemImages[item.id].length > 0) {
       return itemImages[item.id];
@@ -94,10 +67,9 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
       return (item as any).imageUrl;
     }
     
-    // Use a reliable fallback
-    const fallbackUrl = travelImages[0];
-    console.log(`[GRID] Using hardcoded fallback for ${item.id}`);
-    return fallbackUrl;
+    // No fallback images, return null
+    console.log(`[GRID] No image found for ${item.id}`);
+    return null;
   };
   
   // Create a 5x5 grid with null values
@@ -197,11 +169,17 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
               
               {item.completed ? (
                 <div className="w-full h-full relative">
-                  <img 
-                    src={getImageUrl(item)} 
-                    alt={item.text}
-                    className="w-full h-full object-cover absolute inset-0"
-                  />
+                  {/* Only show image if we have a valid URL */}
+                  {(() => {
+                    const imageUrl = getImageUrl(item);
+                    return imageUrl ? (
+                      <img 
+                        src={imageUrl} 
+                        alt={item.text}
+                        className="w-full h-full object-cover absolute inset-0"
+                      />
+                    ) : null;
+                  })()}
                   <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-1">
                     <p className="text-[10px] leading-tight font-medium text-white">{item.text}</p>
                   </div>
