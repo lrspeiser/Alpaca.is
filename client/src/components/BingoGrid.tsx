@@ -1,19 +1,39 @@
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { cn } from "@/lib/utils";
 import type { BingoItem } from "@/types";
+import { useState, useEffect } from "react";
 
 interface BingoGridProps {
   onItemClick: (item: BingoItem) => void;
 }
 
 export default function BingoGrid({ onItemClick }: BingoGridProps) {
-  const { cities, currentCity, toggleItemCompletion } = useBingoStore();
+  const { cities, currentCity, toggleItemCompletion, fetchBingoState } = useBingoStore();
   const items = cities[currentCity]?.items || [];
+  // Track when we need to force a re-render
+  const [forceRefresh, setForceRefresh] = useState(0);
+  // Track image URLs in state to ensure they're updated
+  const [itemImages, setItemImages] = useState<Record<string, string>>({});
   
-  // Function to handle clicking on a bingo tile
+  // Update image cache whenever items change
+  useEffect(() => {
+    const newImageMap: Record<string, string> = {};
+    items.forEach(item => {
+      newImageMap[item.id] = item.image || '';
+    });
+    setItemImages(newImageMap);
+  }, [items, forceRefresh]);
+  
+  // Function to handle clicking on a bingo tile with forced refresh
   const handleTileClick = (item: BingoItem) => {
-    // For normal click, open the modal
+    // First, open the modal
     onItemClick(item);
+    
+    // After a small delay, force refresh the component data
+    setTimeout(() => {
+      fetchBingoState(true);
+      setForceRefresh(prev => prev + 1);
+    }, 300);
   };
   
   // Collection of reliable travel-themed images
@@ -45,8 +65,14 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
     "https://images.unsplash.com/photo-1498307833015-e7b400441eb8?auto=format&fit=crop&w=300&h=300&q=80"
   ];
   
-  // Function to get image URL for an item
+  // Function to get image URL for an item using cached URLs
   const getImageUrl = (item: BingoItem) => {
+    // First check our cached image URLs from state
+    if (itemImages[item.id] && itemImages[item.id].length > 0) {
+      return itemImages[item.id];
+    }
+    
+    // Then check the item itself
     if (item.image) {
       // Use the AI-generated image from the item
       return item.image;
@@ -143,8 +169,8 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
           
           return (
             <div
-              key={item.id}
-              onClick={() => onItemClick(item)}
+              key={`${item.id}-${forceRefresh}`}
+              onClick={() => handleTileClick(item)}
               className={cn(
                 "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
                 item.completed ? "completed" : "bg-white",

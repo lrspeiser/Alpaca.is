@@ -116,16 +116,18 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     return travelImages[imageIndex];
   };
   
+  // Track the image URL in state to force re-rendering when it changes
+  const [imageUrl, setImageUrl] = useState<string>('');
+  
   // Force a refresh of the imageUrl when localItem changes
   useEffect(() => {
     if (localItem) {
-      // This will trigger a re-render with the updated image
+      // Update image URL in state to trigger re-render when it changes
       const url = getImageUrl(localItem);
+      setImageUrl(url);
       console.log(`[MODAL] Image URL for ${localItem.id} set to: ${url.substring(0, 50)}...`);
     }
   }, [localItem?.id, localItem?.image, localItem?.completed]);
-  
-  const imageUrl = getImageUrl(localItem);
   
   // Detailed logging for item data and content
   console.log('[MODAL] Opening bingo item:', localItem);
