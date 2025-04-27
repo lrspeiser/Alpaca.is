@@ -49,25 +49,57 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
     return travelImages[imageIndex];
   };
   
-  // Sort items to ensure center space is in middle position
-  const sortedItems = [...items].sort((a, b) => {
-    if (a.isCenterSpace) return 1; // Place center space last
-    if (b.isCenterSpace) return -1;
-    return 0;
+  // Create a 5x5 grid with null values
+  const grid: (BingoItem | null)[][] = Array(5).fill(null).map(() => Array(5).fill(null));
+  
+  // First, place items with defined grid positions
+  const remainingItems: BingoItem[] = [];
+  let centerItem: BingoItem | null = null;
+  
+  items.forEach(item => {
+    // Find the center item
+    if (item.isCenterSpace) {
+      centerItem = item;
+      // Ensure center item always goes in center (2,2)
+      grid[2][2] = item;
+      return;
+    }
+    
+    // Place items with defined grid positions
+    if (typeof item.gridRow === 'number' && typeof item.gridCol === 'number' && 
+        item.gridRow >= 0 && item.gridRow < 5 && 
+        item.gridCol >= 0 && item.gridCol < 5) {
+      // Don't override center position (2,2)
+      if (item.gridRow === 2 && item.gridCol === 2) {
+        remainingItems.push(item);
+      } else {
+        grid[item.gridRow][item.gridCol] = item;
+      }
+    } else {
+      remainingItems.push(item);
+    }
   });
   
-  // Find index of center space (should be 12 in a 0-based 5x5 grid)
-  const centerIndex = sortedItems.findIndex(item => item.isCenterSpace);
-  
-  // Move center space to middle position if it exists
-  if (centerIndex !== -1) {
-    const centerItem = sortedItems.splice(centerIndex, 1)[0];
-    sortedItems.splice(12, 0, centerItem);
+  // Ensure we have a center item
+  if (!grid[2][2] && centerItem) {
+    grid[2][2] = centerItem;
   }
+  
+  // Fill remaining positions with unpositioned items
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 5; col++) {
+      if (!grid[row][col] && remainingItems.length > 0) {
+        grid[row][col] = remainingItems.shift() || null;
+      }
+    }
+  }
+  
+  // Flatten the grid to a single array for rendering
+  const flattenedItems = grid.flat().filter(item => item !== null) as BingoItem[];
   
   return (
     <div className="bingo-grid mx-auto max-w-md mb-6 grid grid-cols-5 gap-0">
-      {sortedItems.map((item) => (
+      {flattenedItems.map((item) => (
         <div
           key={item.id}
           onClick={() => onItemClick(item)}

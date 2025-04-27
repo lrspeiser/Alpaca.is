@@ -188,10 +188,10 @@ export class DatabaseStorage implements IStorage {
                   isCenterSpace: item.isCenterSpace || false,
                   image: item.image || undefined, 
                   description: item.description || undefined,
-                  gridRow: item.gridRow,
-                  gridCol: item.gridCol,
+                  gridRow: item.gridRow !== null ? item.gridRow : undefined,
+                  gridCol: item.gridCol !== null ? item.gridCol : undefined,
                   // Ensure center space is at position (2,2)
-                  ...(item.isCenterSpace && (!item.gridRow || !item.gridCol) ? { gridRow: 2, gridCol: 2 } : {})
+                  ...(item.isCenterSpace ? { gridRow: 2, gridCol: 2 } : {})
                 };
               }),
               tips: cityTipItems.map((tip: any) => ({
