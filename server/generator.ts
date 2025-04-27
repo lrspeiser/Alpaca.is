@@ -113,18 +113,31 @@ export async function generateBingoItems(
  */
 export async function generateItemImage(
   itemText: string,
-  cityName: string
+  cityName: string,
+  description?: string
 ): Promise<string> {
   try {
-    // Create a detailed prompt for the image
-    const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
+    // Create a detailed prompt for the image that incorporates the description if available
+    let prompt = `A high-quality square travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective, square 1:1 aspect ratio.`;
+    
+    // Add description details to the prompt if available
+    if (description) {
+      // Truncate description if it's too long
+      const shortDescription = description.length > 200 
+        ? description.substring(0, 200) + '...' 
+        : description;
+      
+      prompt += ` Context: ${shortDescription}`;
+    }
     
     log(`Starting image generation via OpenAI API with gpt-image-1 model (updated April 2025), prompt: ${prompt}`, "openai-debug");
     
-    // Prepare request body
+    // Prepare request body with explicit square size
     const reqBody = {
       model: "gpt-image-1", // Using gpt-image-1 for image generation (latest as of April 2025)
       prompt,
+      size: "1024x1024", // Force square aspect ratio
+      output_format: "png", // Consistent format for better quality
       n: 1
     };
     
