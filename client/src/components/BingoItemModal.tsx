@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { useBingoStore } from "@/hooks/useBingoStore";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { BingoItem } from "@/types";
 
 interface BingoItemModalProps {
@@ -12,6 +12,16 @@ interface BingoItemModalProps {
 
 export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModalProps) {
   const { toggleItemCompletion } = useBingoStore();
+  // Track local state to update UI immediately
+  const [localItem, setLocalItem] = useState<BingoItem | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
+  
+  // Update local state when item changes
+  useEffect(() => {
+    if (item) {
+      setLocalItem(item);
+    }
+  }, [item]);
   
   // Prevent scrolling when modal is open
   useEffect(() => {
@@ -26,14 +36,41 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     };
   }, [isOpen]);
   
-  if (!isOpen || !item) return null;
+  if (!isOpen || !localItem) return null;
+  
+  // Add visual feedback for toggling state
+  const isPending = isToggling;
   
   const handleToggleCompletion = async (completed: boolean) => {
-    // Toggle the item completion
-    await toggleItemCompletion(item.id);
+    // Update local state immediately
+    setIsToggling(true);
+    setLocalItem(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        completed: !prev.completed
+      };
+    });
     
-    // Close the modal after toggling is complete
-    onClose();
+    // Update backend
+    try {
+      await toggleItemCompletion(localItem.id);
+      console.log(`Item ${localItem.id} toggled to ${!localItem.completed}`);
+    } catch (error) {
+      console.error("Error toggling item completion:", error);
+      // Revert local state if there was an error
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          completed: !prev.completed
+        };
+      });
+    } finally {
+      setIsToggling(false);
+      // Close the modal after toggling is complete
+      onClose();
+    }
   };
   
   // Collection of reliable travel-themed images (same as in BingoGrid)
@@ -79,19 +116,19 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     return travelImages[imageIndex];
   };
   
-  const imageUrl = getImageUrl(item);
+  const imageUrl = getImageUrl(localItem);
   
   // Detailed logging for item data and content
-  console.log('[MODAL] Opening bingo item:', item);
+  console.log('[MODAL] Opening bingo item:', localItem);
   console.log('[MODAL] Item details:', {
-    id: item.id,
-    text: item.text,
-    completed: item.completed,
-    isCenterSpace: item.isCenterSpace || false,
-    hasDescription: !!item.description,
-    description: item.description ? item.description.substring(0, 50) + '...' : 'none',
-    descriptionLength: item.description?.length || 0,
-    hasImage: !!item.image,
+    id: localItem.id,
+    text: localItem.text,
+    completed: localItem.completed,
+    isCenterSpace: localItem.isCenterSpace || false,
+    hasDescription: !!localItem.description,
+    description: localItem.description ? localItem.description.substring(0, 50) + '...' : 'none',
+    descriptionLength: localItem.description?.length || 0,
+    hasImage: !!localItem.image,
     imageUrl: imageUrl.slice(0, 50) + '...'
   });
   
@@ -99,7 +136,7 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
-          <h3 className="font-heading font-bold text-lg">{item.text}</h3>
+          <h3 className="font-heading font-bold text-lg">{localItem.text}</h3>
           <Button 
             variant="ghost" 
             size="iconSm" 
@@ -115,42 +152,44 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
           <div className="mb-4 h-56 overflow-hidden rounded-lg">
             <img 
               src={imageUrl} 
-              alt={item.text} 
+              alt={localItem.text} 
               className="w-full h-full object-cover"
             />
           </div>
           
           {/* AI-generated description with improved styling */}
           <div className="mb-6">
-            {item.description ? (
+            {localItem.description ? (
               <div>
                 <h4 className="text-base font-bold mb-2 text-primary">About this activity:</h4>
                 <div className="text-sm bg-gray-50 p-4 rounded-lg border border-gray-200 leading-relaxed shadow-sm">
-                  {item.description}
+                  {localItem.description}
                 </div>
               </div>
             ) : (
               <p className="text-sm text-gray-600 italic">
-                Have you completed "{item.text}" yet? Mark it as done when you have!
+                Have you completed "{localItem.text}" yet? Mark it as done when you have!
               </p>
             )}
           </div>
           
           <div className="flex space-x-3">
             <Button 
-              variant={item.completed ? "default" : "outline"} 
+              variant={localItem.completed ? "default" : "outline"} 
               className="flex-1"
+              disabled={isPending}
               onClick={() => handleToggleCompletion(true)}
             >
-              {item.completed ? "Completed ✓" : "Mark as Done"}
+              {localItem.completed ? "Completed ✓" : "Mark as Done"}
             </Button>
             
             <Button 
-              variant={!item.completed ? "default" : "outline"} 
+              variant={!localItem.completed ? "default" : "outline"} 
               className="flex-1"
+              disabled={isPending}
               onClick={() => handleToggleCompletion(false)}
             >
-              {!item.completed ? "Not Done ✗" : "Mark as Not Done"}
+              {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
             </Button>
           </div>
         </div>
