@@ -28,8 +28,11 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   
   if (!isOpen || !item) return null;
   
-  const handleToggleCompletion = (completed: boolean) => {
-    toggleItemCompletion(item.id);
+  const handleToggleCompletion = async (completed: boolean) => {
+    // Toggle the item completion
+    await toggleItemCompletion(item.id);
+    
+    // Close the modal after toggling is complete
     onClose();
   };
   

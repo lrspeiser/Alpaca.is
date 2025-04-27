@@ -150,6 +150,45 @@ export function useBingoStore() {
   const toggleItemCompletion = useCallback(async (itemId: string) => {
     const currentCity = state.currentCity;
     
+    // Update local state immediately for responsive UI
+    let newStatePromise = new Promise<BingoState>((resolve) => {
+      setState(prev => {
+        const cityItems = [...prev.cities[currentCity].items];
+        const itemIndex = cityItems.findIndex(item => item.id === itemId);
+        
+        if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
+          cityItems[itemIndex] = {
+            ...cityItems[itemIndex],
+            completed: !cityItems[itemIndex].completed
+          };
+          
+          const updatedCity: City = {
+            ...prev.cities[currentCity],
+            items: cityItems
+          };
+          
+          const newState = {
+            ...prev,
+            cities: {
+              ...prev.cities,
+              [currentCity]: updatedCity
+            }
+          };
+          
+          // Save to localStorage as backup
+          saveToLocalStorage(STORAGE_KEY, newState);
+          
+          // Resolve the promise with the new state
+          resolve(newState);
+          return newState;
+        }
+        
+        resolve(prev);
+        return prev;
+      });
+    });
+    
+    // Then call API to persist changes
     try {
       // Call API to toggle item completion
       const response = await fetch('/api/toggle-item', {
@@ -164,73 +203,11 @@ export function useBingoStore() {
         throw new Error('Failed to toggle item completion via API');
       }
       
-      // Update local state
-      setState(prev => {
-        const cityItems = [...prev.cities[currentCity].items];
-        const itemIndex = cityItems.findIndex(item => item.id === itemId);
-        
-        if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
-          cityItems[itemIndex] = {
-            ...cityItems[itemIndex],
-            completed: !cityItems[itemIndex].completed
-          };
-          
-          const updatedCity: City = {
-            ...prev.cities[currentCity],
-            items: cityItems
-          };
-          
-          const newState = {
-            ...prev,
-            cities: {
-              ...prev.cities,
-              [currentCity]: updatedCity
-            }
-          };
-          
-          // Save to localStorage as backup
-          saveToLocalStorage(STORAGE_KEY, newState);
-          
-          return newState;
-        }
-        
-        return prev;
-      });
+      return await newStatePromise;
     } catch (error) {
-      console.error('Failed to toggle item completion:', error);
-      
-      // Fallback to direct state update if API fails
-      setState(prev => {
-        const cityItems = [...prev.cities[currentCity].items];
-        const itemIndex = cityItems.findIndex(item => item.id === itemId);
-        
-        if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
-          cityItems[itemIndex] = {
-            ...cityItems[itemIndex],
-            completed: !cityItems[itemIndex].completed
-          };
-          
-          const updatedCity: City = {
-            ...prev.cities[currentCity],
-            items: cityItems
-          };
-          
-          const newState = {
-            ...prev,
-            cities: {
-              ...prev.cities,
-              [currentCity]: updatedCity
-            }
-          };
-          
-          // Save to localStorage as backup
-          saveToLocalStorage(STORAGE_KEY, newState);
-          
-          return newState;
-        }
-        
-        return prev;
-      });
+      console.error('Failed to toggle item completion via API:', error);
+      // We've already updated the local state, so just return that
+      return await newStatePromise;
     }
   }, [state.currentCity, saveState]);
   

@@ -7,8 +7,14 @@ interface BingoGridProps {
 }
 
 export default function BingoGrid({ onItemClick }: BingoGridProps) {
-  const { cities, currentCity } = useBingoStore();
+  const { cities, currentCity, toggleItemCompletion } = useBingoStore();
   const items = cities[currentCity]?.items || [];
+  
+  // Function to handle clicking on a bingo tile
+  const handleTileClick = (item: BingoItem) => {
+    // For normal click, open the modal
+    onItemClick(item);
+  };
   
   // Collection of reliable travel-themed images
   const travelImages = [
