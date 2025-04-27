@@ -173,14 +173,21 @@ export class DatabaseStorage implements IStorage {
               title: city.title,
               subtitle: city.subtitle || '',
               backgroundImage: city.backgroundImage,
-              items: cityItems.map(item => ({
-                id: item.id,
-                text: item.text,
-                completed: item.completed,
-                isCenterSpace: item.isCenterSpace || false,
-                image: item.image || undefined,
-                description: item.description || undefined
-              })),
+              items: cityItems.map(item => {
+                // Log each item with an image to debug retrieval
+                if (item.image) {
+                  console.log(`[DB RETRIEVE] Found item ${item.id} with image URL: ${item.image.substring(0, 30)}...`);
+                }
+                
+                return {
+                  id: item.id,
+                  text: item.text,
+                  completed: item.completed,
+                  isCenterSpace: item.isCenterSpace || false,
+                  image: item.image || undefined, 
+                  description: item.description || undefined
+                };
+              }),
               tips: cityTipItems.map((tip: any) => ({
                 title: tip.title,
                 text: tip.text
@@ -403,13 +410,19 @@ export class DatabaseStorage implements IStorage {
                 .from(bingoItems)
                 .where(eq(bingoItems.id, item.id));
               
+              // Debug logging for all items with images
+              if (item.image) {
+                console.log(`[DB] Item ${item.id} has image URL:`, item.image.substring(0, 30) + '...');
+              }
+              
               // Debug our test item
               if (item.id === 'prague-4') {
                 console.log('[DB] Saving item prague-4 with data:', { 
                   hasDescription: !!item.description,
                   description: item.description ? `${item.description.substring(0, 50)}...` : 'none',
                   hasImage: !!item.image,
-                  imageUrl: item.image ? `${item.image.substring(0, 30)}...` : 'none'
+                  imageUrl: item.image ? `${item.image.substring(0, 30)}...` : 'none',
+                  imageUrlLength: item.image ? item.image.length : 0
                 });
               }
               

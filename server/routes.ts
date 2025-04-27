@@ -337,6 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         log(`Successfully generated image for "${itemText}" - URL: ${imageUrl}`, 'ai-generation');
+        log(`Image URL for storage: ${imageUrl.slice(0, 50)}...`, 'ai-generation');
       } catch (imageError: any) {
         const errorDetails = {
           message: imageError?.message || 'Unknown error',
@@ -355,17 +356,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If we have an itemId, update the item with the new image
       if (itemId && targetItem) {
+        log(`Adding image URL to item ${itemId}: length=${imageUrl.length}, starts with: ${imageUrl.substring(0, 30)}...`, 'ai-generation');
+        
+        // Create a deep copy to ensure we don't have reference issues
         const updatedItems = city.items.map(i => 
           i.id === itemId ? { ...i, image: imageUrl } : i
         );
         
-        // Update the city
+        // Double-check that the image URL is properly set in the new item
+        const updatedItem = updatedItems.find(i => i.id === itemId);
+        if (updatedItem && updatedItem.image === imageUrl) {
+          log(`Successfully set image URL on item ${itemId}`, 'ai-generation');
+        } else {
+          log(`WARNING: Failed to set image URL on item ${itemId}`, 'ai-generation');
+        }
+        
+        // Update the city with the modified items
         const updatedCity = {
           ...city,
           items: updatedItems
         };
         
-        // Update the state
+        // Update the state with the modified city
         const updatedState = {
           ...state,
           cities: {
@@ -374,7 +386,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         };
         
-        // Save the updated state
+        // Double-check in state object
+        const checkItem = updatedState.cities[cityId].items.find(i => i.id === itemId);
+        log(`Final image URL check for ${itemId}: ${checkItem?.image ? 'URL present' : 'No URL'}`, 'ai-generation');
+        
+        // Save the updated state to the database
         await storage.saveBingoState(updatedState);
       }
       
