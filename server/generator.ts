@@ -103,7 +103,7 @@ export async function generateBingoItems(
 
 /**
  * Generate an image for a bingo item using OpenAI's GPT-Image model
- * Skips the OpenAI SDK and uses direct fetch to avoid configuration issues
+ * Updated as of April 2025 to use the newer gpt-image-1 model
  * 
  * @param itemText The text of the bingo item
  * @param cityName The name of the city
@@ -117,15 +117,13 @@ export async function generateItemImage(
     // Create a detailed prompt for the image
     const prompt = `A high-quality travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective.`;
     
-    log(`Starting image generation via direct API call with model dall-e-3, prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via OpenAI API with gpt-image-1 model (updated April 2025), prompt: ${prompt}`, "openai-debug");
     
     // Prepare request body
     const reqBody = {
-      model: "dall-e-3", // Using dall-e-3 for image generation
+      model: "gpt-image-1", // Using gpt-image-1 for image generation (latest as of April 2025)
       prompt,
-      n: 1,
-      size: "1024x1024", 
-      quality: "standard"
+      n: 1
     };
     
     log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
