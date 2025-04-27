@@ -4,6 +4,7 @@ import { useBingoStore } from "@/hooks/useBingoStore";
 import { useEffect, useState } from "react";
 import type { BingoItem } from "@/types";
 import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
+import { getProxiedImageUrl } from "../lib/imageUtils";
 
 interface BingoItemModalProps {
   item: BingoItem | null;
@@ -19,7 +20,7 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   const [isToggling, setIsToggling] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   
-  // Simplified function to get image URL directly from either property
+  // Simplified function to get image URL directly from either property and proxy if needed
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
     console.log(`[MODAL DEBUG] Item ${item.id} full data:`, item);
     
@@ -28,7 +29,10 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     
     if (directImageUrl && typeof directImageUrl === 'string' && directImageUrl.startsWith('http')) {
       console.log(`[MODAL] Found image URL for ${item.id}: ${directImageUrl.substring(0, 30)}...`);
-      return directImageUrl;
+      
+      // Use the proxy for OpenAI URLs to avoid CORS and expiration issues
+      const proxiedUrl = getProxiedImageUrl(directImageUrl);
+      return proxiedUrl || directImageUrl;
     }
     
     // No fallback - return null if no image is found

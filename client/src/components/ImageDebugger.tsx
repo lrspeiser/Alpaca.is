@@ -183,7 +183,7 @@ export function ImageDebugger({ src, alt, className = '', onLoadInfo }: ImageDeb
   return (
     <div className={`image-debugger ${className}`} style={{ position: 'relative' }}>
       <img
-        src={src || ''}
+        src={proxiedSrc || src || ''}
         alt={alt}
         className={className}
         style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
