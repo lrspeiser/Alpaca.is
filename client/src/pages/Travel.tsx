@@ -5,7 +5,6 @@ import BingoItemModal from "@/components/BingoItemModal";
 import InfoModal from "@/components/InfoModal";
 import Footer from "@/components/Footer";
 import GenerateDescriptionsButton from "@/components/GenerateDescriptionsButton";
-import GenerateAllImagesButton from "@/components/GenerateAllImagesButton";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import type { BingoItem } from "@/types";
 
@@ -38,11 +37,6 @@ export default function Travel() {
         {/* City subtitle */}
         <div className="mb-6 text-center">
           <p className="text-sm text-gray-600">{city.subtitle}</p>
-        </div>
-        
-        {/* Generate All Images button - only shown when there are images to generate */}
-        <div className="mb-2">
-          <GenerateAllImagesButton />
         </div>
         
         {/* Bingo Grid with title */}
