@@ -100,41 +100,13 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
     }
   }
   
-  // Debugging: log grid structure before flattening
-  console.log('Grid structure before rendering:');
-  grid.forEach((row, rowIndex) => {
-    console.log(`Row ${rowIndex}:`, row.map(item => item ? item.id : 'null'));
-  });
-  
-  // Check if center position has the right item
-  const centerGridItem = grid[2][2];
-  if (centerGridItem) {
-    console.log('Center item:', centerGridItem.id, `(isCenterSpace: ${!!centerGridItem.isCenterSpace})`);
-  } else {
-    console.log('Center item: null');
-  }
-  
-  // DO NOT FLATTEN - instead render the grid as a 2D array to preserve positions
-  // const flattenedItems = grid.flat().filter(item => item !== null) as BingoItem[];
-  
-  console.log('Debug grid rendering:');
-  console.log('grid:', grid);
-  // Highlighting for items in wrong positions
-  const centerItem = grid[2][2];
-  console.log('Items to check for visual correctness:');
-  if (centerItem) {
-    console.log('center item at [2,2]:', centerItem.id, centerItem.text, centerItem.isCenterSpace ? 'IS CENTER' : 'NOT CENTER');
-  } else {
-    console.log('No center item at [2,2]!');
-  }
-  
-  // Special CSS for better debugging - using CSS Grid to preserve the exact row/column structure
-  const gridContainerStyle = {
+  // CSS Grid layout for the 5x5 bingo grid - ensures items are positioned correctly
+  const gridContainerStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateRows: 'repeat(5, minmax(60px, 1fr))',     // 5 rows of equal height
-    gridTemplateColumns: 'repeat(5, minmax(60px, 1fr))',  // 5 columns of equal width
+    gridTemplateRows: 'repeat(5, minmax(60px, 1fr))',
+    gridTemplateColumns: 'repeat(5, minmax(60px, 1fr))',
     gap: '0',
-    border: '3px solid #333',
+    border: '1px solid #ddd',
     borderRadius: '0.5rem',
     overflow: 'hidden',
   };
@@ -153,19 +125,16 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
           const itemStyle = {
             gridRow: `${rowIndex + 1}`,    // CSS grid is 1-indexed
             gridColumn: `${colIndex + 1}`,  // CSS grid is 1-indexed
-            position: 'relative',
-            height: '100%',
+            height: '100%', 
             minHeight: '60px'
-          };
+          } as React.CSSProperties;
           if (!item) {
             return (
               <div 
                 key={`empty-${rowIndex}-${colIndex}`} 
                 className="bingo-tile bg-gray-100" 
-                style={itemStyle}
-              >
-                {`[${rowIndex},${colIndex}]`}
-              </div>
+                style={itemStyle as React.CSSProperties}
+              />
             );
           }
           
@@ -176,26 +145,10 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
               className={cn(
                 "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
                 item.completed ? "completed" : "bg-white",
-                item.isCenterSpace && "center-space font-semibold",
-                item.text === "Arrive in Prague" && "!bg-red-200 !border-red-500 !border-2"
+                item.isCenterSpace && "center-space font-semibold"
               )}
-              data-position={`[${rowIndex},${colIndex}]`}
-              data-id={item.id}
-              data-is-center={item.isCenterSpace ? "true" : "false"}
-              data-text={item.text}
-              style={itemStyle}
+              style={itemStyle as React.CSSProperties}
             >
-              {/* Position indicator */}
-              <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-[8px] px-1 z-10">
-                {`[${rowIndex},${colIndex}]`}
-              </div>
-              
-              {/* Debug info for Arrive in Prague item */}
-              {item.text === "Arrive in Prague" && (
-                <div className="absolute top-0 right-0 bg-red-600 text-white text-[7px] p-[2px] z-10 font-bold">
-                  CENTER
-                </div>
-              )}
               
               {item.completed ? (
                 <div className="w-full h-full relative">
