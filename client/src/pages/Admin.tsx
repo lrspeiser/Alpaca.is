@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BrainCircuit, ImagePlus, Info, Plus, X, Save, RefreshCw, ArrowLeft } from "lucide-react";
 import type { BingoItem, City } from "@/types";
 import { Link } from "wouter";
+import GenerateAllImagesButton from "@/components/GenerateAllImagesButton";
 
 export default function Admin() {
   const { cities, currentCity, saveState, fetchBingoState } = useBingoStore();
@@ -716,6 +717,11 @@ export default function Admin() {
                       <Info className="mr-2 h-4 w-4" />
                       View Items
                     </Button>
+                    
+                    {/* Custom admin implementation for the Generate All Images button */}
+                    <div className="mt-2 w-full">
+                      <GenerateAllImagesButton />
+                    </div>
                   </div>
                 </Card>
               ))}
