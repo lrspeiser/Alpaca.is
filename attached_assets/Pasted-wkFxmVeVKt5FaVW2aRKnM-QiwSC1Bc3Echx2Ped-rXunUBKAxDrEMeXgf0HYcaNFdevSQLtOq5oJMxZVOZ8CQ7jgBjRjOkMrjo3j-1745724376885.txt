@@ -1,0 +1,41 @@
+wkFxmVeVKt5FaVW2aRKnM+QiwSC1Bc3Echx2Ped/rXunUBKAxDrEMeXgf0HYcaNFdevSQLtOq5oJMxZVOZ8CQ7jgBjRjOkMrjo3jfFFhrLlnBVO3Mn0Le911loTzeHsMllvT2WrYWp5brDgOJIMMQnGauYf87ICBlivoYb5UAAAAASUVORK5CYII="}],"usage":{"input_tokens":42,"input_tokens_details":{"image_tokens":0,"text_tokens":42},"output_tokens":1056,"total_tokens":1098}}
+3:25:06 AM [ai-generation] Image generation failed - empty URL returned for "Eat traditional Svíčková" in Prague Bingo
+3:25:06 AM [express] POST /api/generate-image 500 in 21669ms :: {"error":"Image generation failed - …
+[DB] Getting bingo state. userId: none, hasInMemoryState: true
+[DB] Checking for individual records in database tables
+[DB] Found 1 cities in database
+[DB] Found 25 items for city prague
+[DB DEBUG] prague-4 item from individual tables: {
+  id: 'prague-4',
+  text: 'Drink a Pilsner Urquell',
+  hasDescription: true,
+  description: 'Pilsner Urquell, the world’s first golden lager, i...',
+  hasImage: false
+}
+[DB] Using reconstructed state with 25 descriptions
+[DB DEBUG] prague-4 item in bingo state API: {
+  id: 'prague-4',
+  text: 'Drink a Pilsner Urquell',
+  hasDescription: true,
+  description: 'Pilsner Urquell, the world’s first golden lager, i...',
+  hasImage: false
+}
+3:25:06 AM [state] [SERVER] Sending bingo state to client: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":25,"itemsWithImages":0}]
+3:25:06 AM [express] GET /api/bingo-state 304 in 343ms :: {"currentCity":"prague","cities":{"prague"…
+3:25:06 AM [state] [SERVER] Saving bingo state: current city=prague, cities=[{"id":"prague","title":"Prague Bingo","itemCount":25,"itemsWithDescriptions":25,"itemsWithImages":0}]
+[DB] Saving bingo state: {
+  currentCity: 'prague',
+  cities: [ { id: 'prague', title: 'Prague Bingo', items: [Array] } ]
+}
+[DB DEBUG] SAVING prague-4 item with: {
+  text: 'Drink a Pilsner Urquell',
+  hasDescription: true,
+  descriptionPreview: 'Pilsner Urquell, the world’s first golden lager, i...'
+}
+[DB] Updating global bingo state (id=1)
+[DB] Saving individual records to database tables
+[DB] Saving item prague-4 with data: {
+  hasDescription: true,
+  description: 'Pilsner Urquell, the world’s first golden lager, i...'
+}
+3:25:08 AM [express] POST /api/bingo-state 200 in 2020ms :: {"success":true}
