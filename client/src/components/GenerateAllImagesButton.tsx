@@ -45,8 +45,8 @@ export default function GenerateAllImagesButton() {
       let failCount = 0;
       let currentProgress = 0;
       
-      // Process items that don't already have images
-      const itemsToGenerate = items.filter(item => !item.image);
+      // Process all items, not just the ones without images
+      const itemsToGenerate = items.filter(item => !item.isCenterSpace);
       
       // Generate images one by one (parallel generation could overload the API)
       for (const item of itemsToGenerate) {
@@ -106,10 +106,8 @@ export default function GenerateAllImagesButton() {
     return data.imageUrl;
   };
 
-  // If there are no items without images, don't show the button
-  if (itemsWithImages >= totalItems) {
-    return null;
-  }
+  // Always show the button, even if all items have images
+  // We'll now allow regenerating all images, not just missing ones
 
   return (
     <Button
@@ -121,7 +119,7 @@ export default function GenerateAllImagesButton() {
       <ImageIcon className="h-4 w-4" />
       {isGenerating 
         ? `Generating Images (${progress}%)` 
-        : `Generate All Images (${totalItems - itemsWithImages} remaining)`
+        : `Generate All Images (${totalItems} items)`
       }
     </Button>
   );
