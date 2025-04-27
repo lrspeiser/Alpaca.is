@@ -125,34 +125,48 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
       </div>
       
       <div className="bingo-grid grid grid-cols-5 gap-0">
-      {flattenedItems.map((item) => (
-        <div
-          key={item.id}
-          onClick={() => onItemClick(item)}
-          className={cn(
-            "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
-            item.completed ? "completed" : "bg-white",
-            item.isCenterSpace && "center-space font-semibold"
-          )}
-        >
-          {item.completed ? (
-            <div className="w-full h-full relative">
-              <img 
-                src={getImageUrl(item)} 
-                alt={item.text}
-                className="w-full h-full object-cover absolute inset-0"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-1">
-                <p className="text-[10px] leading-tight font-medium text-white">{item.text}</p>
+      {grid.map((row, rowIndex) => 
+        row.map((item, colIndex) => {
+          if (!item) return <div key={`empty-${rowIndex}-${colIndex}`} className="bingo-tile bg-gray-100">{`[${rowIndex},${colIndex}]`}</div>;
+          
+          return (
+            <div
+              key={item.id}
+              onClick={() => onItemClick(item)}
+              className={cn(
+                "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
+                item.completed ? "completed" : "bg-white",
+                item.isCenterSpace && "center-space font-semibold"
+              )}
+              data-position={`[${rowIndex},${colIndex}]`}
+              data-id={item.id}
+              data-is-center={item.isCenterSpace ? "true" : "false"}
+            >
+              {/* Position indicator */}
+              <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white text-[8px] px-1 z-10">
+                {`[${rowIndex},${colIndex}]`}
               </div>
+              
+              {item.completed ? (
+                <div className="w-full h-full relative">
+                  <img 
+                    src={getImageUrl(item)} 
+                    alt={item.text}
+                    className="w-full h-full object-cover absolute inset-0"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-1">
+                    <p className="text-[10px] leading-tight font-medium text-white">{item.text}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2 h-full w-full flex flex-col justify-center">
+                  <p className="text-xs leading-tight font-medium">{item.text}</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="p-2 h-full w-full flex flex-col justify-center">
-              <p className="text-xs leading-tight font-medium">{item.text}</p>
-            </div>
-          )}
-        </div>
-      ))}
+          );
+        })
+      )}
       </div>
     </div>
   );
