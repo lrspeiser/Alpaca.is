@@ -1,0 +1,144 @@
+import fs from 'fs';
+import path from 'path';
+import fetch from 'node-fetch';
+import crypto from 'crypto';
+import { log } from './vite';
+
+// The directory where images will be stored
+const IMAGE_DIR = path.join(process.cwd(), 'public', 'images');
+
+// Ensure the image directory exists
+function ensureImageDir() {
+  if (!fs.existsSync(IMAGE_DIR)) {
+    try {
+      fs.mkdirSync(IMAGE_DIR, { recursive: true });
+      log(`[IMAGE-STORAGE] Created image directory at ${IMAGE_DIR}`, 'image-storage');
+    } catch (error: any) {
+      log(`[IMAGE-STORAGE] Error creating image directory: ${error.message}`, 'image-storage');
+      throw error;
+    }
+  }
+}
+
+/**
+ * Generates a filename for an image based on its metadata
+ */
+function generateImageFilename(cityId: string, itemId: string, itemText: string): string {
+  // Create a consistent but unique filename based on the item details
+  const hash = crypto
+    .createHash('md5')
+    .update(`${cityId}-${itemId}-${itemText}`)
+    .digest('hex')
+    .substring(0, 10);
+  
+  return `${cityId}-${itemId}-${hash}.png`;
+}
+
+/**
+ * Downloads and stores an image from a URL
+ * Returns the local path to the stored image
+ */
+export async function downloadAndStoreImage(
+  imageUrl: string, 
+  cityId: string, 
+  itemId: string, 
+  itemText: string
+): Promise<string> {
+  try {
+    // Make sure the directory exists
+    ensureImageDir();
+    
+    // Generate a filename for the image
+    const filename = generateImageFilename(cityId, itemId, itemText);
+    const localPath = path.join(IMAGE_DIR, filename);
+    
+    // Check if we already have this image
+    if (fs.existsSync(localPath)) {
+      log(`[IMAGE-STORAGE] Image already exists at ${localPath}`, 'image-storage');
+      return `/images/${filename}`;
+    }
+    
+    log(`[IMAGE-STORAGE] Downloading image from ${imageUrl.substring(0, 50)}...`, 'image-storage');
+    
+    // Fetch the image
+    const response = await fetch(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; BingoAppProxy/1.0)',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+    }
+    
+    // Get the image data
+    const imageBuffer = await response.buffer();
+    
+    // Save the image to disk
+    fs.writeFileSync(localPath, imageBuffer);
+    
+    log(`[IMAGE-STORAGE] Saved image to ${localPath} (${imageBuffer.length} bytes)`, 'image-storage');
+    
+    // Return the URL path to the image (relative to the server root)
+    return `/images/${filename}`;
+  } catch (error: any) {
+    log(`[IMAGE-STORAGE] Error storing image: ${error.message}`, 'image-storage');
+    throw error;
+  }
+}
+
+/**
+ * Gets the local URL for an image based on item details
+ * If the image doesn't exist locally, returns null
+ */
+export function getLocalImageUrl(cityId: string, itemId: string, itemText: string): string | null {
+  const filename = generateImageFilename(cityId, itemId, itemText);
+  const localPath = path.join(IMAGE_DIR, filename);
+  
+  if (fs.existsSync(localPath)) {
+    return `/images/${filename}`;
+  }
+  
+  return null;
+}
+
+/**
+ * Processes an OpenAI image URL to store it locally and returns the local URL
+ */
+export async function processOpenAIImageUrl(
+  imageUrl: string,
+  cityId: string, 
+  itemId: string, 
+  itemText: string
+): Promise<string> {
+  // First check if we already have this image locally
+  const existingUrl = getLocalImageUrl(cityId, itemId, itemText);
+  if (existingUrl) {
+    return existingUrl;
+  }
+  
+  // Download and store the image
+  return await downloadAndStoreImage(imageUrl, cityId, itemId, itemText);
+}
+
+/**
+ * Sets up static serving of the images directory
+ */
+export function setupImageServing(app: any) {
+  // Ensure the image directory exists
+  ensureImageDir();
+  
+  // Log the path where images will be served from
+  log(`[IMAGE-STORAGE] Setting up static image serving from ${IMAGE_DIR}`, 'image-storage');
+  
+  // The application should already have express static middleware set up
+  // We just need to add our image directory to the static paths
+  app.use('/images', (req: any, res: any, next: any) => {
+    // Log image requests for debugging
+    log(`[IMAGE-STORAGE] Requested image: ${req.url}`, 'image-storage');
+    next();
+  });
+  
+  // Return the image directory path so the server can set up static serving
+  return IMAGE_DIR;
+}

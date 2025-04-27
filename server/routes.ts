@@ -5,6 +5,7 @@ import { z } from "zod";
 import { generateBulkDescriptions, generateItemDescription } from "./openai";
 import { generateBingoItems, generateItemImage } from "./generator";
 import { log } from "./vite";
+import { setupImageProxy } from "./imageProxy";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get the current bingo state
