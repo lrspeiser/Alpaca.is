@@ -157,17 +157,55 @@ export async function generateItemImage(
     
     // Process successful response
     const data = await fetchResponse.json();
-    log(`OpenAI API success response: ${JSON.stringify(data)}`, "openai-debug");
+    log(`OpenAI API success response received`, "openai-debug");
     
-    // Extract image URL from response
-    if (data.data && data.data.length > 0 && data.data[0].url) {
+    // Check for base64 data in response (gpt-image-1 model returns base64 instead of URL)
+    if (data.data && data.data.length > 0 && data.data[0].b64_json) {
+      log(`Successfully received base64 image data from GPT-image-1 model`, "openai-debug");
+      
+      // For gpt-image-1 model we get base64 data directly
+      const imageBase64 = data.data[0].b64_json;
+      
+      // Generate a filename
+      const filename = `generated-${Date.now()}.png`;
+      const filePath = `./public/images/${filename}`;
+      
+      try {
+        // Make sure the directory exists
+        const fs = require('fs');
+        const path = require('path');
+        const dirPath = './public/images';
+        
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+          log(`Created images directory at ${dirPath}`, "openai-debug");
+        }
+        
+        // Convert base64 to buffer and save to file
+        const imageBuffer = Buffer.from(imageBase64, 'base64');
+        fs.writeFileSync(filePath, imageBuffer);
+        
+        // Return the path to the saved image
+        const imageUrl = `/images/${filename}`;
+        log(`Successfully saved base64 image to ${filePath}`, "openai-debug");
+        return imageUrl;
+      } catch (err) {
+        // Handle as generic error object
+        const error = err as Error;
+        log(`Error saving base64 image: ${error.message || 'Unknown error'}`, "openai-debug");
+        return "";
+      }
+    }
+    
+    // Check for URL in response (old model format)
+    else if (data.data && data.data.length > 0 && data.data[0].url) {
       const imageUrl = data.data[0].url;
       log(`Successfully generated image with URL: ${imageUrl}`, "openai-debug");
       return imageUrl;
     }
     
-    // No URL found in response
-    log(`No image URL found in response: ${JSON.stringify(data)}`, "openai-debug");
+    // No image data found in response
+    log(`No image data found in response format`, "openai-debug");
     return "";
   } catch (error: any) {
     // Log detailed error information
