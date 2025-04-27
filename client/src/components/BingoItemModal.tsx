@@ -18,20 +18,16 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
   const [isToggling, setIsToggling] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   
-  // Function to get image URL from the database only - no placeholder images
+  // Simplified function to get image URL directly from either property
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
     console.log(`[MODAL DEBUG] Item ${item.id} full data:`, item);
     
-    // Try item.image first
-    if (item.image && typeof item.image === 'string' && item.image.startsWith('http')) {
-      console.log(`[MODAL] Using item.image URL for ${item.id}: ${item.image.substring(0, 30)}...`);
-      return item.image;
-    }
+    // Try to get the image directly from either property
+    const directImageUrl = item.image || (item as any).imageUrl;
     
-    // Try imageUrl next
-    if ((item as any).imageUrl && typeof (item as any).imageUrl === 'string' && (item as any).imageUrl.startsWith('http')) {
-      console.log(`[MODAL] Using item.imageUrl for ${item.id}: ${(item as any).imageUrl.substring(0, 30)}...`);
-      return (item as any).imageUrl;
+    if (directImageUrl && typeof directImageUrl === 'string' && directImageUrl.startsWith('http')) {
+      console.log(`[MODAL] Found image URL for ${item.id}: ${directImageUrl.substring(0, 30)}...`);
+      return directImageUrl;
     }
     
     // No fallback - return null if no image is found

@@ -169,12 +169,15 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
               
               {item.completed ? (
                 <div className="w-full h-full relative">
-                  {/* Only show image if we have a valid URL */}
+                  {/* More direct approach to displaying the image */}
                   {(() => {
-                    const imageUrl = getImageUrl(item);
-                    return imageUrl ? (
+                    // Try both image and imageUrl properties directly
+                    const imageSource = item.image || (item as any).imageUrl;
+                    console.log(`[GRID-COMPLETED] Item ${item.id} image source: ${imageSource ? imageSource.substring(0, 30) + '...' : 'none'}`);
+                    
+                    return imageSource ? (
                       <img 
-                        src={imageUrl} 
+                        src={imageSource} 
                         alt={item.text}
                         className="w-full h-full object-cover absolute inset-0"
                       />
