@@ -35,25 +35,26 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=600&h=400&q=80"
   ];
   
-  // Get image URL for an item
+  // Simple function to get an appropriate image URL
   const getImageUrl = (item: BingoItem & { imageUrl?: string }) => {
-    // Check both image and imageUrl fields since the API returns imageUrl
-    if (item.image) {
-      console.log(`[MODAL] Using item.image for ${item.id}`);
+    console.log(`[MODAL DEBUG] Item ${item.id} full data:`, item);
+    
+    // Try item.image first
+    if (item.image && typeof item.image === 'string' && item.image.startsWith('http')) {
+      console.log(`[MODAL] Using item.image URL for ${item.id}: ${item.image.substring(0, 30)}...`);
       return item.image;
     }
     
-    // Check if imageUrl exists (from API)
-    if ((item as any).imageUrl) {
-      console.log(`[MODAL] Using item.imageUrl for ${item.id}`);
+    // Try imageUrl next
+    if ((item as any).imageUrl && typeof (item as any).imageUrl === 'string' && (item as any).imageUrl.startsWith('http')) {
+      console.log(`[MODAL] Using item.imageUrl for ${item.id}: ${(item as any).imageUrl.substring(0, 30)}...`);
       return (item as any).imageUrl;
     }
     
-    // Fallback to placeholder image
-    const idNumber = parseInt(item.id.replace(/[^0-9]/g, "")) || 0;
-    const imageIndex = idNumber % travelImages.length;
-    console.log(`[MODAL] Using fallback image for ${item.id} (index: ${imageIndex})`);
-    return travelImages[imageIndex];
+    // Use a reliable fallback
+    const fallbackUrl = "https://images.unsplash.com/photo-1500835556837-99ac94a94552?auto=format&fit=crop&w=600&h=400&q=80";
+    console.log(`[MODAL] Using hardcoded fallback for ${item.id}`);
+    return fallbackUrl;
   };
   
   // Update local state when item changes
