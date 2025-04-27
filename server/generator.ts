@@ -105,11 +105,12 @@ export async function generateBingoItems(
 
 /**
  * Generate an image for a bingo item using OpenAI's GPT-Image model
- * Updated as of April 2025 to use the newer gpt-image-1 model
+ * Updated as of April 2025 to use the newer gpt-image-1 model with square aspect ratio
  * 
  * @param itemText The text of the bingo item
  * @param cityName The name of the city
- * @returns The URL of the generated image
+ * @param description Optional item description to provide context for image generation
+ * @returns The URL of the generated image (local file path or OpenAI URL)
  */
 export async function generateItemImage(
   itemText: string,

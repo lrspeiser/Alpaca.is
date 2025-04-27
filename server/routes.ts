@@ -338,8 +338,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Log city title and item text to make sure they are valid
         log(`City title: "${city.title}", Item text: "${itemText}"`, 'ai-generation');
         
-        // Attempt to generate the image
-        imageUrl = await generateItemImage(itemText!, city.title);
+        // Get the item description if available
+        const description = targetItem?.description;
+        
+        // Log if we have a description to include in the image generation
+        if (description) {
+          log(`Including item description in image generation (length: ${description.length})`, 'ai-generation');
+        }
+        
+        // Attempt to generate the image with description if available
+        imageUrl = await generateItemImage(itemText!, city.title, description);
         
         if (!imageUrl) {
           const errorMsg = `Image generation failed - empty URL returned for "${itemText}" in ${city.title}`;

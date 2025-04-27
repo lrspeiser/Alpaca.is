@@ -206,12 +206,12 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
             >
               
               {item.completed ? (
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative aspect-square">
                   {/* Use ImageDebugger to diagnose image loading issues */}
                   <ImageDebugger
                     src={getImageUrl(item)}
                     alt={item.text}
-                    className="absolute inset-0"
+                    className="absolute inset-0 object-cover w-full h-full"
                     onLoadInfo={(info: ImageLoadInfo) => {
                       console.log(`[GRID-COMPLETED-DEBUG] ${item.id}:`, info);
                     }}

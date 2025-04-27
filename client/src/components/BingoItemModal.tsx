@@ -128,8 +128,8 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
         </div>
         
         <div className="p-5">
-          {/* Use ImageDebugger to diagnose image loading issues */}
-          <div className="mb-4 h-56 overflow-hidden rounded-lg">
+          {/* Use ImageDebugger with square aspect ratio */}
+          <div className="mb-4 aspect-square w-full max-w-md overflow-hidden rounded-lg">
             {localItem && (
               <ImageDebugger
                 src={imageUrl}
