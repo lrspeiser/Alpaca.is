@@ -60,12 +60,12 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   
   // First, place items with defined grid positions
   const remainingItems: BingoItem[] = [];
-  let centerItem: BingoItem | null = null;
+  let centerSpaceItem: BingoItem | null = null;
   
   items.forEach(item => {
     // Find the center item
     if (item.isCenterSpace) {
-      centerItem = item;
+      centerSpaceItem = item;
       // Ensure center item always goes in center (2,2)
       grid[2][2] = item;
       return;
@@ -87,8 +87,8 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
   });
   
   // Ensure we have a center item
-  if (!grid[2][2] && centerItem) {
-    grid[2][2] = centerItem;
+  if (!grid[2][2] && centerSpaceItem) {
+    grid[2][2] = centerSpaceItem;
   }
   
   // Fill remaining positions with unpositioned items
@@ -98,6 +98,20 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
         grid[row][col] = remainingItems.shift() || null;
       }
     }
+  }
+  
+  // Debugging: log grid structure before flattening
+  console.log('Grid structure before rendering:');
+  grid.forEach((row, rowIndex) => {
+    console.log(`Row ${rowIndex}:`, row.map(item => item ? item.id : 'null'));
+  });
+  
+  // Check if center position has the right item
+  const centerGridItem = grid[2][2];
+  if (centerGridItem) {
+    console.log('Center item:', centerGridItem.id, `(isCenterSpace: ${!!centerGridItem.isCenterSpace})`);
+  } else {
+    console.log('Center item: null');
   }
   
   // Flatten the grid to a single array for rendering
