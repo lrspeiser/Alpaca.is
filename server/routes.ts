@@ -361,11 +361,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Now store the OpenAI image locally
         log(`Storing OpenAI image locally...`, 'ai-generation');
         try {
+          // Always force a new image when explicitly generating an image for an item
+          const forceNewImage = !!itemId; // Force new image when regenerating for a specific item
+          
+          log(`Processing image with forceNewImage=${forceNewImage}`, 'ai-generation');
+          
           const localImageUrl = await processOpenAIImageUrl(
             imageUrl,
             cityId,
             itemId || `generated-${Date.now()}`,
-            itemText || 'Generated Image'
+            itemText || 'Generated Image',
+            forceNewImage
           );
           
           log(`Image stored locally at ${localImageUrl}`, 'ai-generation');

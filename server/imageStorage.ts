@@ -104,21 +104,34 @@ export function getLocalImageUrl(cityId: string, itemId: string, itemText: strin
 
 /**
  * Processes an OpenAI image URL to store it locally and returns the local URL
+ * 
+ * @param imageUrl The URL of the OpenAI image
+ * @param cityId The ID of the city
+ * @param itemId The ID of the item
+ * @param itemText The text of the item
+ * @param forceNewImage If true, generates a new image even if one exists
+ * @returns The local URL of the stored image
  */
 export async function processOpenAIImageUrl(
   imageUrl: string,
   cityId: string, 
   itemId: string, 
-  itemText: string
+  itemText: string,
+  forceNewImage: boolean = false
 ): Promise<string> {
-  // First check if we already have this image locally
-  const existingUrl = getLocalImageUrl(cityId, itemId, itemText);
-  if (existingUrl) {
-    return existingUrl;
+  if (!forceNewImage) {
+    // First check if we already have this image locally
+    const existingUrl = getLocalImageUrl(cityId, itemId, itemText);
+    if (existingUrl) {
+      return existingUrl;
+    }
   }
   
-  // Download and store the image
-  return await downloadAndStoreImage(imageUrl, cityId, itemId, itemText);
+  // Add a timestamp to make the filename unique for regenerated images
+  const uniqueItemId = forceNewImage ? `${itemId}-${Date.now()}` : itemId;
+  
+  // Download and store the image with the potentially modified item ID
+  return await downloadAndStoreImage(imageUrl, cityId, uniqueItemId, itemText);
 }
 
 /**
