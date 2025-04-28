@@ -89,9 +89,15 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   
   // No more placeholder images - we only use database images
   
-  // Improved function to get image URL for an item - supports local and remote URLs
+  // Improved function to get image URL for an item - supports user photos from IndexedDB
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
-    // First check our cached image URLs from state for performance
+    // First check if we have a user photo from IndexedDB for this item
+    if (userPhotos[item.id]) {
+      console.log(`[GRID] Using user photo from IndexedDB for ${item.id}`);
+      return userPhotos[item.id];
+    }
+    
+    // Next check our cached image URLs from state for performance
     if (itemImages[item.id] && itemImages[item.id].length > 0) {
       return itemImages[item.id];
     }
@@ -268,6 +274,16 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
                   <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-1">
                     <p className="text-[10px] leading-tight font-medium text-white">{item.text}</p>
                   </div>
+                  
+                  {/* Show camera icon badge when displaying a user photo */}
+                  {userPhotos[item.id] && (
+                    <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-1 shadow-md" title="Your photo">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                        <circle cx="12" cy="13" r="3"></circle>
+                      </svg>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-2 h-full w-full flex flex-col justify-center">
