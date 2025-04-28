@@ -4,13 +4,17 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  username: text("username").unique(),
+  password: text("password"),
+  clientId: text("client_id").unique(), // For localStorage/cookie-based identification
+  lastVisitedAt: text("last_visited_at"), // To track when users last visited
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  clientId: true,
+  lastVisitedAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

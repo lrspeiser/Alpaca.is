@@ -43,15 +43,17 @@ interface BingoStateType {
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByClientId(clientId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createOrUpdateClientUser(clientId: string): Promise<User>;
   
   // Bingo State Methods
-  getBingoState(userId?: number): Promise<BingoStateType>;
-  saveBingoState(state: BingoStateType, userId?: number): Promise<void>;
+  getBingoState(userId?: number, clientId?: string): Promise<BingoStateType>;
+  saveBingoState(state: BingoStateType, userId?: number, clientId?: string): Promise<void>;
   
   // Additional methods for more granular operations
-  toggleItemCompletion(itemId: string, cityId: string, userId?: number): Promise<void>;
-  resetCity(cityId: string, userId?: number): Promise<void>;
+  toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string): Promise<void>;
+  resetCity(cityId: string, userId?: number, clientId?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -73,7 +75,41 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
   
-  async getBingoState(userId?: number): Promise<BingoStateType> {
+  async getUserByClientId(clientId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.clientId, clientId));
+    return user;
+  }
+  
+  async createOrUpdateClientUser(clientId: string): Promise<User> {
+    // First check if user exists with this clientId
+    const existingUser = await this.getUserByClientId(clientId);
+    
+    if (existingUser) {
+      // Update the last visited time
+      const currentTime = new Date().toISOString();
+      const [updatedUser] = await db
+        .update(users)
+        .set({ lastVisitedAt: currentTime })
+        .where(eq(users.clientId, clientId))
+        .returning();
+      
+      return updatedUser;
+    } else {
+      // Create a new user with just the clientId
+      const currentTime = new Date().toISOString();
+      const [user] = await db
+        .insert(users)
+        .values({
+          clientId,
+          lastVisitedAt: currentTime
+        })
+        .returning();
+      
+      return user;
+    }
+  }
+  
+  async getBingoState(userId?: number, clientId?: string): Promise<BingoStateType> {
     // Create an initial bingo state if needed
     const initialState: BingoStateType = {
       currentCity: "prague", // Default city
@@ -238,7 +274,7 @@ export class DatabaseStorage implements IStorage {
   // We'll use in-memory for caching but prioritize database storage for persistence
   private inMemoryState: BingoStateType | null = null;
   
-  async saveBingoState(state: BingoStateType, userId?: number): Promise<void> {
+  async saveBingoState(state: BingoStateType, userId?: number, clientId?: string): Promise<void> {
     // Log the incoming state to debug
     console.log("[DB] Saving bingo state:", {
       currentCity: state.currentCity,
@@ -394,10 +430,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async toggleItemCompletion(itemId: string, cityId: string, userId?: number): Promise<void> {
+  async toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string): Promise<void> {
     try {
       // First, get the current state
-      const state = await this.getBingoState(userId);
+      const state = await this.getBingoState(userId, clientId);
       
       // Make sure we have the city
       if (!state.cities[cityId]) {
@@ -414,17 +450,17 @@ export class DatabaseStorage implements IStorage {
       state.cities[cityId].items[itemIndex].completed = !state.cities[cityId].items[itemIndex].completed;
       
       // Save the updated state
-      await this.saveBingoState(state, userId);
+      await this.saveBingoState(state, userId, clientId);
     } catch (error) {
       console.error(`[DB] Error toggling item ${itemId} in city ${cityId}:`, error);
       throw error;
     }
   }
 
-  async resetCity(cityId: string, userId?: number): Promise<void> {
+  async resetCity(cityId: string, userId?: number, clientId?: string): Promise<void> {
     try {
       // First, get the current state
-      const state = await this.getBingoState(userId);
+      const state = await this.getBingoState(userId, clientId);
       
       // Make sure we have the city
       if (!state.cities[cityId]) {
@@ -438,7 +474,7 @@ export class DatabaseStorage implements IStorage {
       });
       
       // Save the updated state
-      await this.saveBingoState(state, userId);
+      await this.saveBingoState(state, userId, clientId);
     } catch (error) {
       console.error(`[DB] Error resetting city ${cityId}:`, error);
       throw error;
