@@ -133,6 +133,7 @@ export default function PhotoCaptureModal({
 
   const handleSavePhoto = () => {
     if (capturedPhoto) {
+      // Pass the photo data URL to the callback provided by the parent component
       onPhotoCapture(capturedPhoto);
       onClose();
     }

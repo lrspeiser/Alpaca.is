@@ -7,6 +7,7 @@ import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
 import { getProxiedImageUrl } from "../lib/imageUtils";
 import PhotoCaptureModal from "./PhotoCaptureModal";
 import { useClientId } from '@/hooks/useClientId';
+import { saveUserPhotoToIndexedDB, getUserPhotoFromIndexedDB } from "../lib/utils";
 
 interface BingoItemModalProps {
   item: BingoItem | null;
@@ -78,6 +79,33 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     if (localItem) {
       const url = getImageUrl(localItem);
       setImageUrl(url);
+
+      // Try to get user photo from IndexedDB
+      const fetchUserPhoto = async () => {
+        try {
+          const cityId = localItem.cityId;
+          const itemId = localItem.id;
+          
+          if (!cityId || !itemId) return;
+          
+          const photoDataUrl = await getUserPhotoFromIndexedDB(cityId, itemId);
+          
+          if (photoDataUrl) {
+            console.log(`[MODAL] Found user photo in IndexedDB for ${itemId} in city ${cityId}`);
+            setLocalItem(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                userPhoto: photoDataUrl
+              };
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching user photo from IndexedDB:', error);
+        }
+      };
+      
+      fetchUserPhoto();
     }
   }, [localItem]);
   
@@ -86,7 +114,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   // Visual feedback for toggling state
   const isPending = isToggling;
   
-  // Function to save the user-captured photo
+  // Function to save the user-captured photo to IndexedDB
   const saveUserPhoto = async (photoDataUrl: string) => {
     if (!localItem) return;
     
@@ -94,32 +122,20 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       const cityId = localItem.cityId;
       const itemId = localItem.id;
       
-      console.log(`[MODAL] Saving user photo for item ${itemId} in city ${cityId}`);
+      console.log(`[MODAL] Saving user photo for item ${itemId} in city ${cityId} to IndexedDB`);
       
-      const response = await fetch('/api/save-user-photo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemId,
-          cityId,
-          photoDataUrl,
-          clientId
-        }),
-      });
+      // Save to IndexedDB
+      const success = await saveUserPhotoToIndexedDB(cityId, itemId, photoDataUrl);
       
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log(`[MODAL] Successfully saved user photo: ${data.photoUrl}`);
+      if (success) {
+        console.log(`[MODAL] Successfully saved user photo to IndexedDB`);
         
         // Update local item with the user photo URL
         setLocalItem(prev => {
           if (!prev) return null;
           return {
             ...prev,
-            userPhoto: data.photoUrl
+            userPhoto: photoDataUrl
           };
         });
         
@@ -128,7 +144,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
           onToggleComplete();
         }
       } else {
-        console.error(`[MODAL] Failed to save user photo: ${data.error}`);
+        console.error(`[MODAL] Failed to save user photo to IndexedDB`);
       }
     } catch (error) {
       console.error("Error saving user photo:", error);

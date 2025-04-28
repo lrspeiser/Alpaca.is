@@ -1,5 +1,5 @@
 import { useBingoStore } from "@/hooks/useBingoStore";
-import { cn, saveCurrentCity } from "@/lib/utils";
+import { cn, saveCurrentCity, getUserPhotoFromIndexedDB } from "@/lib/utils";
 import type { BingoItem } from "@/types";
 import { useState, useEffect } from "react";
 import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
@@ -24,6 +24,8 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   const [forceRefresh, setForceRefresh] = useState(0);
   // Track image URLs in state to ensure they're updated
   const [itemImages, setItemImages] = useState<Record<string, string>>({});
+  // Track user photos from IndexedDB 
+  const [userPhotos, setUserPhotos] = useState<Record<string, string>>({});
   
   // Re-fetch data if the refreshTrigger changes
   useEffect(() => {
@@ -42,6 +44,36 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
     });
     setItemImages(newImageMap);
   }, [items, forceRefresh]);
+  
+  // Fetch user photos from IndexedDB for completed items
+  useEffect(() => {
+    // Only fetch photos for completed items
+    const completedItems = items.filter(item => item.completed);
+    
+    // Skip if there are no completed items
+    if (completedItems.length === 0) return;
+    
+    const fetchUserPhotos = async () => {
+      const newUserPhotos: Record<string, string> = {};
+      
+      // Process items in sequence to avoid overwhelming IndexedDB
+      for (const item of completedItems) {
+        try {
+          const photoDataUrl = await getUserPhotoFromIndexedDB(item.cityId, item.id);
+          if (photoDataUrl) {
+            console.log(`[GRID] Found user photo in IndexedDB for ${item.id} in city ${item.cityId}`);
+            newUserPhotos[item.id] = photoDataUrl;
+          }
+        } catch (error) {
+          console.error(`[GRID] Error fetching user photo for ${item.id}:`, error);
+        }
+      }
+      
+      setUserPhotos(newUserPhotos);
+    };
+    
+    fetchUserPhotos();
+  }, [items, forceRefresh, currentCity]);
   
   // Function to handle clicking on a bingo tile with forced refresh
   const handleTileClick = (item: BingoItem) => {
