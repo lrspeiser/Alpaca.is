@@ -3,13 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { BrainCircuit, ImagePlus, Info, Plus, X, Save, RefreshCw, ArrowLeft } from "lucide-react";
-import type { BingoItem, City } from "@/types";
+import { BrainCircuit, ImagePlus, ArrowLeft } from "lucide-react";
+import type { BingoItem } from "@/types";
 import { Link } from "wouter";
 import GenerateAllImagesButton from "@/components/GenerateAllImagesButton";
 
@@ -22,18 +20,14 @@ export default function Admin() {
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // New city form state
+  // New city form state - simplified to just ID and name
   const [newCity, setNewCity] = useState({
     id: "",
-    title: "",
-    subtitle: "",
-    backgroundImage: "",
+    cityName: "",
   });
 
-  // For generating new items
-  const [generatingFor, setGeneratingFor] = useState("");
-  const [cityTheme, setCityTheme] = useState("");
-  const [generatedItems, setGeneratedItems] = useState<BingoItem[]>([]);
+  // For displaying progress
+  const [creationInProgress, setCreationInProgress] = useState(false);
   
   // Handler for generating bingo items descriptions
   const handleGenerateDescriptions = async (cityId: string) => {
@@ -256,72 +250,77 @@ export default function Admin() {
     }
   };
 
-  // Create a new city
+  // Create a new city with full automation
   const handleCreateCity = async () => {
-    if (!newCity.id || !newCity.title) {
+    if (!newCity.id || !newCity.cityName) {
       toast({
         title: "Missing information",
-        description: "Please provide at least an ID and title for the city.",
+        description: "Please provide both an ID and name for the city.",
         variant: "destructive",
       });
       return;
     }
 
-    // Create a basic city structure
-    const cityData: City = {
-      id: newCity.id.toLowerCase(),
-      title: newCity.title,
-      subtitle: newCity.subtitle,
-      backgroundImage: newCity.backgroundImage || "https://images.unsplash.com/photo-1505761671935-60b3a7427bad?auto=format&fit=crop&w=1000&q=80",
-      items: [],
-      tips: []
-    };
-
-    // Add center space item
-    cityData.items = [
-      {
-        id: `${cityData.id}-center`,
-        text: `Arrive in ${cityData.title}`,
-        completed: false,
-        isCenterSpace: true
-      }
-    ];
-
-    // Add the new city to the state
-    const updatedCities = {
-      ...cities,
-      [cityData.id]: cityData
-    };
-
+    setCreationInProgress(true);
     try {
-      await saveState({
-        currentCity,
-        cities: updatedCities
-      });
-      
       toast({
-        title: "City created",
-        description: `${cityData.title} has been added successfully. Now generate bingo items for it.`,
+        title: "Creating city",
+        description: `Creating ${newCity.cityName} bingo card with automated content generation. This will take a few minutes.`,
+        duration: 5000
       });
+
+      // Call the new unified creation endpoint
+      console.log(`[ADMIN] Starting city creation for ${newCity.cityName} (${newCity.id})`);
+      const response = await apiRequest(
+        "POST",
+        "/api/create-city",
+        { 
+          cityId: newCity.id.toLowerCase(),
+          cityName: newCity.cityName
+        }
+      );
+
+      const data = await response.json();
+      console.log(`[ADMIN] City creation response:`, data);
       
-      // Reset form
-      setNewCity({
-        id: "",
-        title: "",
-        subtitle: "",
-        backgroundImage: ""
-      });
-      
-      // Switch to the generate tab and set the new city as selected
-      setActiveTab("generate");
-      setSelectedCity(cityData.id);
-      setGeneratingFor(cityData.id);
-    } catch (error) {
+      if (data.success) {
+        // Force refresh state from server
+        await fetchBingoState(true);
+        
+        toast({
+          title: "City created successfully!",
+          description: `${newCity.cityName} bingo card has been created with items and descriptions. Images will be generated in the background and will appear gradually.`,
+          duration: 8000
+        });
+        
+        // Reset form
+        setNewCity({
+          id: "",
+          cityName: ""
+        });
+        
+        // Switch to the manage tab to show the new city
+        setActiveTab("manage");
+        setSelectedCity(newCity.id.toLowerCase());
+        setViewingCity(newCity.id.toLowerCase());
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to create city. Please try again.",
+          variant: "destructive",
+          duration: 5000
+        });
+      }
+    } catch (error: any) {
+      console.error("[ADMIN] Error creating city:", error);
       toast({
         title: "Error",
-        description: "Failed to create city. Please try again.",
+        description: error.message || "Failed to create city. Please try again.",
         variant: "destructive",
+        duration: 5000
       });
+    } finally {
+      setCreationInProgress(false);
     }
   };
 
