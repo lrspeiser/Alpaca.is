@@ -27,9 +27,6 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isPhotoCaptureOpen, setIsPhotoCaptureOpen] = useState(false);
   
-  // Use a ref to track the desired completion state between render cycles
-  const completionStateRef = useRef<boolean | null>(null);
-  
   // We'll use the provided allItems or fetch them using the cityId from the provided item
   const items = allItems.length > 0 ? allItems : [];
   
@@ -182,25 +179,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   }, [localItem]);
   
-  // Ensure localItem's completion state stays in sync with our ref
-  useEffect(() => {
-    // Only apply if we have a valid localItem and our ref has a value
-    if (localItem && completionStateRef.current !== null) {
-      // Check if the completion state in our ref differs from the localItem
-      if (localItem.completed !== completionStateRef.current) {
-        console.log(`[MODAL] Sync: correcting localItem.completed=${localItem.completed} to completionStateRef=${completionStateRef.current}`);
-        
-        // Update the local state to match our ref
-        setLocalItem(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            completed: completionStateRef.current
-          };
-        });
-      }
-    }
-  }, [localItem]);
+  // Using optimistic UI updates pattern - no need for state synchronization with refs
   
   if (!isOpen || !localItem) return null;
   
@@ -381,93 +360,38 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
   
-  // Handle cancel/skip from photo capture
+  // Simplified photo capture close handler using optimistic UI update pattern
   const handlePhotoCaptureClose = async () => {
-    console.log('[MODAL] Photo capture skipped, ensuring item completion state is preserved');
+    console.log('[MODAL] Photo capture skipped, closing photo modal');
+    
+    // Update UI immediately
     setIsPhotoCaptureOpen(false);
     
-    // Set our completion state to TRUE in the ref to maintain it across renders
-    // This was set when we opened the photo modal, let's make sure it's still true
-    completionStateRef.current = true;
-    
-    // Aggressively reinforce the completion state in both local state and backend
-    try {
-      // Only do this if we have a valid item
-      if (localItem && localItem.id) {
-        console.log(`[MODAL] Reinforcing completed=true state for item ${localItem.id}`);
-        
-        // Immediately update local UI state for better responsiveness
-        setLocalItem(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            completed: true // Force it to true
-          };
-        });
-        
-        // Make THREE redundant calls to ensure state persistence (belt and suspenders approach):
-        
-        // 1. Call our hook with forcedState=true 
-        try {
-          await toggleItemCompletion(localItem.id, true);
-          console.log('[MODAL] Successfully called hook for forced completion update');
-        } catch (error) {
-          console.error('[MODAL] Error in first completion reinforcement:', error);
-        }
-        
-        // 2. Wait a moment and make a direct API call as backup
-        try {
-          const payload = { 
-            itemId: localItem.id, 
-            cityId: currentCity || localItem.cityId,
-            forcedState: true,
-            ...(clientId && { clientId })
-          };
-          
-          await fetch('/api/toggle-item', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
-          console.log('[MODAL] Successfully made direct API call for forced completion');
-        } catch (error) {
-          console.error('[MODAL] Error in second completion reinforcement:', error);
-        }
-        
-        // 3. Final check of local state after API calls
-        setLocalItem(prev => {
-          if (!prev) return null;
-          if (prev.completed !== true) {
-            console.log('[MODAL] Final local state correction to completed=true');
-            return {
-              ...prev,
-              completed: true
-            };
-          }
-          return prev;
-        });
-      }
-    } catch (error) {
-      console.error('[MODAL] Error in completion state reinforcement process:', error);
+    // Ensure bingo grid gets refreshed
+    if (onToggleComplete) {
+      console.log('[MODAL] Refreshing grid after photo capture was skipped');
+      onToggleComplete();
     }
     
-    // Refresh the grid with the callback if provided
-    if (onToggleComplete) {
-      console.log('[MODAL] Calling onToggleComplete callback after photo skip');
-      onToggleComplete();
+    // Make a single, clean server update to ensure completion state
+    if (localItem && localItem.id) {
+      try {
+        console.log(`[MODAL] Sending server update to ensure item ${localItem.id} remains completed`);
+        await toggleItemCompletion(localItem.id, true);
+      } catch (error) {
+        console.error('[MODAL] Error ensuring completion state after skipping photo:', error);
+        // We don't revert UI here since we already showed item as completed
+      }
     }
     
     // Clean up
     setIsToggling(false);
     
-    // NEW: Add a slight delay before closing the modal to ensure state is updated
+    // Close modal after a short delay for better UX
     setTimeout(() => {
       console.log('[MODAL] Automatically closing item modal after skipping photo capture');
       onClose(); // Close the entire modal to show the updated grid with thumbnail
-    }, 500); // Half-second delay for visual feedback and to ensure state updates
+    }, 500); // Half-second delay for visual feedback
   };
   
   return (
