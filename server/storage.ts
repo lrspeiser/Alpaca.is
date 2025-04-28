@@ -110,44 +110,10 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getBingoState(userId?: number, clientId?: string): Promise<BingoStateType> {
-    // Create an initial bingo state if needed
-    const initialState: BingoStateType = {
-      currentCity: "prague", // Default city
-      cities: {
-        prague: {
-          id: "prague",
-          title: "Prague Bingo",
-          subtitle: "Complete activities to unlock achievements",
-          items: [
-            { id: 'prague-1', text: 'Eat a Trdelník', completed: false, image: undefined },
-            { id: 'prague-2', text: 'Walk Charles Bridge at sunrise', completed: false, image: undefined },
-            { id: 'prague-3', text: 'See the Astronomical Clock ring', completed: false, image: undefined },
-            { id: 'prague-4', text: 'Drink a Pilsner Urquell', completed: false, image: undefined },
-            { id: 'prague-5', text: 'Take a photo with John Lennon Wall', completed: false, image: undefined },
-            { id: 'prague-6', text: 'Climb Petrin Tower', completed: false, image: undefined },
-            { id: 'prague-7', text: 'Eat traditional Svíčková', completed: false, image: undefined },
-            { id: 'prague-8', text: 'Ride a historic tram', completed: false, image: undefined },
-            { id: 'prague-9', text: 'Buy a puppet or marionette', completed: false, image: undefined },
-            { id: 'prague-10', text: 'Visit Prague Castle', completed: false, image: undefined },
-            { id: 'prague-11', text: 'Try Becherovka (Herbal Liquor)', completed: false, image: undefined },
-            { id: 'prague-12', text: 'See the Dancing House', completed: false, image: undefined },
-            { id: 'prague-13', text: 'Arrive in Prague', completed: false, isCenterSpace: true, description: 'Welcome to the beautiful city of Prague! Known as the "City of a Hundred Spires," this historic capital of the Czech Republic is famous for its Old Town Square, Prague Castle, and Charles Bridge.', image: undefined },
-            { id: 'prague-14', text: 'Visit Old Jewish Cemetery', completed: false, image: undefined },
-            { id: 'prague-15', text: 'Listen to live jazz at a bar', completed: false, image: undefined },
-            { id: 'prague-16', text: 'Touch the St. John of Nepomuk statue', completed: false, image: undefined },
-            { id: 'prague-17', text: 'Eat Goulash in bread bowl', completed: false, image: undefined },
-            { id: 'prague-18', text: 'Cross Legií Bridge', completed: false, image: undefined },
-            { id: 'prague-19', text: 'Visit the National Museum', completed: false, image: undefined },
-            { id: 'prague-20', text: 'Buy Bohemian crystal souvenir', completed: false, image: undefined },
-            { id: 'prague-21', text: 'Watch sunset from Letná Park', completed: false, image: undefined },
-            { id: 'prague-22', text: 'Tour a beer spa', completed: false, image: undefined },
-            { id: 'prague-23', text: 'Eat a sausage from Wenceslas Square', completed: false, image: undefined },
-            { id: 'prague-24', text: 'Find the narrowest street in Prague', completed: false, image: undefined },
-            { id: 'prague-25', text: 'Explore Vyšehrad fortress', completed: false, image: undefined }
-          ]
-        }
-        // Only including Prague for brevity - other cities would be added here
-      }
+    // Create an empty initial state - no default cities
+    const emptyState: BingoStateType = {
+      currentCity: "", // No current city
+      cities: {}  // No cities by default
     };
     
     try {
@@ -253,20 +219,14 @@ export class DatabaseStorage implements IStorage {
         return JSON.parse(JSON.stringify(this.inMemoryState)); // Deep clone to avoid reference issues
       }
       
-      // RETRIEVAL STRATEGY 3: If we get here, use initialState and save it to DB
-      console.log('[DB] No existing state found, creating initial state');
+      // RETRIEVAL STRATEGY 3: If we get here, use emptyState without saving it to DB
+      console.log('[DB] No existing state found, returning empty state');
       
-      // Create initial state and save it
-      try {
-        await this.saveBingoState(initialState);
-      } catch (error) {
-        console.error('[DB] Failed to save initial state:', error);
-      }
-      
-      return initialState;
+      // Just return the empty state without auto-creating anything
+      return emptyState;
     } catch (error) {
       console.error('[DB] Error in getBingoState:', error);
-      return initialState;
+      return emptyState;
     }
   }
   
