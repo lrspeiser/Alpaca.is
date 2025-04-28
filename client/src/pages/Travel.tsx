@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Header from "@/components/Header";
 import BingoGrid from "@/components/BingoGrid";
 import BingoItemModal from "@/components/BingoItemModal";
@@ -11,7 +11,17 @@ import type { BingoItem } from "@/types";
 export default function Travel() {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<BingoItem | null>(null);
-  const { cities, currentCity, isLoading } = useBingoStore();
+  const [gridRefreshTrigger, setGridRefreshTrigger] = useState(0);
+  const { cities, currentCity, isLoading, fetchBingoState } = useBingoStore();
+  
+  // Function to force refresh both the bingo state and the grid display
+  const forceGridRefresh = useCallback(() => {
+    console.log('[TRAVEL] Forcing grid refresh after item update');
+    // First refresh data from server
+    fetchBingoState(true);
+    // Then trigger grid refresh
+    setGridRefreshTrigger(prev => prev + 1);
+  }, [fetchBingoState]);
   
   // If still loading data, show loading state
   if (isLoading) {
@@ -36,8 +46,11 @@ export default function Travel() {
       <main className="flex-grow w-full px-0 py-2">
         {/* City subtitle - moved inside the BingoGrid component */}
         
-        {/* Bingo Grid with title */}
-        <BingoGrid onItemClick={setSelectedItem} />
+        {/* Bingo Grid with title and refresh trigger */}
+        <BingoGrid 
+          onItemClick={setSelectedItem} 
+          refreshTrigger={gridRefreshTrigger} 
+        />
       </main>
       
       <Footer />
@@ -48,11 +61,16 @@ export default function Travel() {
         onClose={() => setIsInfoModalOpen(false)}
       />
       
-      {/* Bingo Item Modal */}
+      {/* Bingo Item Modal with refresh callback */}
       <BingoItemModal 
         item={selectedItem} 
         isOpen={!!selectedItem} 
-        onClose={() => setSelectedItem(null)} 
+        onClose={() => {
+          setSelectedItem(null);
+          // Force refresh the grid after closing the modal to show updated state
+          forceGridRefresh();
+        }}
+        onToggleComplete={forceGridRefresh}
       />
     </div>
   );

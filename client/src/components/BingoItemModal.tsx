@@ -10,9 +10,10 @@ interface BingoItemModalProps {
   item: BingoItem | null;
   isOpen: boolean;
   onClose: () => void;
+  onToggleComplete?: () => void; // Optional callback to refresh grid after toggle
 }
 
-export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModalProps) {
+export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete }: BingoItemModalProps) {
   const { toggleItemCompletion } = useBingoStore();
   
   // All state declarations must come before any other code
@@ -95,6 +96,12 @@ export default function BingoItemModal({ item, isOpen, onClose }: BingoItemModal
     // Update backend
     try {
       await toggleItemCompletion(localItem.id);
+      
+      // Trigger grid refresh with the callback if provided
+      if (onToggleComplete) {
+        console.log('[MODAL] Calling onToggleComplete callback for immediate grid refresh');
+        onToggleComplete();
+      }
     } catch (error) {
       console.error("Error toggling item completion:", error);
       // Revert local state if there was an error

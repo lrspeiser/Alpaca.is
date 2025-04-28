@@ -14,15 +14,25 @@ import {
 
 interface BingoGridProps {
   onItemClick: (item: BingoItem) => void;
+  refreshTrigger?: number; // Optional counter to trigger grid refresh
 }
 
-export default function BingoGrid({ onItemClick }: BingoGridProps) {
+export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGridProps) {
   const { cities, currentCity, setCurrentCity, fetchBingoState } = useBingoStore();
   const items = cities[currentCity]?.items || [];
-  // Track when we need to force a re-render
+  // Track when we need to force a re-render (combine internal and external triggers)
   const [forceRefresh, setForceRefresh] = useState(0);
   // Track image URLs in state to ensure they're updated
   const [itemImages, setItemImages] = useState<Record<string, string>>({});
+  
+  // Re-fetch data if the refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      console.log(`[GRID] External refresh triggered (${refreshTrigger})`);
+      fetchBingoState(true); // Force fetch fresh data
+      setForceRefresh(prev => prev + 1); // Force local refresh
+    }
+  }, [refreshTrigger, fetchBingoState]);
   
   // Update image cache whenever items change
   useEffect(() => {
