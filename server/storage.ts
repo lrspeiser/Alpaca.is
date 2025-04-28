@@ -152,15 +152,15 @@ export class DatabaseStorage implements IStorage {
         try {
           const user = await this.getUserByClientId(clientId);
           if (user) {
-            console.log(`[DB] Found existing user ${user.id} with clientId ${clientId}`);
+            console.log(`[DB LOOKUP] Found existing user ${user.id} with clientId ${clientId}`);
             userId = user.id;
           } else {
-            console.log(`[DB] No user found with clientId ${clientId}, creating new user`);
+            console.log(`[DB LOOKUP] No user found with clientId ${clientId}, creating new user`);
             const newUser = await this.createOrUpdateClientUser(clientId);
             userId = newUser.id;
           }
         } catch (error) {
-          console.error('[DB] Error finding/creating user for clientId:', error);
+          console.error('[DB ERROR] Error finding/creating user for clientId:', error);
         }
       }
       
@@ -328,7 +328,7 @@ export class DatabaseStorage implements IStorage {
           
         console.log(`[DB UPDATE] Updated current city to "${state.currentCity}" for user ${userId}`);
       } catch (error) {
-        console.error('[DB] Error updating user current city:', error);
+        console.error('[DB ERROR] Error updating user current city:', error);
       }
     } else {
       console.log(`[DB WARNING] Skipping user current city update as no userId is available`);
@@ -374,7 +374,7 @@ export class DatabaseStorage implements IStorage {
             console.log(`[DB CREATE] Created new city "${city.title}" (ID: ${cityId}) with ${city.items.length} items`);
           }
         } catch (error) {
-          console.error(`[DB] Error saving city ${cityId}:`, error);
+          console.error(`[DB ERROR] Error saving city ${cityId}:`, error);
         }
         
         // Process city items
@@ -465,7 +465,7 @@ export class DatabaseStorage implements IStorage {
                 ));
             }
           } catch (error) {
-            console.error(`[DB] Error saving item ${item.id}:`, error);
+            console.error(`[DB ERROR] Error saving item ${item.id}:`, error);
           }
         }
       }
@@ -480,7 +480,7 @@ export class DatabaseStorage implements IStorage {
       
       console.log(`[DB WRITE] Successfully saved bingo state with ${totalCities} cities and ${totalItems} items${userId ? ' for user ' + userId : ''}`); 
     } catch (error) {
-      console.error('[DB] Error saving bingo state:', error);
+      console.error('[DB ERROR] Error saving bingo state:', error);
     }
   }
 
@@ -490,10 +490,10 @@ export class DatabaseStorage implements IStorage {
       try {
         const user = await this.getUserByClientId(clientId);
         if (user) {
-          console.log(`[DB] Found existing user ${user.id} with clientId ${clientId}`);
+          console.log(`[DB LOOKUP] Found existing user ${user.id} with clientId ${clientId}`);
           userId = user.id;
         } else {
-          console.log(`[DB] No user found with clientId ${clientId}, creating new user`);
+          console.log(`[DB LOOKUP] No user found with clientId ${clientId}, creating new user`);
           const newUser = await this.createOrUpdateClientUser(clientId);
           userId = newUser.id;
         }
@@ -589,10 +589,10 @@ export class DatabaseStorage implements IStorage {
       try {
         const user = await this.getUserByClientId(clientId);
         if (user) {
-          console.log(`[DB] Found existing user ${user.id} with clientId ${clientId}`);
+          console.log(`[DB LOOKUP] Found existing user ${user.id} with clientId ${clientId}`);
           userId = user.id;
         } else {
-          console.log(`[DB] No user found with clientId ${clientId}, creating new user`);
+          console.log(`[DB LOOKUP] No user found with clientId ${clientId}, creating new user`);
           const newUser = await this.createOrUpdateClientUser(clientId);
           userId = newUser.id;
         }
