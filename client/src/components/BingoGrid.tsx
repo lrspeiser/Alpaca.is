@@ -183,10 +183,10 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   }
   
   // CSS Grid layout for the 5x5 bingo grid - ensures items are positioned correctly
-  // Using taller rows for better mobile readability (120px height is better for rectangles)
+  // Using taller rows for better mobile readability (fixed 100px height for each cell)
   const gridContainerStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateRows: 'repeat(5, minmax(120px, 1fr))',
+    gridTemplateRows: 'repeat(5, 100px)',
     gridTemplateColumns: 'repeat(5, 1fr)',
     gap: '0',
     border: '1px solid #ddd',
@@ -236,8 +236,8 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
           const itemStyle = {
             gridRow: `${rowIndex + 1}`,    // CSS grid is 1-indexed
             gridColumn: `${colIndex + 1}`,  // CSS grid is 1-indexed
-            height: '100%', 
-            minHeight: '60px'
+            height: '100%' 
+            // No need for minHeight as we've set fixed height on grid rows
           } as React.CSSProperties;
           if (!item) {
             return (
@@ -262,9 +262,9 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
             >
               
               {item.completed ? (
-                <div className="w-full h-full flex flex-col">
-                  {/* Top part: image (square aspect ratio) */}
-                  <div className="w-full aspect-square relative">
+                <div className="w-full h-full flex flex-col overflow-hidden">
+                  {/* Top part: image (fixed proportional height) */}
+                  <div className="w-full h-[60%] relative">
                     <ImageDebugger
                       src={getImageUrl(item)}
                       alt={item.text}
@@ -285,14 +285,14 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
                     )}
                   </div>
                   
-                  {/* Bottom part: text (will take remaining space) */}
-                  <div className="w-full flex-grow bg-white p-2 flex items-center justify-center">
-                    <p className="text-base font-medium leading-tight text-primary-900">{item.text}</p>
+                  {/* Bottom part: text (fixed proportional height) */}
+                  <div className="w-full h-[40%] bg-white p-1 flex items-center justify-center">
+                    <p className="text-sm font-medium leading-tight text-primary-900 line-clamp-3">{item.text}</p>
                   </div>
                 </div>
               ) : (
                 <div className="p-3 h-full w-full flex flex-col justify-center">
-                  <p className="text-base leading-tight font-medium">{item.text}</p>
+                  <p className="text-sm leading-tight font-medium">{item.text}</p>
                 </div>
               )}
             </div>
