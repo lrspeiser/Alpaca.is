@@ -134,6 +134,7 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
       
+      console.log(`[DB CREATE] Created new user with ID ${user.id}, clientId: ${clientId}${defaultCityId ? ', default city: ' + defaultCityId : ''}`);
       return user;
     }
   }
@@ -151,10 +152,10 @@ export class DatabaseStorage implements IStorage {
         try {
           const user = await this.getUserByClientId(clientId);
           if (user) {
-            console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+            console.log(`[DB] Found existing user ${user.id} with clientId ${clientId}`);
             userId = user.id;
           } else {
-            console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+            console.log(`[DB] No user found with clientId ${clientId}, creating new user`);
             const newUser = await this.createOrUpdateClientUser(clientId);
             userId = newUser.id;
           }
@@ -357,7 +358,7 @@ export class DatabaseStorage implements IStorage {
               })
               .where(eq(cities.id, cityId));
               
-            console.log(`[DB] Updated city ${cityId}`);
+            console.log(`[DB UPDATE] Updated city "${city.title}" (ID: ${cityId})`);
           } else {
             // City doesn't exist, create it
             await db
@@ -469,7 +470,15 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      console.log(`[DB] Successfully saved bingo state for user ${userId}`);
+      // Summarize cities and items counts for the save operation
+      let totalItems = 0;
+      let totalCities = Object.keys(state.cities).length;
+      
+      for (const cityId in state.cities) {
+        totalItems += state.cities[cityId].items.length;
+      }
+      
+      console.log(`[DB WRITE] Successfully saved bingo state with ${totalCities} cities and ${totalItems} items${userId ? ' for user ' + userId : ''}`); 
     } catch (error) {
       console.error('[DB] Error saving bingo state:', error);
     }

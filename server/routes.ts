@@ -125,17 +125,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      // Log the first city's first item (if it exists) to verify data integrity
+      // We're no longer logging read operations, removing debug output for first item
       const firstCityId = Object.keys(state.cities)[0];
-      if (firstCityId && state.cities[firstCityId] && state.cities[firstCityId].items.length > 0) {
-        const firstItem = state.cities[firstCityId].items[0];
-        console.log(`[DB DEBUG] First item in city ${firstCityId}:`, {
-          id: firstItem.id,
-          text: firstItem.text,
-          hasDescription: !!firstItem.description,
-          hasImage: !!firstItem.image
-        });
-      }
       
       log(`[SERVER] Sending bingo state to client: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
       res.json(state);
