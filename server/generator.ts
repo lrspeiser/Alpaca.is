@@ -154,9 +154,9 @@ export async function generateItemImage(
         attempts++;
         log(`API attempt ${attempts}/${maxRetries + 1} for item "${itemText}"`, "openai-debug");
         
-        // Use AbortController to implement a timeout - increased from 30s to 60s
+        // Use AbortController to implement a timeout - increased to 120s per user request
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
         
         fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",

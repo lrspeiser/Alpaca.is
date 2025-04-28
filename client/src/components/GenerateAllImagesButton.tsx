@@ -48,35 +48,55 @@ export default function GenerateAllImagesButton() {
       // Process all items, not just the ones without images
       const itemsToGenerate = items.filter(item => !item.isCenterSpace);
       
-      // Process items one at a time to avoid API rate limits
-      for (let i = 0; i < itemsToGenerate.length; i++) {
+      // Generate images in parallel with Promise.all
+      const batchSize = 3; // Process 3 items concurrently as requested
+      const batches = [];
+      
+      // Split items into batches for controlled parallelism
+      for (let i = 0; i < itemsToGenerate.length; i += batchSize) {
+        batches.push(itemsToGenerate.slice(i, i + batchSize));
+      }
+      
+      console.log(`[BATCH] Processing ${itemsToGenerate.length} items in ${batches.length} batches of up to ${batchSize} items each`);
+      
+      // Process each batch in parallel with a delay between batches
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`[BATCH] Starting batch ${batchIndex + 1}/${batches.length} with ${batch.length} items`);
+        
         try {
-          const item = itemsToGenerate[i];
-          console.log(`[BATCH] Processing item ${i+1}/${itemsToGenerate.length}: ${item.id}`);
+          // Create an array of promises, one for each item in the batch
+          const batchPromises = batch.map(item => 
+            generateImageForItem(city.id, item.id, item.text)
+              .then(() => {
+                successCount++;
+                currentProgress++;
+                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+                console.log(`[BATCH] Completed item ${item.id} (success)`);
+                return { success: true, id: item.id };
+              })
+              .catch(error => {
+                console.error(`[BATCH] Error generating image for ${item.id}:`, error);
+                failCount++;
+                currentProgress++;
+                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+                return { success: false, id: item.id, error };
+              })
+          );
           
-          try {
-            await generateImageForItem(city.id, item.id, item.text);
-            successCount++;
-          } catch (error) {
-            console.error(`Error generating image for ${item.id}:`, error);
-            failCount++;
-          }
+          // Wait for all promises in this batch to resolve before moving to the next batch
+          const batchResults = await Promise.all(batchPromises);
           
-          // Update progress after each item
-          currentProgress++;
-          setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+          console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}, success rate: ${batchResults.filter(r => r.success).length}/${batch.length}`);
           
-          // Add a longer delay between requests to prevent API rate limiting (3 seconds)
-          if (i < itemsToGenerate.length - 1) {
-            console.log(`[BATCH] Adding 3-second delay before next request (${i+1}/${itemsToGenerate.length} complete)`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); 
+          // Add a delay between batches to prevent API rate limiting
+          if (batchIndex < batches.length - 1) {
+            console.log(`[BATCH] Adding 5-second delay before next batch`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
           }
         } catch (error) {
-          console.error(`Error processing item ${i}:`, error);
-          // Continue to the next item even if this one had errors
-          failCount++;
-          currentProgress++;
-          setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+          console.error(`[BATCH] Error processing batch ${batchIndex + 1}:`, error);
+          // Continue to the next batch even if this one had errors
         }
       }
       
