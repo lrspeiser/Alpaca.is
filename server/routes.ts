@@ -268,10 +268,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new city with full automated generation
   app.post("/api/create-city", async (req: Request, res: Response) => {
     try {
-      // Validate input - we only need cityId and cityName
+      // Validate input - we only need cityId and cityName (plus optional clientId)
       const schema = z.object({
         cityId: z.string(),
-        cityName: z.string()
+        cityName: z.string(),
+        clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
@@ -498,11 +499,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const schema = z.object({
         itemId: z.string(),
-        cityId: z.string()
+        cityId: z.string(),
+        clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, cityId } = validatedData;
+      const { itemId, cityId, clientId } = validatedData;
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -545,8 +547,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      // Save the updated state
-      await storage.saveBingoState(updatedState);
+      // Save the updated state with clientId if provided
+      await storage.saveBingoState(updatedState, undefined, clientId);
       
       res.json({ 
         success: true, 
@@ -566,13 +568,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemId: z.string().optional(),
         itemText: z.string().optional(),
         description: z.string().optional(),
-        cityId: z.string()
+        cityId: z.string(),
+        clientId: z.string().optional(),
+        forceNewImage: z.boolean().optional().default(false)
       }).refine(data => data.itemId || data.itemText, {
         message: "Either itemId or itemText must be provided"
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, itemText: providedItemText, description: providedDescription, cityId } = validatedData;
+      const { itemId, itemText: providedItemText, description: providedDescription, cityId, clientId, forceNewImage } = validatedData;
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -703,8 +707,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const checkItem = updatedState.cities[cityId].items.find(i => i.id === itemId);
         log(`Final image URL check for ${itemId}: ${checkItem?.image ? 'URL present' : 'No URL'}`, 'ai-generation');
         
-        // Save the updated state to the database
-        await storage.saveBingoState(updatedState);
+        // Save the updated state to the database with clientId if provided
+        await storage.saveBingoState(updatedState, undefined, clientId);
         
         // Also directly update the database item 
         try {
