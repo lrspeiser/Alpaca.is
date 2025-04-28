@@ -152,9 +152,14 @@ export default function BingoGrid({ onItemClick }: BingoGridProps) {
       <div className="bg-primary text-white font-bold py-3 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm flex justify-center items-center">
         <div className="flex items-center justify-center space-x-2">
           <Select value={currentCity} onValueChange={(newCity: string) => {
+            console.log(`[GRID] City selected from dropdown: ${newCity}`);
             // Update to the new selected city and refresh
             setCurrentCity(newCity);
-            setForceRefresh(prev => prev + 1);
+            // Wait for state to be updated, then force refresh local component
+            setTimeout(() => {
+              console.log(`[GRID] Refreshing after city change to ${newCity}`);
+              setForceRefresh(prev => prev + 1);
+            }, 200);
           }}>
             <SelectTrigger className="w-[120px] h-8 bg-primary border-white/30 text-white">
               <SelectValue placeholder="Select a city" />

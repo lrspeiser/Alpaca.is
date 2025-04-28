@@ -156,15 +156,60 @@ export function useBingoStore() {
   // Set the current city
   const setCurrentCity = useCallback(async (cityId: string) => {
     if (state.cities[cityId]) {
+      console.log(`[STORE] Changing current city to ${cityId}`);
+      
+      // Create new state with the selected city
       const newState = {
         ...state,
         currentCity: cityId
       };
       
+      // Update local state immediately for responsive UI
       setState(newState);
-      await saveState(newState);
+      
+      // Save to localStorage first for redundancy
+      saveToLocalStorage(STORAGE_KEY, newState);
+      
+      try {
+        // Call API to persist changes with explicit clientId if available
+        console.log(`[STORE] Persisting city change to server (${cityId})`);
+        
+        // Add client ID to the request if available
+        const payload = clientId 
+          ? { ...newState, clientId } 
+          : newState;
+            
+        // Use a specific API call just for updating current city
+        const response = await fetch('/api/bingo-state', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: {
+            'Content-Type': 'application/json',
+            // Add cache-busting headers to ensure fresh response
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update current city');
+        }
+        
+        console.log(`[STORE] Successfully changed current city to ${cityId}`);
+        
+        // Force a state refresh to ensure everything is in sync
+        setTimeout(() => {
+          // Use force refresh to get the latest state from server
+          fetchBingoState(true);
+        }, 100);
+      } catch (error) {
+        console.error(`[STORE] Error changing current city to ${cityId}:`, error);
+        // We already updated local state, so UI should still reflect the change
+      }
+    } else {
+      console.error(`[STORE] Attempted to set current city to invalid city ID: ${cityId}`);
     }
-  }, [state, saveState]);
+  }, [state, saveState, fetchBingoState, clientId]);
   
   // Toggle completion status of a bingo item
   const toggleItemCompletion = useCallback(async (itemId: string) => {
