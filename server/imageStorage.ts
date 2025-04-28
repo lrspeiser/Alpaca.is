@@ -5,7 +5,10 @@ import crypto from 'crypto';
 import { log } from './vite';
 
 // The directory where images will be stored
-let currentImageDir = path.join(process.cwd(), 'public', 'images');
+// Using public/images as primary and /tmp/images as fallback
+let primaryImageDir = path.join(process.cwd(), 'public', 'images');
+let fallbackImageDir = '/tmp/images';
+let currentImageDir = primaryImageDir;
 
 // Function to get the current image directory
 function getImageDir(): string {
@@ -15,14 +18,16 @@ function getImageDir(): string {
 // Function to set a new image directory
 function setImageDir(dir: string): void {
   currentImageDir = dir;
+  log(`[IMAGE-STORAGE] Image directory set to ${currentImageDir}`, 'image-storage');
 }
 
 // Ensure the image directory exists
 function ensureImageDir() {
-  if (!fs.existsSync(IMAGE_DIR)) {
+  const imgDir = getImageDir();
+  if (!fs.existsSync(imgDir)) {
     try {
-      fs.mkdirSync(currentImageDir, { recursive: true });
-      log(`[IMAGE-STORAGE] Created image directory at ${currentImageDir}`, 'image-storage');
+      fs.mkdirSync(imgDir, { recursive: true });
+      log(`[IMAGE-STORAGE] Created image directory at ${imgDir}`, 'image-storage');
     } catch (error: any) {
       // In production, this might fail due to permissions
       log(`[IMAGE-STORAGE] Error creating image directory: ${error.message}`, 'image-storage');
@@ -30,12 +35,10 @@ function ensureImageDir() {
       
       // Try to use /tmp as a fallback
       try {
-        const tmpImageDir = '/tmp/images';
-        fs.mkdirSync(tmpImageDir, { recursive: true });
-        // Override the IMAGE_DIR constant - this is technically not allowed in TypeScript
-        // but we need to do this for the fallback to work
-        setImageDir(tmpImageDir);
-        log(`[IMAGE-STORAGE] Successfully created fallback image directory at ${tmpImageDir}`, 'image-storage');
+        fs.mkdirSync(fallbackImageDir, { recursive: true });
+        // Set the fallback directory as the current image directory
+        setImageDir(fallbackImageDir);
+        log(`[IMAGE-STORAGE] Successfully created fallback image directory at ${fallbackImageDir}`, 'image-storage');
       } catch (fallbackError: any) {
         log(`[IMAGE-STORAGE] Error creating fallback image directory: ${fallbackError.message}`, 'image-storage');
         throw error; // Throw the original error if fallback also fails
@@ -74,7 +77,7 @@ export async function downloadAndStoreImage(
   try {
     // Generate a filename for the image
     const filename = generateImageFilename(cityId, itemId, itemText);
-    const localPath = path.join(IMAGE_DIR, filename);
+    const localPath = path.join(getImageDir(), filename);
     
     // Check if we already have this image
     if (fs.existsSync(localPath)) {
@@ -120,7 +123,7 @@ export async function downloadAndStoreImage(
  */
 export function getLocalImageUrl(cityId: string, itemId: string, itemText: string): string | null {
   const filename = generateImageFilename(cityId, itemId, itemText);
-  const localPath = path.join(IMAGE_DIR, filename);
+  const localPath = path.join(getImageDir(), filename);
   
   if (fs.existsSync(localPath)) {
     return `/images/${filename}`;
@@ -169,7 +172,7 @@ export function setupImageServing(app: any) {
   ensureImageDir();
   
   // Log the path where images will be served from
-  log(`[IMAGE-STORAGE] Setting up static image serving from ${IMAGE_DIR}`, 'image-storage');
+  log(`[IMAGE-STORAGE] Setting up static image serving from ${getImageDir()}`, 'image-storage');
   
   // Add middleware to log image requests
   app.use('/images', (req: any, res: any, next: any) => {
@@ -179,5 +182,5 @@ export function setupImageServing(app: any) {
   });
   
   // Return the image directory path so the server can set up static serving
-  return IMAGE_DIR;
+  return getImageDir();
 }
