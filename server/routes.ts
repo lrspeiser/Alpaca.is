@@ -563,6 +563,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save a user-captured photo for a bingo item
+  app.post("/api/save-user-photo", async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        itemId: z.string(),
+        cityId: z.string(),
+        photoDataUrl: z.string(),
+        clientId: z.string().optional()
+      });
+      
+      const validatedData = schema.parse(req.body);
+      const { itemId, cityId, photoDataUrl, clientId } = validatedData;
+      
+      // Get the current state
+      const state = await storage.getBingoState(undefined, clientId);
+      const city = state.cities[cityId];
+      
+      if (!city) {
+        return res.status(404).json({ error: `City ${cityId} not found` });
+      }
+      
+      // Find the item
+      const item = city.items.find(item => item.id === itemId);
+      
+      if (!item) {
+        return res.status(404).json({ error: `Item ${itemId} not found in city ${cityId}` });
+      }
+      
+      log(`Saving user photo for item ${itemId} in ${cityId}`, 'user-photos');
+      
+      // Check if photoDataUrl is a valid data URL
+      if (!photoDataUrl.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Invalid photo data format' });
+      }
+      
+      let localPhotoPath = '';
+      try {
+        // Extract base64 data from data URL
+        const base64Data = photoDataUrl.split(',')[1];
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Generate a unique filename
+        const filename = `user-photo-${itemId}-${Date.now()}.jpg`;
+        const photoDir = path.join(process.cwd(), 'public', 'images');
+        
+        // Ensure directory exists
+        if (!fs.existsSync(photoDir)) {
+          fs.mkdirSync(photoDir, { recursive: true });
+        }
+        
+        // Save the file
+        const filePath = path.join(photoDir, filename);
+        fs.writeFileSync(filePath, buffer);
+        
+        // Create a URL path for the saved image
+        localPhotoPath = `/images/${filename}`;
+        
+        log(`User photo saved to ${localPhotoPath}`, 'user-photos');
+      } catch (error: any) {
+        log(`Error saving user photo: ${error.message}`, 'user-photos');
+        return res.status(500).json({ error: 'Failed to save photo' });
+      }
+      
+      // Update the item with the user photo URL
+      const updatedItems = city.items.map(i => 
+        i.id === itemId ? { ...i, userPhoto: localPhotoPath } : i
+      );
+      
+      // Update the city
+      const updatedCity = {
+        ...city,
+        items: updatedItems
+      };
+      
+      // Update the state
+      const updatedState = {
+        ...state,
+        cities: {
+          ...state.cities,
+          [cityId]: updatedCity
+        }
+      };
+      
+      // Save the updated state with clientId if provided
+      await storage.saveBingoState(updatedState, undefined, clientId);
+      
+      res.json({ 
+        success: true, 
+        photoUrl: localPhotoPath,
+        message: `Saved user photo for "${item.text}" in ${city.title}`
+      });
+    } catch (error: any) {
+      console.error("Error saving user photo:", error);
+      res.status(500).json({ error: "Failed to save user photo" });
+    }
+  });
+
   // Generate an image for a bingo item
   app.post("/api/generate-image", async (req: Request, res: Response) => {
     try {

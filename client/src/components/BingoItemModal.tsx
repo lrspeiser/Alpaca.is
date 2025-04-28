@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw, X, Camera } from "lucide-react";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { useEffect, useState } from "react";
 import type { BingoItem } from "@/types";
 import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
 import { getProxiedImageUrl } from "../lib/imageUtils";
+import PhotoCaptureModal from "./PhotoCaptureModal";
+import { useClientId } from '@/hooks/useClientId';
 
 interface BingoItemModalProps {
   item: BingoItem | null;

@@ -25,7 +25,8 @@ export const bingoItems = pgTable("bingo_items", {
   text: text("text").notNull(),
   completed: boolean("completed").notNull().default(false),
   isCenterSpace: boolean("is_center_space").default(false),
-  image: text("image"), // Image URL can be any length
+  image: text("image"), // AI-generated image URL
+  userPhoto: text("user_photo"), // User-captured photo (stored as data URL or file path)
   description: text("description"),
   cityId: text("city_id").notNull(),
   gridRow: integer("grid_row"), // 0-based row index (0-4)
