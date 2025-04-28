@@ -332,15 +332,9 @@ export class DatabaseStorage implements IStorage {
                 console.log(`[DB] Item ${item.id} has image URL:`, item.image.substring(0, 30) + '...');
               }
               
-              // Debug our test item
-              if (item.id === 'prague-4') {
-                console.log('[DB] Saving item prague-4 with data:', { 
-                  hasDescription: !!item.description,
-                  description: item.description ? `${item.description.substring(0, 50)}...` : 'none',
-                  hasImage: !!item.image,
-                  imageUrl: item.image ? `${item.image.substring(0, 30)}...` : 'none',
-                  imageUrlLength: item.image ? item.image.length : 0
-                });
+              // Debug items with images or descriptions for troubleshooting
+              if (item.image || item.description) {
+                console.log(`[DB] Item ${item.id} has image: ${!!item.image}, description: ${!!item.description}`);
               }
               
               if (existingItem) {
