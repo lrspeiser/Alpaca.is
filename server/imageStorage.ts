@@ -5,14 +5,24 @@ import crypto from 'crypto';
 import { log } from './vite';
 
 // The directory where images will be stored
-const IMAGE_DIR = path.join(process.cwd(), 'public', 'images');
+let currentImageDir = path.join(process.cwd(), 'public', 'images');
+
+// Function to get the current image directory
+function getImageDir(): string {
+  return currentImageDir;
+}
+
+// Function to set a new image directory
+function setImageDir(dir: string): void {
+  currentImageDir = dir;
+}
 
 // Ensure the image directory exists
 function ensureImageDir() {
   if (!fs.existsSync(IMAGE_DIR)) {
     try {
-      fs.mkdirSync(IMAGE_DIR, { recursive: true });
-      log(`[IMAGE-STORAGE] Created image directory at ${IMAGE_DIR}`, 'image-storage');
+      fs.mkdirSync(currentImageDir, { recursive: true });
+      log(`[IMAGE-STORAGE] Created image directory at ${currentImageDir}`, 'image-storage');
     } catch (error: any) {
       // In production, this might fail due to permissions
       log(`[IMAGE-STORAGE] Error creating image directory: ${error.message}`, 'image-storage');
@@ -24,7 +34,7 @@ function ensureImageDir() {
         fs.mkdirSync(tmpImageDir, { recursive: true });
         // Override the IMAGE_DIR constant - this is technically not allowed in TypeScript
         // but we need to do this for the fallback to work
-        (IMAGE_DIR as any) = tmpImageDir;
+        setImageDir(tmpImageDir);
         log(`[IMAGE-STORAGE] Successfully created fallback image directory at ${tmpImageDir}`, 'image-storage');
       } catch (fallbackError: any) {
         log(`[IMAGE-STORAGE] Error creating fallback image directory: ${fallbackError.message}`, 'image-storage');
