@@ -2,14 +2,11 @@ import { useState, useCallback } from "react";
 import Header from "@/components/Header";
 import BingoGrid from "@/components/BingoGrid";
 import BingoItemModal from "@/components/BingoItemModal";
-import InfoModal from "@/components/InfoModal";
 import Footer from "@/components/Footer";
-import GenerateDescriptionsButton from "@/components/GenerateDescriptionsButton";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import type { BingoItem } from "@/types";
 
 export default function Travel() {
-  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<BingoItem | null>(null);
   const [gridRefreshTrigger, setGridRefreshTrigger] = useState(0);
   const { cities, currentCity, isLoading, fetchBingoState } = useBingoStore();
@@ -28,7 +25,7 @@ export default function Travel() {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-heading font-bold mb-4">Loading Travel Bingo...</h2>
+          <h2 className="text-2xl font-heading font-bold mb-4">Loading...</h2>
           <div className="animate-pulse w-24 h-24 bg-primary/20 rounded-full mx-auto flex items-center justify-center">
             <div className="w-16 h-16 bg-primary/40 rounded-full"></div>
           </div>
@@ -41,11 +38,9 @@ export default function Travel() {
   
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      <Header onOpenInfoModal={() => setIsInfoModalOpen(true)} />
+      <Header />
       
       <main className="flex-grow w-full px-0 py-2">
-        {/* City subtitle - moved inside the BingoGrid component */}
-        
         {/* Bingo Grid with title and refresh trigger */}
         <BingoGrid 
           onItemClick={setSelectedItem} 
@@ -54,12 +49,6 @@ export default function Travel() {
       </main>
       
       <Footer />
-      
-      {/* Info Modal */}
-      <InfoModal 
-        isOpen={isInfoModalOpen} 
-        onClose={() => setIsInfoModalOpen(false)}
-      />
       
       {/* Bingo Item Modal with refresh callback */}
       <BingoItemModal 
