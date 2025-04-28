@@ -371,7 +371,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       log(`Creating new city: ${cityName} (${cityId})`, 'city-creation');
       
       // Get the current bingo state
-      const state = await storage.getBingoState();
+      // Use clientId if available to help track the city creation
+      const state = clientId 
+        ? await storage.getBingoState(undefined, clientId)
+        : await storage.getBingoState();
       
       // Check if city already exists
       if (state.cities[cityId]) {
@@ -521,7 +524,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 
                 // Get the latest state to ensure we have the latest data
-                const currentState = await storage.getBingoState();
+                // Use clientId if available for consistency
+                const currentState = clientId 
+                  ? await storage.getBingoState(undefined, clientId)
+                  : await storage.getBingoState();
+                  
                 const currentCity = currentState.cities[cityId];
                 
                 if (!currentCity) {

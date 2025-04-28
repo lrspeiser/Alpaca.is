@@ -328,21 +328,27 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
+    // CRITICAL FIX: For city/item creation, don't abort if userId is missing
+    // This ensures city data is still saved even if user association fails
     if (!userId) {
-      console.log('[DB] No userId available after clientId lookup, cannot save state');
-      return;
+      console.log('[DB] No userId available after clientId lookup, continuing with city/item creation only');
+      // We'll continue with city/item creation and skip user-specific operations below
     }
     
-    // STEP 2: Update the user's current city
-    try {
-      await db
-        .update(users)
-        .set({ currentCity: state.currentCity })
-        .where(eq(users.id, userId));
-        
-      console.log(`[DB] Updated current city to ${state.currentCity} for user ${userId}`);
-    } catch (error) {
-      console.error('[DB] Error updating user current city:', error);
+    // STEP 2: Update the user's current city (only if userId is available)
+    if (userId) {
+      try {
+        await db
+          .update(users)
+          .set({ currentCity: state.currentCity })
+          .where(eq(users.id, userId));
+          
+        console.log(`[DB] Updated current city to ${state.currentCity} for user ${userId}`);
+      } catch (error) {
+        console.error('[DB] Error updating user current city:', error);
+      }
+    } else {
+      console.log(`[DB] Skipping user current city update as no userId is available`);
     }
     
     // STEP 3: Save all cities and their items
@@ -426,8 +432,8 @@ export class DatabaseStorage implements IStorage {
                 });
             }
             
-            // Handle user completion status separately
-            if (item.completed) {
+            // Handle user completion status separately (only if userId is available)
+            if (userId && item.completed) {
               // Check if user completion record exists
               const [existingCompletion] = await db
                 .select()
@@ -461,7 +467,7 @@ export class DatabaseStorage implements IStorage {
                     completedAt: new Date().toISOString()
                   });
               }
-            } else {
+            } else if (userId && !item.completed) {
               // Item is not completed, delete any existing completion
               await db
                 .delete(userCompletions)
