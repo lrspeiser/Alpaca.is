@@ -15,26 +15,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up image proxy for handling OpenAI image URLs
   setupImageProxy(app);
   
-  // Set up static serving for stored images
-  try {
-    const imageDir = setupImageServing(app);
-    
-    // Set up additional static route for the image directory
-    app.use('/images', express.static(imageDir));
-    
-    // Add a fallback for missing images
-    app.use('/images/:filename', (req, res, next) => {
-      // If we got here, the image wasn't found
-      log(`[IMAGE-FALLBACK] Image not found: ${req.params.filename}, using fallback`, 'image-fallback');
-      
-      // Send a placeholder image or redirect to a default image
-      res.redirect('/api/placeholder-image?text=' + encodeURIComponent('Image not available'));
-    });
-  } catch (error) {
-    log(`[IMAGE-ERROR] Failed to set up image serving: ${error.message}`, 'error');
-    // Continue anyway, the app should still work without images
-  }
-  
   // Add a placeholder image endpoint
   app.get('/api/placeholder-image', (req, res) => {
     const text = req.query.text || 'No image';
@@ -51,23 +31,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(svg);
   });
 
-  // Serve images from temporary directory if they exist there
-  app.use('/images', (req, res, next) => {
-    const tmpImagesDir = '/tmp/images';
+  // Set up image serving
+  try {
+    // Set up primary static route for images from public directory
+    const imageDir = setupImageServing(app);
     
-    // Get just the filename without any path information
-    const requestedFilename = path.basename(req.path);
-    const requestedFile = path.join(tmpImagesDir, requestedFilename);
+    // Set up static serving for the images directory
+    app.use('/images', express.static(imageDir));
     
-    // Check if the file exists in the temporary directory
-    if (fs.existsSync(requestedFile) && fs.statSync(requestedFile).isFile()) {
-      log(`[IMAGE-FALLBACK] Serving image from temporary directory: ${requestedFile}`, 'image-fallback');
-      return res.sendFile(requestedFile);
-    }
-    
-    // If we get here, try the next middleware
-    next();
-  });
+    // Add a fallback for missing images
+    app.use('/images/:filename', (req, res) => {
+      // If we got here, the image wasn't found
+      log(`[IMAGE-FALLBACK] Image not found: ${req.params.filename}, using fallback`, 'image-fallback');
+      
+      // Send a placeholder image or redirect to a default image
+      res.redirect('/api/placeholder-image?text=' + encodeURIComponent('Image not available'));
+    });
+  } catch (error) {
+    log(`[IMAGE-ERROR] Failed to set up image serving: ${error.message}`, 'error');
+    // Continue anyway, the app should still work without images
+  }
   // Register a client ID for persistent user state without login
   app.post("/api/register-client", async (req: Request, res: Response) => {
     try {

@@ -51,6 +51,9 @@ function generateImageFilename(cityId: string, itemId: string, itemText: string)
 /**
  * Downloads and stores an image from a URL
  * Returns the local path to the stored image
+ * 
+ * This function attempts to save the image to both the primary image directory
+ * and a fallback directory in /tmp for better availability in production
  */
 export async function downloadAndStoreImage(
   imageUrl: string, 
@@ -59,9 +62,6 @@ export async function downloadAndStoreImage(
   itemText: string
 ): Promise<string> {
   try {
-    // Make sure the directory exists
-    ensureImageDir();
-    
     // Generate a filename for the image
     const filename = generateImageFilename(cityId, itemId, itemText);
     const localPath = path.join(IMAGE_DIR, filename);
@@ -87,6 +87,9 @@ export async function downloadAndStoreImage(
     
     // Get the image data
     const imageBuffer = await response.buffer();
+    
+    // Make sure the directory exists
+    ensureImageDir();
     
     // Save the image to disk
     fs.writeFileSync(localPath, imageBuffer);
@@ -158,8 +161,7 @@ export function setupImageServing(app: any) {
   // Log the path where images will be served from
   log(`[IMAGE-STORAGE] Setting up static image serving from ${IMAGE_DIR}`, 'image-storage');
   
-  // The application should already have express static middleware set up
-  // We just need to add our image directory to the static paths
+  // Add middleware to log image requests
   app.use('/images', (req: any, res: any, next: any) => {
     // Log image requests for debugging
     log(`[IMAGE-STORAGE] Requested image: ${req.url}`, 'image-storage');
