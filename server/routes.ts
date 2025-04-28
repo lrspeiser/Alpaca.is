@@ -296,13 +296,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schema = z.object({
         itemId: z.string().optional(),
         itemText: z.string().optional(),
+        description: z.string().optional(),
         cityId: z.string()
       }).refine(data => data.itemId || data.itemText, {
         message: "Either itemId or itemText must be provided"
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, itemText: providedItemText, cityId } = validatedData;
+      const { itemId, itemText: providedItemText, description: providedDescription, cityId } = validatedData;
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -338,8 +339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Log city title and item text to make sure they are valid
         log(`City title: "${city.title}", Item text: "${itemText}"`, 'ai-generation');
         
-        // Get the item description if available
-        const description = targetItem?.description;
+        // Prioritize the provided description, fall back to the item's description
+        const description = providedDescription || targetItem?.description;
         
         // Log if we have a description to include in the image generation
         if (description) {

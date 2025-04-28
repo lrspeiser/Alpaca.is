@@ -119,7 +119,8 @@ export async function generateItemImage(
 ): Promise<string> {
   try {
     // Create a detailed prompt for the image that incorporates the description if available
-    let prompt = `A high-quality square travel photograph of "${itemText}" in ${cityName}. No text overlay. Realistic style, vivid colors, daytime scene, tourist perspective, square 1:1 aspect ratio.`;
+    // Use a more flexible instruction for art style based on the subject matter
+    let prompt = `Create a high-quality square image of "${itemText}" in ${cityName} using the artistic style or photographic approach that best suits the subject matter and location. No text overlay. Square 1:1 aspect ratio. Choose between photography, illustration, painting, or other medium that works best for this specific subject.`;
     
     // Add description details to the prompt if available
     if (description) {

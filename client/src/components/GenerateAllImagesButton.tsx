@@ -48,19 +48,39 @@ export default function GenerateAllImagesButton() {
       // Process all items, not just the ones without images
       const itemsToGenerate = items.filter(item => !item.isCenterSpace);
       
-      // Generate images one by one (parallel generation could overload the API)
-      for (const item of itemsToGenerate) {
+      // Generate images in parallel with Promise.all
+      const batchSize = 5; // Generate 5 images in parallel at a time
+      const batches = [];
+      
+      // Split items into batches for controlled parallelism
+      for (let i = 0; i < itemsToGenerate.length; i += batchSize) {
+        batches.push(itemsToGenerate.slice(i, i + batchSize));
+      }
+      
+      // Process each batch in parallel
+      for (const batch of batches) {
         try {
-          await generateImageForItem(city.id, item.id, item.text);
-          successCount++;
+          // Create an array of promises, one for each item in the batch
+          const batchPromises = batch.map(item => 
+            generateImageForItem(city.id, item.id, item.text)
+              .then(() => {
+                successCount++;
+                currentProgress++;
+                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+              })
+              .catch(error => {
+                console.error(`Error generating image for ${item.id}:`, error);
+                failCount++;
+                currentProgress++;
+                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+              })
+          );
+          
+          // Wait for all promises in this batch to resolve before moving to the next batch
+          await Promise.all(batchPromises);
         } catch (error) {
-          console.error(`Error generating image for ${item.id}:`, error);
-          failCount++;
+          console.error("Error processing batch:", error);
         }
-        
-        // Update progress
-        currentProgress++;
-        setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
       }
       
       // Refresh state to get the latest data with new images
@@ -87,10 +107,19 @@ export default function GenerateAllImagesButton() {
   
   // Generate a single image
   const generateImageForItem = async (cityId: string, itemId: string, itemText: string) => {
+    // Find the item in the city to get its description
+    const item = items.find(item => item.id === itemId);
+    const description = item?.description || "";
+    
     const response = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cityId, itemId, text: itemText }),
+      body: JSON.stringify({ 
+        cityId, 
+        itemId,
+        itemText, // Include both itemId and itemText to be safe
+        description // Pass description to be used in image generation
+      }),
     });
     
     if (!response.ok) {
