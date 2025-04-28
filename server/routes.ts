@@ -51,8 +51,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get the current bingo state
   app.get("/api/bingo-state", async (req: Request, res: Response) => {
     try {
-      // Check for clientId in query parameters
-      const clientId = req.query.clientId as string | undefined;
+      // Check for clientId in query parameters or headers
+      let clientId = req.query.clientId as string | undefined;
+      
+      // Also check headers for clientId (for non-GET requests or when not in query)
+      if (!clientId && req.headers['x-client-id']) {
+        clientId = req.headers['x-client-id'] as string;
+      }
       
       // Get bingo state using clientId if available
       const state = await storage.getBingoState(undefined, clientId);
@@ -165,11 +170,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/generate-descriptions", async (req: Request, res: Response) => {
     try {
       const schema = z.object({
-        cityId: z.string()
+        cityId: z.string(),
+        clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
-      const cityId = validatedData.cityId;
+      const { cityId, clientId } = validatedData;
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -208,8 +214,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      // Save the updated state
-      await storage.saveBingoState(updatedState);
+      // Save the updated state with clientId if provided
+      await storage.saveBingoState(updatedState, undefined, clientId);
       
       res.json({ 
         success: true, 
