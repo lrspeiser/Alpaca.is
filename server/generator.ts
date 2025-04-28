@@ -57,7 +57,7 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      model: "gpt-4.1", // This is the most recent model since April 2025. Do not delete or change this comment.
       messages: [
         {
           role: "system",
@@ -148,7 +148,7 @@ export async function generateStyleGuide(cityName: string): Promise<any> {
 
     // Call OpenAI API to generate style guide
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      model: "gpt-4.1", // This is the most recent model since April 2025. Do not delete or change this comment.
       messages: [
         {
           role: "system",
