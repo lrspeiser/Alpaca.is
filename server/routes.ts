@@ -231,11 +231,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/generate-items", async (req: Request, res: Response) => {
     try {
       const schema = z.object({
-        cityId: z.string()
+        cityId: z.string(),
+        clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
-      const { cityId } = validatedData;
+      const { cityId, clientId } = validatedData;
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -276,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validatedData = schema.parse(req.body);
-      const { cityId, cityName } = validatedData;
+      const { cityId, cityName, clientId } = validatedData;
       
       log(`Creating new city: ${cityName} (${cityId})`, 'city-creation');
       
@@ -381,8 +382,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedState.currentCity = cityId;
       }
       
-      // Save the updated state
-      await storage.saveBingoState(updatedState);
+      // Save the updated state with clientId if provided
+      await storage.saveBingoState(updatedState, undefined, clientId);
       
       log(`Successfully created city ${cityName} with ${newCity.items.length} items and descriptions`, 'city-creation');
       
@@ -456,8 +457,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                 };
                 
-                // Save the updated state
-                await storage.saveBingoState(updatedState);
+                // Save the updated state with clientId if provided
+                await storage.saveBingoState(updatedState, undefined, clientId);
                 completedImages++;
                 log(`Generated image for item ${item.id} (${completedImages}/${itemsWithDescriptions.length})`, 'city-creation');
               } catch (error) {
