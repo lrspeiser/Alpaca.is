@@ -188,28 +188,27 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
     borderRadius: '0.5rem',
     overflow: 'hidden',
     width: '100%',
-    maxWidth: '500px', // Limit max width to avoid too much white space
-    margin: '0 auto'   // Center the grid
+    maxWidth: '100%',   // Take full width of parent container
+    margin: '0 auto',   // Center the grid
+    aspectRatio: '1/1'  // Ensure the entire grid is square
   };
   
   return (
-    <div className="bingo-container w-full mb-6 shadow-md rounded-md">
+    <div className="bingo-container w-full mb-6 shadow-md rounded-md max-w-md mx-auto">
       {/* Traditional Bingo Card Title - Now includes dropdown */}
-      <div className="bg-primary text-white font-bold py-3 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm flex justify-center items-center">
+      <div className="bg-primary text-white font-bold py-2 px-4 text-center text-xl uppercase tracking-wider border border-b-0 rounded-t-md shadow-sm flex justify-center items-center">
         <div className="flex items-center justify-center space-x-2">
           <Select value={currentCity} onValueChange={(newCity: string) => {
-            console.log(`[GRID] City selected from dropdown: ${newCity}`);
             // Save city selection to dedicated localStorage key
             saveCurrentCity(newCity);
             // Update to the new selected city and refresh
             setCurrentCity(newCity);
             // Wait for state to be updated, then force refresh local component
             setTimeout(() => {
-              console.log(`[GRID] Refreshing after city change to ${newCity}`);
               setForceRefresh(prev => prev + 1);
             }, 200);
           }}>
-            <SelectTrigger className="w-[120px] h-8 bg-primary border-white/30 text-white">
+            <SelectTrigger className="w-[100px] h-8 bg-primary border-white/30 text-white">
               <SelectValue placeholder="Select a city" />
             </SelectTrigger>
             <SelectContent>
@@ -261,14 +260,19 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
               
               {item.completed ? (
                 /* For completed tiles, just show the image with no text */
-                <div className="w-full h-full relative">
-                  {getImageUrl(item) && (
+                <div className="w-full h-full relative bg-gray-100 flex items-center justify-center">
+                  {getImageUrl(item) ? (
                     <img
                       src={getImageUrl(item) as string}
                       alt={item.text}
                       className="w-full h-full object-cover"
                       title={item.text} /* Show text on hover */
                     />
+                  ) : (
+                    /* Placeholder checkmark for completed items without images */
+                    <svg className="w-8 h-8 text-secondary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
                   )}
                   
                   {/* Show camera icon badge when displaying a user photo */}
@@ -283,8 +287,8 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
                 </div>
               ) : (
                 /* For incomplete tiles, show text only */
-                <div className="p-2 h-full w-full flex items-center justify-center">
-                  <p className="text-xs md:text-sm leading-tight font-medium">{item.text}</p>
+                <div className="text-fit-container">
+                  <p className="text-fit">{item.text}</p>
                 </div>
               )}
             </div>
