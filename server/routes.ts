@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { generateBulkDescriptions, generateItemDescription } from "./openai";
-import { generateBingoItems, generateItemImage } from "./generator";
+import { generateBingoItems, generateItemImage, generateStyleGuide } from "./generator";
 import { log } from "./vite";
 import { setupImageProxy } from "./imageProxy";
 import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
@@ -248,12 +248,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // STEP 1: Create basic city structure
+      // STEP 1: Generate style guide for the city
+      log(`Generating style guide for ${cityName}...`, 'city-creation');
+      const styleGuide = await generateStyleGuide(cityName);
+      
+      // STEP 2: Create basic city structure
       const newCity = {
         id: cityId,
         title: `${cityName} Bingo`,
         subtitle: `College Student Edition`,
         backgroundImage: "/images/placeholder-background.jpg", // Default placeholder
+        styleGuide: styleGuide, // Add the style guide to the city data
         items: [],
         tips: []
       };
@@ -370,8 +375,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             const batchPromises = batch.map(async (item) => {
               try {
-                // Generate image
-                const imageUrl = await generateItemImage(item.text, cityName, item.description);
+                // Generate image with style guide
+                const imageUrl = await generateItemImage(item.text, cityName, item.description, newCity.styleGuide);
                 
                 if (!imageUrl) {
                   log(`Failed to generate image for item ${item.id}`, 'city-creation');

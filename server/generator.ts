@@ -102,23 +102,138 @@ export async function generateBingoItems(
 }
 
 /**
+ * Generate a style guide for a city
+ * 
+ * @param cityName The name of the city
+ * @returns A style guide object with art styles and their best uses
+ */
+export async function generateStyleGuide(cityName: string): Promise<any> {
+  try {
+    // Create a prompt for generating the style guide
+    const prompt = `
+    Create a visual style guide for ${cityName} photos that will be used in a travel bingo app.
+    
+    Generate 5 artistic/photographic styles that would best represent different aspects of ${cityName}.
+    
+    For each style, provide:
+    1. A name for the style (like "Neo-Gothic Fairytale" or "Vintage Film Retro")
+    2. What subjects/locations this style works best for
+    3. 3-5 keywords that describe this style
+    
+    Return the result as a JSON object that looks like this:
+    {
+      "styleGuide": [
+        {
+          "style": "Neo-Gothic Fairytale",
+          "bestFor": "Castles, bridges, cathedrals",
+          "keywords": "Dramatic, romantic, misty"
+        },
+        {
+          "style": "Vintage Film Retro",
+          "bestFor": "Streets, cafés, squares",
+          "keywords": "Nostalgic, faded, timeless"
+        }
+      ]
+    }
+
+    Make the styles diverse and appropriate for ${cityName}'s unique character and architecture.
+    `;
+
+    // Call OpenAI API to generate style guide
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional art director with expertise in travel photography and city aesthetics. You create detailed style guides that capture a city's unique visual identity."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    });
+
+    // Process the response
+    const content = response.choices[0].message.content;
+    if (!content) {
+      log(`Empty response from OpenAI when generating style guide for ${cityName}`, "openai");
+      return { styleGuide: [] };
+    }
+
+    // Parse the JSON response
+    try {
+      const styleGuide = JSON.parse(content);
+      log(`Successfully generated style guide for ${cityName} with ${styleGuide.styleGuide.length} styles`, "openai");
+      return styleGuide;
+    } catch (parseError) {
+      log(`Error parsing style guide JSON for ${cityName}: ${parseError.message}`, "openai");
+      return { styleGuide: [] };
+    }
+  } catch (error: any) {
+    log(`Error generating style guide for ${cityName}: ${error?.message || "Unknown error"}`, "openai");
+    return { styleGuide: [] };
+  }
+}
+
+/**
  * Generate an image for a bingo item using OpenAI's GPT-Image model
  * Updated as of April 2025 to use the newer gpt-image-1 model with square aspect ratio
  * 
  * @param itemText The text of the bingo item
  * @param cityName The name of the city
  * @param description Optional item description to provide context for image generation
+ * @param styleGuide Optional style guide to use for generating the image
  * @returns The URL of the generated image (local file path or OpenAI URL)
  */
 export async function generateItemImage(
   itemText: string,
   cityName: string,
-  description?: string
+  description?: string,
+  styleGuide?: any
 ): Promise<string> {
   try {
-    // Create a detailed prompt for the image that incorporates the description if available
-    // Use a more flexible instruction for art style based on the subject matter
-    let prompt = `Create a high-quality square image of "${itemText}" in ${cityName} using the artistic style or photographic approach that best suits the subject matter and location. No text overlay. Square 1:1 aspect ratio. Choose between photography, illustration, painting, or other medium that works best for this specific subject.`;
+    // Base prompt
+    let prompt = `Create a high-quality square image of "${itemText}" in ${cityName}.`;
+    
+    // If we have a style guide, choose an appropriate style based on the item text
+    if (styleGuide && styleGuide.styleGuide && styleGuide.styleGuide.length > 0) {
+      // Create lowercase versions of text for better matching
+      const lowercaseText = itemText.toLowerCase();
+      
+      // Find the best matching style by checking keywords in the item text
+      let bestStyle = styleGuide.styleGuide[0]; // Default to first style
+      let bestMatch = 0;
+      
+      for (const style of styleGuide.styleGuide) {
+        // Check if any words from bestFor appear in the item text
+        const bestForWords = style.bestFor.toLowerCase().split(/[,\s]+/);
+        const keywordWords = style.keywords.toLowerCase().split(/[,\s]+/);
+        const allWords = [...bestForWords, ...keywordWords];
+        
+        let matches = 0;
+        for (const word of allWords) {
+          if (word.length > 2 && lowercaseText.includes(word)) { // Only consider words longer than 2 characters
+            matches++;
+          }
+        }
+        
+        if (matches > bestMatch) {
+          bestMatch = matches;
+          bestStyle = style;
+        }
+      }
+      
+      // Add the selected style to the prompt
+      prompt += ` Use the "${bestStyle.style}" style (${bestStyle.keywords}). No text overlay. Square 1:1 aspect ratio.`;
+      
+      log(`Selected "${bestStyle.style}" style for "${itemText}"`, "openai-debug");
+    } else {
+      // Default prompt if no style guide is available
+      prompt += ` Use the artistic style or photographic approach that best suits the subject matter and location. No text overlay. Square 1:1 aspect ratio. Choose between photography, illustration, painting, or other medium that works best for this specific subject.`;
+    }
     
     // Add description details to the prompt if available
     if (description) {

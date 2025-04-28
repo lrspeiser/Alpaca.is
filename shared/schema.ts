@@ -33,6 +33,7 @@ export const cities = pgTable("cities", {
   title: text("title").notNull(),
   subtitle: text("subtitle"),
   backgroundImage: text("background_image").notNull(),
+  styleGuide: jsonb("style_guide"),  // Store the style guide as a JSON object
   userId: integer("user_id"),
 });
 
