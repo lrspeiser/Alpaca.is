@@ -24,11 +24,11 @@ export async function generateItemDescription(itemText: string, cityName: string
       messages: [
         {
           role: "system",
-          content: `You are a knowledgeable travel guide writing for college students visiting ${cityName}. Your descriptions should be insightful, authentic, and educational. Keep responses to 2-3 sentences (max 80 words) and focus on historical significance, cultural context, and practical information.`
+          content: `You are a travel guide writing for college students visiting ${cityName}.`
         },
         {
           role: "user",
-          content: `Write a concise description of "${itemText}" in ${cityName} that balances educational value with genuine appeal for college students. Include relevant historical context, cultural significance, or practical information (like student discounts, best visiting times, or local insights). Avoid mentioning social media, Instagram, or creating FOMO. Focus on authentic experiences and knowledge rather than trends.`
+          content: `Give fun descriptions of why college students must experience "${itemText}" in ${cityName} in a way that would excite a student while still educating. Don't mention that they should post to instagram or tiktok. Keep responses to 2-3 sentences (max 80 words).`
         }
       ],
       max_tokens: 150,
