@@ -303,7 +303,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: cityId,
         title: `${cityName} Bingo`,
         subtitle: `College Student Edition`,
-        backgroundImage: "/images/placeholder-background.jpg", // Default placeholder
         styleGuide: styleGuide, // Add the style guide to the city data
         items: [],
         tips: []
