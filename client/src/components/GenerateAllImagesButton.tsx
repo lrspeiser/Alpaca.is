@@ -12,14 +12,19 @@ interface GenerateImageResponse {
   imageUrl?: string;
 }
 
-export default function GenerateAllImagesButton() {
+interface GenerateAllImagesButtonProps {
+  cityId?: string;  // Optional cityId parameter
+}
+
+export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const { currentCity, cities, refreshState } = useBingoStore();
   const { toast } = useToast();
   
-  // Get the items from the current city
-  const city = cities?.[currentCity];
+  // Get the items from the specified city or current city
+  const targetCityId = cityId || currentCity;
+  const city = cities?.[targetCityId];
   const items = city?.items || [];
   const totalItems = items.length;
   
