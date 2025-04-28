@@ -54,7 +54,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       const itemsToGenerate = items; // No longer filtering out center space
       
       // Generate images in parallel with Promise.all
-      const batchSize = 3; // Process 3 items concurrently as requested
+      const batchSize = 5; // Process 5 items concurrently as requested
       const batches = [];
       
       // Split items into batches for controlled parallelism

@@ -300,9 +300,9 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             </Button>
           </div>
           
-          <div className="p-5">
+          <div className="p-4 overflow-y-auto max-h-[calc(100vh-120px)]">
             {/* Display user photo if available, otherwise show AI-generated image with navigation arrows */}
-            <div className="mb-4 aspect-square w-full max-w-md overflow-hidden rounded-lg relative">
+            <div className="mb-3 aspect-square w-full max-w-md overflow-hidden rounded-lg relative">
               {localItem && (
                 <ImageDebugger
                   src={localItem.userPhoto || imageUrl}
@@ -340,7 +340,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             
             {/* Show a "Take New Photo" button if the item is completed */}
             {localItem.completed && (
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center mb-3">
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -354,16 +354,16 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             )}
             
             {/* AI-generated description with improved styling */}
-            <div className="mb-6">
+            <div className="mb-4">
               {localItem.description ? (
                 <div>
                   <h4 className="text-base font-bold mb-2 text-primary">About this activity:</h4>
-                  <div className="text-sm bg-gray-50 p-4 rounded-lg border border-gray-200 leading-relaxed shadow-sm">
+                  <div className="text-base bg-gray-50 p-3 rounded-lg border border-gray-200 leading-tight shadow-sm">
                     {localItem.description}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-600 italic">
+                <p className="text-base text-gray-600 italic">
                   Have you completed "{localItem.text}" yet? Mark it as done when you have!
                 </p>
               )}

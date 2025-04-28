@@ -183,9 +183,10 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   }
   
   // CSS Grid layout for the 5x5 bingo grid - ensures items are positioned correctly
+  // Using taller rows for better mobile readability
   const gridContainerStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateRows: 'repeat(5, minmax(60px, 1fr))',
+    gridTemplateRows: 'repeat(5, minmax(90px, 1fr))',
     gridTemplateColumns: 'repeat(5, 1fr)',
     gap: '0',
     border: '1px solid #ddd',
@@ -261,33 +262,37 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
             >
               
               {item.completed ? (
-                <div className="w-full h-full relative aspect-square">
-                  {/* Use ImageDebugger to diagnose image loading issues */}
-                  <ImageDebugger
-                    src={getImageUrl(item)}
-                    alt={item.text}
-                    className="absolute inset-0 object-cover w-full h-full"
-                    onLoadInfo={(info: ImageLoadInfo) => {
-                      console.log(`[GRID-COMPLETED-DEBUG] ${item.id}:`, info);
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-1">
-                    <p className="text-[10px] leading-tight font-medium text-white">{item.text}</p>
+                <div className="w-full h-full flex flex-col">
+                  {/* Top half: image */}
+                  <div className="w-full h-1/2 relative">
+                    <ImageDebugger
+                      src={getImageUrl(item)}
+                      alt={item.text}
+                      className="absolute inset-0 object-cover w-full h-full"
+                      onLoadInfo={(info: ImageLoadInfo) => {
+                        console.log(`[GRID-COMPLETED-DEBUG] ${item.id}:`, info);
+                      }}
+                    />
+                    
+                    {/* Show camera icon badge when displaying a user photo */}
+                    {userPhotos[item.id] && (
+                      <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-1 shadow-md" title="Your photo">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                          <circle cx="12" cy="13" r="3"></circle>
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   
-                  {/* Show camera icon badge when displaying a user photo */}
-                  {userPhotos[item.id] && (
-                    <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-1 shadow-md" title="Your photo">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-                        <circle cx="12" cy="13" r="3"></circle>
-                      </svg>
-                    </div>
-                  )}
+                  {/* Bottom half: text */}
+                  <div className="w-full h-1/2 bg-white p-1 flex items-center justify-center">
+                    <p className="text-sm font-medium leading-tight text-primary-900">{item.text}</p>
+                  </div>
                 </div>
               ) : (
                 <div className="p-2 h-full w-full flex flex-col justify-center">
-                  <p className="text-xs leading-tight font-medium">{item.text}</p>
+                  <p className="text-sm leading-tight font-medium">{item.text}</p>
                 </div>
               )}
             </div>
