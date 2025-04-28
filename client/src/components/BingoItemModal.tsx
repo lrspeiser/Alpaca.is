@@ -124,24 +124,34 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     return null;
   };
   
-  // Update local state when item changes, preserving local completion state
+  // Update local state when item changes, with better synchronization
   useEffect(() => {
     if (item) {
-      console.log('[MODAL] Item prop changed, updating localItem while preserving local state');
+      console.log('[MODAL] Item prop changed, updating localItem with server state');
       
       setLocalItem(prevLocalItem => {
-        // If we already have a local item with the same ID, preserve its completion state
+        // If we already have a local item with the same ID
         if (prevLocalItem && prevLocalItem.id === item.id) {
-          console.log(`[MODAL] Preserving local completion state: ${prevLocalItem.completed}`);
-          return {
-            ...item,                     // Take all properties from the new item
-            completed: prevLocalItem.completed, // But preserve our local completion state
-            userPhoto: prevLocalItem.userPhoto || item.userPhoto // Preserve userPhoto if we have one
-          };
+          // Check if the server state is different from our local state
+          if (prevLocalItem.completed !== item.completed) {
+            console.log(`[MODAL] Server completion state (${item.completed}) differs from local (${prevLocalItem.completed}), using server state`);
+            // Always trust the server state after a refresh
+            return {
+              ...item,
+              userPhoto: prevLocalItem.userPhoto || item.userPhoto // Keep user photo if we have one
+            };
+          } else {
+            console.log(`[MODAL] Server and local completion states match: ${item.completed}`);
+            // Both states match, preserve any local user photo
+            return {
+              ...item,
+              userPhoto: prevLocalItem.userPhoto || item.userPhoto
+            };
+          }
         }
         
-        // Otherwise, it's a completely different item, so use the new one directly
-        console.log(`[MODAL] New item, using provided completion state: ${item.completed}`);
+        // For a new item, use the server state directly
+        console.log(`[MODAL] New item, using server completion state: ${item.completed}`);
         return item;
       });
     }
@@ -243,7 +253,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
 
-  // Improved handleToggleCompletion with server-first approach and detailed logging
+  // Simplified handleToggleCompletion with immediate UI feedback
   const handleToggleCompletion = async (completed: boolean) => {
     console.log(`[MODAL] Toggle completion called with completed=${completed}`, {
       itemId: localItem?.id,
@@ -265,92 +275,55 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     
     // Start toggling transition
     setIsToggling(true);
-    console.log('[MODAL] Setting isToggling to true');
     
-    // Special case: If marking as complete, handle photo capture
-    if (completed) {
-      try {
-        // STEP 1: Update server state FIRST (no optimistic UI update)
-        console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`, {
-          timestamp: new Date().toISOString(),
-          forcedUpdate: true
-        });
-        await toggleItemCompletion(localItem.id, completed, true); // Force update with true
-        
-        console.log('[MODAL] Server update successful, item should now be marked completed in DB');
-        
-        // STEP 2: Do a full refetch from server to ensure we have latest state
-        console.log('[MODAL] Requesting full refresh of bingo state from server');
-        if (onToggleComplete) {
-          console.log('[MODAL] Refreshing grid after successful server update');
-          await onToggleComplete(); // Wait for this to complete to ensure latest state
-        }
-        
-        // STEP 3: Only after server refresh, update local UI
-        console.log('[MODAL] Updating local UI state to completed=true');
-        setLocalItem(prev => {
-          console.log('[MODAL] Previous item state:', prev);
-          if (!prev) return null;
-          const updatedItem = {
-            ...prev,
-            completed: true // Always use true here regardless of DB to ensure UI consistency
-          };
-          console.log('[MODAL] New item state:', updatedItem);
-          return updatedItem;
-        });
-        
-        // STEP 4: After server confirmation, open photo capture
+    try {
+      // STEP 1: Immediately update local UI for better user feedback
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          completed: completed // Force the new completion state
+        };
+      });
+      
+      // STEP 2: Update server state
+      console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`);
+      await toggleItemCompletion(localItem.id, completed, true);
+      
+      console.log('[MODAL] Server update successful');
+      
+      // STEP 3: If marking as complete, show photo capture modal
+      if (completed) {
         console.log('[MODAL] Opening photo capture');
         setIsPhotoCaptureOpen(true);
-        
-        setIsToggling(false);
-        console.log('[MODAL] Setting isToggling to false');
-        return; // Exit here, photo capture will handle the rest
-      } catch (error) {
-        // Handle error without any UI updates since we haven't changed UI yet
-        console.error('[MODAL] Server update failed:', error);
-        setIsToggling(false);
-        console.log('[MODAL] Setting isToggling to false after error');
-        return;
       }
-    }
-    
-    // For marking as not done, similar approach
-    try {
-      // STEP 1: Server update first, no optimistic UI update
-      console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`, {
-        timestamp: new Date().toISOString(),
-        forcedUpdate: true
-      });
-      await toggleItemCompletion(localItem.id, completed, true); // Force update with false
       
-      console.log('[MODAL] Server update successful, item should now be marked not completed in DB');
-      
-      // STEP 2: Do a full refetch from server to ensure we have latest state
-      console.log('[MODAL] Requesting full refresh of bingo state from server');
+      // STEP 4: Refresh grid to ensure it's in sync
       if (onToggleComplete) {
-        console.log('[MODAL] Refreshing grid after successful server update');
-        await onToggleComplete(); // Wait for this to complete to ensure latest state
+        console.log('[MODAL] Refreshing grid');
+        onToggleComplete();
       }
       
-      // STEP 3: Only update UI after server confirmation
-      console.log('[MODAL] Updating local UI state to completed=false');
-      setLocalItem(prev => {
-        console.log('[MODAL] Previous item state:', prev);
-        if (!prev) return null;
-        const updatedItem = {
-          ...prev,
-          completed: false // Always use false here regardless of DB to ensure UI consistency
-        };
-        console.log('[MODAL] New item state:', updatedItem);
-        return updatedItem;
-      });
+      // STEP 5: If marking as not complete, close the modal
+      if (!completed) {
+        console.log('[MODAL] Item marked as not complete, closing modal');
+        setTimeout(() => {
+          onClose();
+        }, 300); // Small delay to show state change
+      }
     } catch (error) {
-      // No need to revert UI since we didn't update it optimistically
       console.error('[MODAL] Server update failed:', error);
+      
+      // Revert local UI state on error
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          completed: !completed // Go back to previous state
+        };
+      });
     } finally {
       setIsToggling(false);
-      console.log('[MODAL] Setting isToggling to false after completion');
     }
   };
   
@@ -561,98 +534,23 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             {/* Debug logs are in useEffect inside component body */}
             
             <div className="flex space-x-3">
-              {localItem.completed ? (
-                <>
-                  {/* If completed, show the completed state and option to mark as not done */}
-                  <Button 
-                    variant="default"
-                    className="flex-1"
-                    disabled={true}
-                  >
-                    Completed ✓
-                  </Button>
-                  
-                  <Button 
-                    variant="outline"
-                    className="flex-1"
-                    disabled={isPending}
-                    onClick={() => handleToggleCompletion(false)}
-                  >
-                    Mark as Not Done
-                  </Button>
-                </>
-              ) : (
-                <>
-                  {/* If not completed, show take photo button and skip option */}
-                  <Button 
-                    variant="default"
-                    className="flex-1"
-                    disabled={isPending}
-                    onClick={() => {
-                      // Update server state but go directly to photo capture
-                      console.log('[MODAL] Take Photo button clicked, updating server and opening photo capture');
-                      setIsToggling(true);
-                      
-                      // Update server state first
-                      toggleItemCompletion(localItem.id, true, true)
-                        .then(() => {
-                          console.log('[MODAL] Server updated, now showing photo capture');
-                          
-                          // After server is updated successfully, open photo capture
-                          setLocalItem(prev => {
-                            if (!prev) return null;
-                            return {
-                              ...prev,
-                              completed: true
-                            };
-                          });
-                          
-                          // Open photo capture directly
-                          setIsPhotoCaptureOpen(true);
-                          setIsToggling(false);
-                        })
-                        .catch(error => {
-                          console.error('[MODAL] Error updating server:', error);
-                          setIsToggling(false);
-                        });
-                    }}
-                  >
-                    <Camera className="h-4 w-4 mr-2" /> Take Photo
-                  </Button>
-                  
-                  <Button 
-                    variant="outline"
-                    className="flex-1"
-                    disabled={isPending}
-                    onClick={() => {
-                      // Mark as done without photo
-                      console.log('[MODAL] Skip Photo clicked, marking as done without photo');
-                      setIsToggling(true);
-                      
-                      // Update server state first
-                      toggleItemCompletion(localItem.id, true, true)
-                        .then(() => {
-                          console.log('[MODAL] Server updated, closing modal');
-                          
-                          // After server is updated successfully, close the modal
-                          if (onToggleComplete) {
-                            onToggleComplete();
-                          }
-                          
-                          // Close the modal
-                          setIsToggling(false);
-                          onClose();
-                        })
-                        .catch(error => {
-                          console.error('[MODAL] Error updating server:', error);
-                          setIsToggling(false);
-                        });
-                    }}
-                  >
-                    Skip Photo
-                  </Button>
-                </>
-              )}
+              <Button 
+                variant={localItem.completed ? "default" : "outline"} 
+                className="flex-1"
+                disabled={isPending || localItem.completed} // Disable if already completed
+                onClick={() => handleToggleCompletion(true)}
+              >
+                {localItem.completed ? "Completed ✓" : "Mark as Done"}
+              </Button>
+              
+              <Button 
+                variant={!localItem.completed ? "default" : "outline"} 
+                className="flex-1"
+                disabled={isPending || !localItem.completed} // Disable if already not completed
+                onClick={() => handleToggleCompletion(false)}
+              >
+                {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
+              </Button>
             </div>
           </div>
         </div>
