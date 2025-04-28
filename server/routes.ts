@@ -16,10 +16,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupImageProxy(app);
   
   // Set up static serving for stored images
-  const imageDir = setupImageServing(app);
+  try {
+    const imageDir = setupImageServing(app);
+    
+    // Set up additional static route for the image directory
+    app.use('/images', express.static(imageDir));
+    
+    // Add a fallback for missing images
+    app.use('/images/:filename', (req, res, next) => {
+      // If we got here, the image wasn't found
+      log(`[IMAGE-FALLBACK] Image not found: ${req.params.filename}, using fallback`, 'image-fallback');
+      
+      // Send a placeholder image or redirect to a default image
+      res.redirect('/api/placeholder-image?text=' + encodeURIComponent('Image not available'));
+    });
+  } catch (error) {
+    log(`[IMAGE-ERROR] Failed to set up image serving: ${error.message}`, 'error');
+    // Continue anyway, the app should still work without images
+  }
   
-  // Set up additional static route for the image directory
-  app.use('/images', express.static(imageDir));
+  // Add a placeholder image endpoint
+  app.get('/api/placeholder-image', (req, res) => {
+    const text = req.query.text || 'No image';
+    
+    // Create a simple SVG placeholder
+    const svg = `
+      <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f0f0f0"/>
+        <text x="50%" y="50%" font-family="Arial" font-size="20" fill="#888" text-anchor="middle">${text}</text>
+      </svg>
+    `;
+    
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(svg);
+  });
   // Register a client ID for persistent user state without login
   app.post("/api/register-client", async (req: Request, res: Response) => {
     try {

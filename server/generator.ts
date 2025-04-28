@@ -376,8 +376,25 @@ export async function generateItemImage(
         
         // Make sure the directory exists
         if (!fs.existsSync(dirPath)) {
-          fs.mkdirSync(dirPath, { recursive: true });
-          log(`Created images directory at ${dirPath}`, "openai-debug");
+          try {
+            fs.mkdirSync(dirPath, { recursive: true });
+            log(`Created images directory at ${dirPath}`, "openai-debug");
+          } catch (dirError) {
+            // Try fallback to /tmp if we can't create in public
+            log(`Could not create images directory at ${dirPath}: ${dirError.message}`, "openai-debug");
+            log(`Attempting to use /tmp/images as fallback`, "openai-debug");
+            
+            const tmpDirPath = '/tmp/images';
+            fs.mkdirSync(tmpDirPath, { recursive: true });
+            
+            const tmpFilePath = path.join(tmpDirPath, filename);
+            const imageBuffer = Buffer.from(imageBase64, 'base64');
+            fs.writeFileSync(tmpFilePath, imageBuffer);
+            
+            const imageUrl = `/images/${filename}`;
+            log(`Successfully saved base64 image to fallback location ${tmpFilePath}`, "openai-debug");
+            return imageUrl;
+          }
         }
         
         // Convert base64 to buffer and save to file
@@ -393,7 +410,11 @@ export async function generateItemImage(
         const error = err as Error;
         log(`Error saving base64 image: ${error.message || 'Unknown error'}`, "openai-debug");
         console.error('Image saving error details:', error);
-        return "";
+        
+        // Generate a placeholder SVG as a last resort
+        const svgImageUrl = `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}`;
+        log(`Returning placeholder SVG URL: ${svgImageUrl}`, "openai-debug");
+        return svgImageUrl;
       }
     }
     
@@ -406,12 +427,12 @@ export async function generateItemImage(
     
     // No image data found in response
     log(`No image data found in response format`, "openai-debug");
-    return "";
+    return `/api/placeholder-image?text=${encodeURIComponent('No Image Data')}`;
   } catch (error: any) {
     // Log detailed error information
     log(`Error generating image for ${itemText}: ${error?.message || "Unknown error"}`, "openai");
     log(`Error details: ${JSON.stringify(error)}`, "openai-debug");
     log(`Error stack: ${error?.stack}`, "openai-debug");
-    return "";
+    return `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}`;
   }
 }

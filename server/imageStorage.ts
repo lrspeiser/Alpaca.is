@@ -14,8 +14,22 @@ function ensureImageDir() {
       fs.mkdirSync(IMAGE_DIR, { recursive: true });
       log(`[IMAGE-STORAGE] Created image directory at ${IMAGE_DIR}`, 'image-storage');
     } catch (error: any) {
+      // In production, this might fail due to permissions
       log(`[IMAGE-STORAGE] Error creating image directory: ${error.message}`, 'image-storage');
-      throw error;
+      log(`[IMAGE-STORAGE] Will attempt to use /tmp/images as fallback`, 'image-storage');
+      
+      // Try to use /tmp as a fallback
+      try {
+        const tmpImageDir = '/tmp/images';
+        fs.mkdirSync(tmpImageDir, { recursive: true });
+        // Override the IMAGE_DIR constant - this is technically not allowed in TypeScript
+        // but we need to do this for the fallback to work
+        (IMAGE_DIR as any) = tmpImageDir;
+        log(`[IMAGE-STORAGE] Successfully created fallback image directory at ${tmpImageDir}`, 'image-storage');
+      } catch (fallbackError: any) {
+        log(`[IMAGE-STORAGE] Error creating fallback image directory: ${fallbackError.message}`, 'image-storage');
+        throw error; // Throw the original error if fallback also fails
+      }
     }
   }
 }
