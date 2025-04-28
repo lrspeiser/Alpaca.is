@@ -314,7 +314,7 @@ export class DatabaseStorage implements IStorage {
     // CRITICAL FIX: For city/item creation, don't abort if userId is missing
     // This ensures city data is still saved even if user association fails
     if (!userId) {
-      console.log('[DB] No userId available after clientId lookup, continuing with city/item creation only');
+      console.log('[DB WARNING] No userId available after clientId lookup, continuing with city/item creation only');
       // We'll continue with city/item creation and skip user-specific operations below
     }
     
@@ -490,20 +490,20 @@ export class DatabaseStorage implements IStorage {
       try {
         const user = await this.getUserByClientId(clientId);
         if (user) {
-          console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+          console.log(`[DB] Found existing user ${user.id} with clientId ${clientId}`);
           userId = user.id;
         } else {
-          console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+          console.log(`[DB] No user found with clientId ${clientId}, creating new user`);
           const newUser = await this.createOrUpdateClientUser(clientId);
           userId = newUser.id;
         }
       } catch (error) {
-        console.error('[DB] Error finding/creating user for clientId:', error);
+        console.error('[DB ERROR] Error finding/creating user for clientId:', error);
       }
     }
     
     if (!userId) {
-      console.log('[DB] No userId available after clientId lookup, cannot toggle item');
+      console.log('[DB WARNING] No userId available after clientId lookup, cannot toggle item');
       throw new Error('User not found');
     }
     
@@ -578,7 +578,7 @@ export class DatabaseStorage implements IStorage {
         console.log(`[DB DELETE] Removed completion for item "${item.text}" (ID: ${itemId})`);
       }
     } catch (error) {
-      console.error(`[DB] Error toggling item ${itemId} in city ${cityId}:`, error);
+      console.error(`[DB ERROR] Error toggling item ${itemId} in city ${cityId}:`, error);
       throw error;
     }
   }
@@ -589,20 +589,20 @@ export class DatabaseStorage implements IStorage {
       try {
         const user = await this.getUserByClientId(clientId);
         if (user) {
-          console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+          console.log(`[DB] Found existing user ${user.id} with clientId ${clientId}`);
           userId = user.id;
         } else {
-          console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+          console.log(`[DB] No user found with clientId ${clientId}, creating new user`);
           const newUser = await this.createOrUpdateClientUser(clientId);
           userId = newUser.id;
         }
       } catch (error) {
-        console.error('[DB] Error finding/creating user for clientId:', error);
+        console.error('[DB ERROR] Error finding/creating user for clientId:', error);
       }
     }
     
     if (!userId) {
-      console.log('[DB] No userId available after clientId lookup, cannot reset city');
+      console.log('[DB WARNING] No userId available after clientId lookup, cannot reset city');
       throw new Error('User not found');
     }
     
@@ -625,7 +625,7 @@ export class DatabaseStorage implements IStorage {
         
       console.log(`[DB DELETE] Successfully removed all user completions for city ${cityId}`);
     } catch (error) {
-      console.error(`[DB] Error resetting city ${cityId}:`, error);
+      console.error(`[DB ERROR] Error resetting city ${cityId}:`, error);
       throw error;
     }
   }
