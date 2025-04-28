@@ -101,11 +101,34 @@ export class DatabaseStorage implements IStorage {
     } else {
       // Create a new user with just the clientId
       const currentTime = new Date().toISOString();
+      
+      // Get the default city to set as current city for new users
+      let defaultCityId: string | null = null;
+      try {
+        const [defaultCity] = await db
+          .select()
+          .from(cities)
+          .where(eq(cities.isDefaultCity, true));
+          
+        if (defaultCity) {
+          defaultCityId = defaultCity.id;
+        } else {
+          // If no default city is set, use the first city
+          const [firstCity] = await db.select().from(cities).limit(1);
+          if (firstCity) {
+            defaultCityId = firstCity.id;
+          }
+        }
+      } catch (error) {
+        console.error('[DB] Error getting default city:', error);
+      }
+      
       const [user] = await db
         .insert(users)
         .values({
           clientId,
-          lastVisitedAt: currentTime
+          lastVisitedAt: currentTime,
+          currentCity: defaultCityId || undefined
         })
         .returning();
       
@@ -121,302 +144,433 @@ export class DatabaseStorage implements IStorage {
     };
     
     try {
-      // Log request to help with debugging
-      console.log(`[DB] Getting bingo state. userId: ${userId || 'none'}, hasInMemoryState: ${!!this.inMemoryState}`);
-      
-      // RETRIEVAL STRATEGY 1: Try to load items from individual tables first
-      try {
-        console.log('[DB] Checking for individual records in database tables');
-        
-        // Find the current city
-        let currentCity = ""; // No default city
-        
-        // Get city that's marked as current (fallback to first city found)
-        const [currentCityRecord] = await db
-          .select()
-          .from(cities)
-          .where(eq(cities.isCurrentCity, true));
-          
-        if (currentCityRecord) {
-          currentCity = currentCityRecord.id;
-        } else {
-          // If no city is marked as current, use the first city if any exists
-          const [firstCity] = await db.select().from(cities).limit(1);
-          if (firstCity) {
-            currentCity = firstCity.id;
+      // STEP 1: If clientId is provided, try to find the corresponding user
+      if (clientId && !userId) {
+        try {
+          const user = await this.getUserByClientId(clientId);
+          if (user) {
+            console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+            userId = user.id;
+          } else {
+            console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+            const newUser = await this.createOrUpdateClientUser(clientId);
+            userId = newUser.id;
           }
+        } catch (error) {
+          console.error('[DB] Error finding/creating user for clientId:', error);
         }
-        
-        // Get all cities
-        const dbCities = await db.select().from(cities);
-        
-        if (dbCities.length > 0) {
-          console.log(`[DB] Found ${dbCities.length} cities in database`);
-          
-          // Start building state
-          const reconstructedState: BingoStateType = {
-            currentCity,
-            cities: {}
-          };
-          
-          // Process each city
-          for (const city of dbCities) {
-            // Get all items for this city
-            const cityItems = await db
-              .select()
-              .from(bingoItems)
-              .where(eq(bingoItems.cityId, city.id));
-              
-            console.log(`[DB] Found ${cityItems.length} items for city ${city.id}`);
+      }
+      
+      if (!userId) {
+        console.log('[DB] No userId available after clientId lookup');
+        return emptyState;
+      }
+      
+      // STEP 2: Get the user's current city
+      let currentCity = "";
+      try {
+        const user = await this.getUser(userId);
+        if (user && user.currentCity) {
+          currentCity = user.currentCity;
+          console.log(`[DB] User ${userId} has current city: ${currentCity}`);
+        } else {
+          // Try to find a default city
+          const [defaultCity] = await db
+            .select()
+            .from(cities)
+            .where(eq(cities.isDefaultCity, true));
             
-            // Add city to state
-            reconstructedState.cities[city.id] = {
-              id: city.id,
-              title: city.title,
-              subtitle: city.subtitle || '',
-              styleGuide: city.styleGuide,
-              items: cityItems.map(item => {
-                // Log each item with an image to debug retrieval
-                if (item.image) {
-                  console.log(`[DB RETRIEVE] Found item ${item.id} with image URL: ${item.image.substring(0, 30)}...`);
-                }
-                
-                return {
-                  id: item.id,
-                  text: item.text,
-                  completed: item.completed,
-                  isCenterSpace: item.isCenterSpace || false,
-                  image: item.image || undefined, 
-                  description: item.description || undefined,
-                  gridRow: item.gridRow !== null ? item.gridRow : undefined,
-                  gridCol: item.gridCol !== null ? item.gridCol : undefined,
-                  // Ensure center space is at position (2,2)
-                  ...(item.isCenterSpace ? { gridRow: 2, gridCol: 2 } : {})
-                };
-              })
-            };
-          }
-          
-          // Check for any city with descriptions to use as a measurement of data quality
-          let totalDescriptions = 0;
-          for (const cityId in reconstructedState.cities) {
-            const city = reconstructedState.cities[cityId];
-            const descriptionsInCity = city.items.filter(i => !!i.description).length;
-            totalDescriptions += descriptionsInCity;
+          if (defaultCity) {
+            currentCity = defaultCity.id;
+            console.log(`[DB] Using default city ${currentCity} for user ${userId}`);
             
-            if (descriptionsInCity > 0) {
-              console.log(`[DB] City ${cityId} has ${descriptionsInCity} items with descriptions`);
+            // Update the user's current city
+            if (user) {
+              await db
+                .update(users)
+                .set({ currentCity })
+                .where(eq(users.id, userId));
             }
-          }
-          
-          // If we have any city with items that have descriptions, use the reconstructed state
-          if (totalDescriptions > 0) {
-            console.log(`[DB] Using reconstructed state with ${totalDescriptions} total descriptions`);
-            this.inMemoryState = JSON.parse(JSON.stringify(reconstructedState));
-            return reconstructedState;
+          } else {
+            // If no default city, use the first city
+            const [firstCity] = await db.select().from(cities).limit(1);
+            if (firstCity) {
+              currentCity = firstCity.id;
+              console.log(`[DB] Using first city ${currentCity} for user ${userId}`);
+              
+              // Update the user's current city
+              if (user) {
+                await db
+                  .update(users)
+                  .set({ currentCity })
+                  .where(eq(users.id, userId));
+              }
+            }
           }
         }
       } catch (error) {
-        console.error('[DB] Error loading from individual tables:', error);
+        console.error('[DB] Error getting user current city:', error);
       }
       
-      // RETRIEVAL STRATEGY 2: If we have a stored in-memory state, use it as a fallback/cache
-      if (this.inMemoryState) {
-        console.log('[DB] Using in-memory state');
-        return JSON.parse(JSON.stringify(this.inMemoryState)); // Deep clone to avoid reference issues
+      // STEP 3: Get all cities and their items
+      const reconstructedState: BingoStateType = {
+        currentCity,
+        cities: {}
+      };
+      
+      try {
+        // Get all cities
+        const allCities = await db.select().from(cities);
+        
+        // Load bingo items for each city
+        for (const city of allCities) {
+          // Get all items for this city
+          const cityItems = await db
+            .select()
+            .from(bingoItems)
+            .where(eq(bingoItems.cityId, city.id));
+            
+          console.log(`[DB] Found ${cityItems.length} items for city ${city.id}`);
+          
+          // Get user completions for this city if we have a userId
+          let userCompletionsMap: Record<string, UserCompletion> = {};
+          if (userId) {
+            const completions = await db
+              .select()
+              .from(userCompletions)
+              .where(and(
+                eq(userCompletions.userId, userId),
+                sql`${userCompletions.itemId} IN (${sql.join(cityItems.map(item => sql`${item.id}`), sql`, `)})` 
+              ));
+              
+            console.log(`[DB] Found ${completions.length} user completions for city ${city.id}`);
+            
+            // Create a map for quick lookup
+            userCompletionsMap = completions.reduce((map, completion) => {
+              map[completion.itemId] = completion;
+              return map;
+            }, {} as Record<string, UserCompletion>);
+          }
+          
+          // Add city to state
+          reconstructedState.cities[city.id] = {
+            id: city.id,
+            title: city.title,
+            subtitle: city.subtitle || '',
+            styleGuide: city.styleGuide,
+            items: cityItems.map(item => {
+              const userCompletion = userCompletionsMap[item.id];
+              
+              // Log items with images for debugging
+              if (item.image) {
+                console.log(`[DB RETRIEVE] Found item ${item.id} with image URL: ${item.image.substring(0, 30)}...`);
+              }
+              
+              // Build bingo item with user-specific completion status
+              return {
+                id: item.id,
+                text: item.text,
+                completed: !!userCompletion?.completed,
+                userPhoto: userCompletion?.userPhoto || undefined,
+                isCenterSpace: item.isCenterSpace || false,
+                image: item.image || undefined, 
+                description: item.description || undefined,
+                gridRow: item.gridRow !== null ? item.gridRow : undefined,
+                gridCol: item.gridCol !== null ? item.gridCol : undefined,
+                // Ensure center space is at position (2,2)
+                ...(item.isCenterSpace ? { gridRow: 2, gridCol: 2 } : {})
+              };
+            })
+          };
+        }
+        
+        // Log statistics about loaded data
+        let totalItems = 0;
+        let completedItems = 0;
+        let itemsWithPhotos = 0;
+        
+        for (const cityId in reconstructedState.cities) {
+          const city = reconstructedState.cities[cityId];
+          totalItems += city.items.length;
+          completedItems += city.items.filter(item => item.completed).length;
+          itemsWithPhotos += city.items.filter(item => item.userPhoto).length;
+        }
+        
+        console.log(`[DB] Loaded ${totalItems} items across ${Object.keys(reconstructedState.cities).length} cities`);
+        console.log(`[DB] User ${userId} has completed ${completedItems} items and has ${itemsWithPhotos} photos`);
+        
+        return reconstructedState;
+      } catch (error) {
+        console.error('[DB] Error loading cities and items:', error);
+        return emptyState;
       }
-      
-      // RETRIEVAL STRATEGY 3: If we get here, use emptyState without saving it to DB
-      console.log('[DB] No existing state found, returning empty state');
-      
-      // Just return the empty state without auto-creating anything
-      return emptyState;
     } catch (error) {
       console.error('[DB] Error in getBingoState:', error);
       return emptyState;
     }
   }
   
-  // Persistent state storage
-  // We'll use in-memory for caching but prioritize database storage for persistence
-  private inMemoryState: BingoStateType | null = null;
-  
   async saveBingoState(state: BingoStateType, userId?: number, clientId?: string): Promise<void> {
-    // Log the incoming state to debug
-    console.log("[DB] Saving bingo state:", {
-      currentCity: state.currentCity,
-      cities: Object.keys(state.cities).map(cityId => {
-        const city = state.cities[cityId];
-        return {
-          id: city.id,
-          title: city.title,
-          items: city.items.map(item => ({
-            id: item.id,
-            text: item.text,
-            hasDescription: !!item.description,
-            hasImage: !!item.image
-          }))
-        };
-      })
-    });
-    
-    // Log a summary of items with descriptions and images for debugging
-    for (const cityId in state.cities) {
-      const city = state.cities[cityId];
-      const itemsWithDescriptions = city.items.filter(i => !!i.description).length;
-      const itemsWithImages = city.items.filter(i => !!i.image).length;
-      
-      if (itemsWithDescriptions > 0 || itemsWithImages > 0) {
-        console.log(`[DB] City ${cityId} has ${itemsWithDescriptions} descriptions and ${itemsWithImages} images`);
+    // STEP 1: If clientId is provided, try to find the corresponding user
+    if (clientId && !userId) {
+      try {
+        const user = await this.getUserByClientId(clientId);
+        if (user) {
+          console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+          userId = user.id;
+        } else {
+          console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+          const newUser = await this.createOrUpdateClientUser(clientId);
+          userId = newUser.id;
+        }
+      } catch (error) {
+        console.error('[DB] Error finding/creating user for clientId:', error);
       }
     }
     
-    // For in-memory storage, we just replace the state completely
-    // This ensures we always have the latest data
-    this.inMemoryState = JSON.parse(JSON.stringify(state)); // Deep clone to avoid reference issues
+    if (!userId) {
+      console.log('[DB] No userId available after clientId lookup, cannot save state');
+      return;
+    }
     
+    // STEP 2: Update the user's current city
     try {
-      // SAVE STRATEGY: Save individual items to their own tables
-      try {
-        console.log('[DB] Saving individual records to database tables');
+      await db
+        .update(users)
+        .set({ currentCity: state.currentCity })
+        .where(eq(users.id, userId));
         
-        // Process each city in the state
-        for (const cityId in state.cities) {
-          const city = state.cities[cityId];
-          
-          // Update current city flag - set all to false first and then set the current one to true
-          try {
+      console.log(`[DB] Updated current city to ${state.currentCity} for user ${userId}`);
+    } catch (error) {
+      console.error('[DB] Error updating user current city:', error);
+    }
+    
+    // STEP 3: Save all cities and their items
+    try {
+      // Process each city
+      for (const cityId in state.cities) {
+        const city = state.cities[cityId];
+        
+        // Ensure the city exists in the database
+        try {
+          const [existingCity] = await db
+            .select()
+            .from(cities)
+            .where(eq(cities.id, cityId));
+            
+          if (existingCity) {
+            // City exists, update it
             await db
               .update(cities)
               .set({
-                isCurrentCity: false
+                title: city.title,
+                subtitle: city.subtitle || '',
+                styleGuide: city.styleGuide,
+              })
+              .where(eq(cities.id, cityId));
+              
+            console.log(`[DB] Updated city ${cityId}`);
+          } else {
+            // City doesn't exist, create it
+            await db
+              .insert(cities)
+              .values({
+                id: cityId,
+                title: city.title,
+                subtitle: city.subtitle || '',
+                styleGuide: city.styleGuide,
+                isDefaultCity: false // New cities are not default by default
               });
               
-            // Get the city with this ID to see if it exists
-            const [existingCity] = await db
+            console.log(`[DB] Created city ${cityId}`);
+          }
+        } catch (error) {
+          console.error(`[DB] Error saving city ${cityId}:`, error);
+        }
+        
+        // Process city items
+        for (const item of city.items) {
+          try {
+            // Ensure item exists in database
+            const [existingItem] = await db
               .select()
-              .from(cities)
-              .where(eq(cities.id, cityId));
-            
-            if (existingCity) {
+              .from(bingoItems)
+              .where(eq(bingoItems.id, item.id));
+              
+            if (existingItem) {
+              // Item exists, update it (but not completion status)
               await db
-                .update(cities)
+                .update(bingoItems)
                 .set({
-                  title: city.title,
-                  subtitle: city.subtitle || '',
-                  styleGuide: city.styleGuide,
-                  isCurrentCity: state.currentCity === cityId
+                  text: item.text,
+                  isCenterSpace: item.isCenterSpace || false,
+                  image: item.image,
+                  description: item.description,
+                  gridRow: item.gridRow,
+                  gridCol: item.gridCol,
                 })
-                .where(eq(cities.id, cityId));
+                .where(eq(bingoItems.id, item.id));
             } else {
+              // Item doesn't exist, create it
               await db
-                .insert(cities)
+                .insert(bingoItems)
                 .values({
-                  id: cityId,
-                  title: city.title,
-                  subtitle: city.subtitle || '',
-                  styleGuide: city.styleGuide,
-                  isCurrentCity: state.currentCity === cityId
+                  id: item.id,
+                  text: item.text,
+                  isCenterSpace: item.isCenterSpace || false,
+                  image: item.image,
+                  description: item.description,
+                  cityId: cityId,
+                  gridRow: item.gridRow,
+                  gridCol: item.gridCol,
                 });
             }
-          } catch (cityError) {
-            console.error(`[DB] Error saving city ${cityId}:`, cityError);
-          }
-          
-          // Save each bingo item individually
-          for (const item of city.items) {
-            try {
-              const [existingItem] = await db
+            
+            // Handle user completion status separately
+            if (item.completed) {
+              // Check if user completion record exists
+              const [existingCompletion] = await db
                 .select()
-                .from(bingoItems)
-                .where(eq(bingoItems.id, item.id));
-              
-              // Debug logging for all items with images
-              if (item.image) {
-                console.log(`[DB] Item ${item.id} has image URL:`, item.image.substring(0, 30) + '...');
-              }
-              
-              // Debug items with images or descriptions for troubleshooting
-              if (item.image || item.description) {
-                console.log(`[DB] Item ${item.id} has image: ${!!item.image}, description: ${!!item.description}`);
-              }
-              
-              if (existingItem) {
-                // Set center space (position 2,2 or 3,3 in one-based indexing) 
-                const gridRow = item.gridRow !== undefined ? item.gridRow : (item.isCenterSpace ? 2 : undefined);
-                const gridCol = item.gridCol !== undefined ? item.gridCol : (item.isCenterSpace ? 2 : undefined);
+                .from(userCompletions)
+                .where(and(
+                  eq(userCompletions.userId, userId),
+                  eq(userCompletions.itemId, item.id)
+                ));
                 
+              if (existingCompletion) {
+                // Update existing completion
                 await db
-                  .update(bingoItems)
+                  .update(userCompletions)
                   .set({
-                    text: item.text,
-                    completed: item.completed,
-                    isCenterSpace: item.isCenterSpace || false,
-                    image: item.image,
-                    description: item.description,
-                    gridRow: gridRow,
-                    gridCol: gridCol
+                    completed: true,
+                    userPhoto: item.userPhoto,
                   })
-                  .where(eq(bingoItems.id, item.id));
+                  .where(and(
+                    eq(userCompletions.userId, userId),
+                    eq(userCompletions.itemId, item.id)
+                  ));
               } else {
-                // Set center space (position 2,2 or 3,3 in one-based indexing) 
-                const gridRow = item.gridRow !== undefined ? item.gridRow : (item.isCenterSpace ? 2 : undefined);
-                const gridCol = item.gridCol !== undefined ? item.gridCol : (item.isCenterSpace ? 2 : undefined);
-                
+                // Create new completion record
                 await db
-                  .insert(bingoItems)
+                  .insert(userCompletions)
                   .values({
-                    id: item.id,
-                    text: item.text,
-                    completed: item.completed,
-                    isCenterSpace: item.isCenterSpace || false,
-                    image: item.image,
-                    description: item.description,
-                    cityId: cityId,
-                    gridRow: gridRow,
-                    gridCol: gridCol
+                    userId: userId,
+                    itemId: item.id,
+                    completed: true,
+                    userPhoto: item.userPhoto,
+                    completedAt: new Date().toISOString()
                   });
               }
-            } catch (itemError) {
-              console.error(`[DB] Error saving item ${item.id}:`, itemError);
+            } else {
+              // Item is not completed, delete any existing completion
+              await db
+                .delete(userCompletions)
+                .where(and(
+                  eq(userCompletions.userId, userId),
+                  eq(userCompletions.itemId, item.id)
+                ));
             }
+          } catch (error) {
+            console.error(`[DB] Error saving item ${item.id}:`, error);
           }
         }
-      } catch (error) {
-        console.error('[DB] Error saving individual records:', error);
       }
+      
+      console.log(`[DB] Successfully saved bingo state for user ${userId}`);
     } catch (error) {
-      console.error('[DB] Error in saveBingoState:', error);
+      console.error('[DB] Error saving bingo state:', error);
     }
   }
 
   async toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string, forcedState?: boolean): Promise<void> {
-    try {
-      // First, get the current state
-      const state = await this.getBingoState(userId, clientId);
-      
-      // Make sure we have the city
-      if (!state.cities[cityId]) {
-        throw new Error(`City ${cityId} not found`);
+    // STEP 1: If clientId is provided, try to find the corresponding user
+    if (clientId && !userId) {
+      try {
+        const user = await this.getUserByClientId(clientId);
+        if (user) {
+          console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+          userId = user.id;
+        } else {
+          console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+          const newUser = await this.createOrUpdateClientUser(clientId);
+          userId = newUser.id;
+        }
+      } catch (error) {
+        console.error('[DB] Error finding/creating user for clientId:', error);
       }
-      
-      // Find the item in the city
-      const itemIndex = state.cities[cityId].items.findIndex((item: BingoItemType) => item.id === itemId);
-      if (itemIndex === -1) {
+    }
+    
+    if (!userId) {
+      console.log('[DB] No userId available after clientId lookup, cannot toggle item');
+      throw new Error('User not found');
+    }
+    
+    try {
+      // First check if the item exists
+      const [item] = await db
+        .select()
+        .from(bingoItems)
+        .where(and(
+          eq(bingoItems.id, itemId),
+          eq(bingoItems.cityId, cityId)
+        ));
+        
+      if (!item) {
         throw new Error(`Item ${itemId} not found in city ${cityId}`);
       }
       
-      // If forcedState is provided, use it; otherwise toggle the current state
+      // Get current item completion status
+      const [completion] = await db
+        .select()
+        .from(userCompletions)
+        .where(and(
+          eq(userCompletions.userId, userId),
+          eq(userCompletions.itemId, itemId)
+        ));
+        
+      // Determine new completion state
+      let newCompletionState: boolean;
       if (forcedState !== undefined) {
-        console.log(`[DB] Setting item ${itemId} completion state to ${forcedState}`);
-        state.cities[cityId].items[itemIndex].completed = forcedState;
+        newCompletionState = forcedState;
       } else {
-        console.log(`[DB] Toggling item ${itemId} completion state from ${state.cities[cityId].items[itemIndex].completed} to ${!state.cities[cityId].items[itemIndex].completed}`);
-        state.cities[cityId].items[itemIndex].completed = !state.cities[cityId].items[itemIndex].completed;
+        newCompletionState = !completion; // Toggle current state
       }
       
-      // Save the updated state
-      await this.saveBingoState(state, userId, clientId);
+      console.log(`[DB] Setting item ${itemId} completion to ${newCompletionState} for user ${userId}`);
+      
+      if (newCompletionState) {
+        // Item should be completed
+        if (completion) {
+          // Update existing completion
+          await db
+            .update(userCompletions)
+            .set({ completed: true })
+            .where(and(
+              eq(userCompletions.userId, userId),
+              eq(userCompletions.itemId, itemId)
+            ));
+        } else {
+          // Create new completion
+          await db
+            .insert(userCompletions)
+            .values({
+              userId: userId,
+              itemId: itemId,
+              completed: true,
+              completedAt: new Date().toISOString()
+            });
+        }
+      } else {
+        // Item should not be completed, delete completion record
+        await db
+          .delete(userCompletions)
+          .where(and(
+            eq(userCompletions.userId, userId),
+            eq(userCompletions.itemId, itemId)
+          ));
+      }
+      
+      console.log(`[DB] Successfully toggled item ${itemId} for user ${userId}`);
     } catch (error) {
       console.error(`[DB] Error toggling item ${itemId} in city ${cityId}:`, error);
       throw error;
@@ -424,23 +578,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resetCity(cityId: string, userId?: number, clientId?: string): Promise<void> {
-    try {
-      // First, get the current state
-      const state = await this.getBingoState(userId, clientId);
-      
-      // Make sure we have the city
-      if (!state.cities[cityId]) {
-        throw new Error(`City ${cityId} not found`);
+    // STEP 1: If clientId is provided, try to find the corresponding user
+    if (clientId && !userId) {
+      try {
+        const user = await this.getUserByClientId(clientId);
+        if (user) {
+          console.log(`[DB] Found user ${user.id} with clientId ${clientId}`);
+          userId = user.id;
+        } else {
+          console.log(`[DB] No user found for clientId ${clientId}, creating one`);
+          const newUser = await this.createOrUpdateClientUser(clientId);
+          userId = newUser.id;
+        }
+      } catch (error) {
+        console.error('[DB] Error finding/creating user for clientId:', error);
       }
+    }
+    
+    if (!userId) {
+      console.log('[DB] No userId available after clientId lookup, cannot reset city');
+      throw new Error('User not found');
+    }
+    
+    try {
+      // Get all items for this city
+      const cityItems = await db
+        .select()
+        .from(bingoItems)
+        .where(eq(bingoItems.cityId, cityId));
+        
+      console.log(`[DB] Resetting ${cityItems.length} items in city ${cityId} for user ${userId}`);
       
-      // Reset all items in the city
-      const city = state.cities[cityId];
-      city.items = city.items.map((item: BingoItemType) => {
-        return { ...item, completed: false };
-      });
-      
-      // Save the updated state
-      await this.saveBingoState(state, userId, clientId);
+      // Delete all user completions for this city
+      await db
+        .delete(userCompletions)
+        .where(and(
+          eq(userCompletions.userId, userId),
+          sql`${userCompletions.itemId} IN (${sql.join(cityItems.map(item => sql`${item.id}`), sql`, `)})`
+        ));
+        
+      console.log(`[DB] Successfully reset city ${cityId} for user ${userId}`);
     } catch (error) {
       console.error(`[DB] Error resetting city ${cityId}:`, error);
       throw error;
