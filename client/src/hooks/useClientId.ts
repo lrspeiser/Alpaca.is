@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { getClientId } from '@/lib/utils';
-import { apiRequest } from '@/lib/queryClient';
 
 interface ClientUser {
   userId: number;
@@ -28,17 +27,20 @@ export function useClientId() {
 
         // Register with the server
         console.log('[CLIENT] Registering client ID:', id);
-        const response = await apiRequest<{ success: boolean; userId: number; clientId: string; lastVisitedAt: string }>({
-          url: '/api/register-client',
+        const response = await fetch('/api/register-client', {
           method: 'POST',
-          body: { clientId: id },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ clientId: id }),
         });
 
-        if (response.success) {
+        if (response.ok) {
+          const data = await response.json();
           setUser({
-            userId: response.userId,
-            clientId: response.clientId,
-            lastVisitedAt: response.lastVisitedAt
+            userId: data.userId,
+            clientId: data.clientId,
+            lastVisitedAt: data.lastVisitedAt
           });
           setIsRegistered(true);
           console.log('[CLIENT] Successfully registered client ID');

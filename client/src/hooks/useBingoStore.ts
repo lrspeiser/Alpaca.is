@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { initialBingoState } from '@/data/cities';
-import { loadFromLocalStorage, saveToLocalStorage } from '@/lib/utils';
+import { loadFromLocalStorage, saveToLocalStorage, getClientId } from '@/lib/utils';
 import type { BingoState, City, BingoItem } from '@/types';
+import { useClientId } from './useClientId';
 
 const STORAGE_KEY = 'travelBingoState';
 
@@ -10,6 +11,9 @@ export function useBingoStore() {
     loadFromLocalStorage<BingoState>(STORAGE_KEY, initialBingoState)
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Get client ID for user identification
+  const { clientId, isRegistered } = useClientId();
   
   // Alias for fetchBingoState with forceRefresh=true for easier access
   const refreshState = useCallback(async () => {
@@ -20,7 +24,7 @@ export function useBingoStore() {
   const fetchBingoState = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true);
-      console.log(`[STORE] Fetching bingo state from API${forceRefresh ? ' (force refresh)' : ''}`);
+      console.log(`[STORE] Fetching bingo state from API${forceRefresh ? ' (force refresh)' : ''}${clientId ? ' with clientId' : ''}`);
       
       // Setup request options
       const requestOptions: RequestInit = {};
@@ -32,7 +36,12 @@ export function useBingoStore() {
         };
       }
       
-      const response = await fetch('/api/bingo-state', requestOptions);
+      // Add client ID to the query parameters if available
+      const url = clientId 
+        ? `/api/bingo-state?clientId=${encodeURIComponent(clientId)}` 
+        : '/api/bingo-state';
+        
+      const response = await fetch(url, requestOptions);
       
       if (response.ok) {
         const data = await response.json();
@@ -80,7 +89,7 @@ export function useBingoStore() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [clientId]);
   
   // Initial fetch of bingo state on component mount
   useEffect(() => {
