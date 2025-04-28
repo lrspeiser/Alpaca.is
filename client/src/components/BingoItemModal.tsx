@@ -369,11 +369,11 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               )}
             </div>
             
-            <div className="flex space-x-3 mb-4">
+            <div className="flex space-x-3">
               <Button 
                 variant={localItem.completed ? "default" : "outline"} 
                 className="flex-1"
-                disabled={isPending}
+                disabled={isPending || localItem.completed}
                 onClick={() => handleToggleCompletion(true)}
               >
                 {localItem.completed ? "Completed ✓" : "Mark as Done"}
@@ -382,25 +382,12 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               <Button 
                 variant={!localItem.completed ? "default" : "outline"} 
                 className="flex-1"
-                disabled={isPending}
+                disabled={isPending || !localItem.completed}
                 onClick={() => handleToggleCompletion(false)}
               >
                 {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
               </Button>
             </div>
-
-            {/* Close button to preserve city selection */}
-            <Button 
-              variant="secondary" 
-              className="w-full"
-              onClick={() => {
-                // Call onToggleComplete to refresh the grid, but use onClose to close the modal
-                if (onToggleComplete) onToggleComplete();
-                onClose();
-              }}
-            >
-              Close Window
-            </Button>
           </div>
         </div>
       </div>
