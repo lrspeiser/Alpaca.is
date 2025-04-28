@@ -1,5 +1,5 @@
 import { useBingoStore } from "@/hooks/useBingoStore";
-import { cn } from "@/lib/utils";
+import { cn, saveCurrentCity } from "@/lib/utils";
 import type { BingoItem } from "@/types";
 import { useState, useEffect } from "react";
 import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
@@ -163,6 +163,8 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
         <div className="flex items-center justify-center space-x-2">
           <Select value={currentCity} onValueChange={(newCity: string) => {
             console.log(`[GRID] City selected from dropdown: ${newCity}`);
+            // Save city selection to dedicated localStorage key
+            saveCurrentCity(newCity);
             // Update to the new selected city and refresh
             setCurrentCity(newCity);
             // Wait for state to be updated, then force refresh local component

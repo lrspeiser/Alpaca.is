@@ -52,3 +52,22 @@ export const getClientId = (): string => {
   localStorage.setItem(CLIENT_ID_KEY, newClientId);
   return newClientId;
 };
+
+/**
+ * Save current city selection to localStorage
+ * @param cityId The ID of the selected city
+ */
+export const saveCurrentCity = (cityId: string): void => {
+  const CURRENT_CITY_KEY = 'bingo_current_city';
+  localStorage.setItem(CURRENT_CITY_KEY, cityId);
+};
+
+/**
+ * Get the most recently selected city from localStorage
+ * @param defaultCity Fallback city ID if none is stored
+ * @returns The stored or default city ID
+ */
+export const getSavedCurrentCity = (defaultCity: string): string => {
+  const CURRENT_CITY_KEY = 'bingo_current_city';
+  return localStorage.getItem(CURRENT_CITY_KEY) || defaultCity;
+};

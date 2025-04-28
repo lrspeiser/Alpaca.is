@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { initialBingoState } from '@/data/cities';
-import { loadFromLocalStorage, saveToLocalStorage, getClientId } from '@/lib/utils';
+import { 
+  loadFromLocalStorage, 
+  saveToLocalStorage, 
+  getClientId,
+  getSavedCurrentCity,
+  saveCurrentCity
+} from '@/lib/utils';
 import type { BingoState, City, BingoItem } from '@/types';
 import { useClientId } from './useClientId';
 
@@ -75,6 +81,17 @@ export function useBingoStore() {
             itemsWithDescriptions,
             itemsWithImages
           });
+        }
+        
+        // Apply saved city selection from our dedicated localStorage value if it exists
+        // and is a valid city in the data
+        const savedCity = getSavedCurrentCity("");
+        if (savedCity && data.cities[savedCity]) {
+          console.log(`[STORE] Using saved city from localStorage: ${savedCity}`);
+          data.currentCity = savedCity;
+        } else if (data.currentCity && data.cities[data.currentCity]) {
+          // Save the current city to our dedicated localStorage
+          saveCurrentCity(data.currentCity);
         }
         
         setState(data);
@@ -159,6 +176,9 @@ export function useBingoStore() {
   const setCurrentCity = useCallback(async (cityId: string) => {
     if (state.cities[cityId]) {
       console.log(`[STORE] Changing current city to ${cityId}`);
+      
+      // Save city selection to dedicated localStorage key
+      saveCurrentCity(cityId);
       
       // Create new state with the selected city
       const newState = {
