@@ -18,12 +18,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Set up additional static route for the image directory
   app.use('/images', express.static(imageDir));
+  // Register a client ID for persistent user state without login
+  app.post("/api/register-client", async (req: Request, res: Response) => {
+    try {
+      const { clientId } = req.body;
+      
+      if (!clientId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Client ID is required" 
+        });
+      }
+      
+      // Register the client ID or update if it exists
+      const user = await storage.createOrUpdateClientUser(clientId);
+      
+      return res.json({ 
+        success: true, 
+        userId: user.id,
+        clientId: user.clientId,
+        lastVisitedAt: user.lastVisitedAt
+      });
+    } catch (error) {
+      console.error("[ERROR] Failed to register client:", error);
+      return res.status(500).json({ 
+        success: false, 
+        error: "Failed to register client" 
+      });
+    }
+  });
+  
   // Get the current bingo state
   app.get("/api/bingo-state", async (req: Request, res: Response) => {
     try {
-      // For now, we're not implementing authentication, so userId is undefined
-      // In a real app, you would get the userId from the session
-      const state = await storage.getBingoState();
+      // Check for clientId in query parameters
+      const clientId = req.query.clientId as string | undefined;
+      
+      // Get bingo state using clientId if available
+      const state = await storage.getBingoState(undefined, clientId);
       
       // Log summary of the state being sent to client
       const citySummary = Object.keys(state.cities).map(cityId => {
@@ -63,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save the bingo state
   app.post("/api/bingo-state", async (req: Request, res: Response) => {
     try {
-      const state = req.body;
+      const { state, clientId } = req.body;
       
       // Log summary of the state being saved
       const citySummary = Object.keys(state.cities).map(cityId => {
@@ -77,10 +109,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      log(`[SERVER] Saving bingo state: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
+      log(`[SERVER] Saving bingo state for client ${clientId || 'anonymous'}: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
       
-      // For now, we're not implementing authentication, so userId is undefined
-      await storage.saveBingoState(state);
+      // Save state using clientId if available
+      await storage.saveBingoState(state, undefined, clientId);
       res.json({ success: true });
     } catch (error) {
       console.error("[SERVER] Error saving bingo state:", error);
@@ -93,13 +125,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const schema = z.object({
         itemId: z.string(),
-        cityId: z.string()
+        cityId: z.string(),
+        clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
+      const { itemId, cityId, clientId } = validatedData;
       
-      // For now, we're not implementing authentication, so userId is undefined
-      await storage.toggleItemCompletion(validatedData.itemId, validatedData.cityId);
+      // Use clientId if provided
+      await storage.toggleItemCompletion(itemId, cityId, undefined, clientId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error toggling item completion:", error);
@@ -111,13 +145,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/reset-city", async (req: Request, res: Response) => {
     try {
       const schema = z.object({
-        cityId: z.string()
+        cityId: z.string(),
+        clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
+      const { cityId, clientId } = validatedData;
       
-      // For now, we're not implementing authentication, so userId is undefined
-      await storage.resetCity(validatedData.cityId);
+      // Use clientId if provided
+      await storage.resetCity(cityId, undefined, clientId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error resetting city:", error);
