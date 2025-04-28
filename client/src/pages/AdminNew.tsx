@@ -374,7 +374,7 @@ export default function Admin() {
               
               {/* Show image if available */}
               {item.image ? (
-                <div className="mb-3 rounded overflow-hidden h-48 border shadow-sm">
+                <div className="mb-3 rounded overflow-hidden aspect-square border shadow-sm">
                   <img 
                     src={item.image} 
                     alt={item.text} 
