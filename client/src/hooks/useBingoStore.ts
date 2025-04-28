@@ -239,8 +239,9 @@ export function useBingoStore() {
   }, [state, saveState, fetchBingoState, clientId]);
   
   // Toggle completion status of a bingo item
-  // Optional forcedState parameter allows forcing a specific completion state
-  const toggleItemCompletion = useCallback(async (itemId: string, forcedState?: boolean) => {
+  // forcedState parameter allows forcing a specific completion state
+  // forceUpdate parameter forces the update even if toggleItemCompletion is called multiple times
+  const toggleItemCompletion = useCallback(async (itemId: string, forcedState: boolean, forceUpdate: boolean = false) => {
     const currentCity = state.currentCity;
     
     // Update local state immediately for responsive UI
