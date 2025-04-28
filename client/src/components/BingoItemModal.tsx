@@ -225,31 +225,27 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // Save the photo first
     await saveUserPhoto(photoDataUrl);
     
-    // Then proceed with marking the item as completed
-    try {
-      await toggleItemCompletion(localItem.id);
-      
-      // Trigger grid refresh with the callback if provided
-      if (onToggleComplete) {
-        console.log('[MODAL] Calling onToggleComplete callback after photo capture');
-        onToggleComplete();
-      }
-    } catch (error) {
-      console.error("Error toggling item completion after photo capture:", error);
-      
-      // Revert completed status
-      setLocalItem(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          completed: false
-        };
-      });
-    } finally {
-      setIsToggling(false);
-      setIsPhotoCaptureOpen(false);
-      // We don't need to close the modal here if we want to preserve city selection
+    // Since we set the completed state when opening the photo modal, 
+    // we don't need to toggle the backend again. Just ensure local state is correct.
+    setLocalItem(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        completed: true,
+        userPhoto: photoDataUrl
+      };
+    });
+    
+    // Trigger grid refresh with the callback if provided
+    if (onToggleComplete) {
+      console.log('[MODAL] Calling onToggleComplete callback after photo capture');
+      onToggleComplete();
     }
+    
+    // Always clean up
+    setIsToggling(false);
+    setIsPhotoCaptureOpen(false);
+    // We don't need to close the modal here if we want to preserve city selection
   };
   
   // Handle cancel/skip from photo capture

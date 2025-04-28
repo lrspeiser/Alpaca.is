@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, X, ImageIcon, Upload } from 'lucide-react';
+import { Camera, X, ImageIcon, Upload, RefreshCw } from 'lucide-react';
 
 interface PhotoCaptureModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ export default function PhotoCaptureModal({
   const [hasCamera, setHasCamera] = useState<boolean>(true);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // Default to front camera
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +33,7 @@ export default function PhotoCaptureModal({
       stopCamera();
       setCapturedPhoto(null);
     }
-  }, [isOpen]);
+  }, [isOpen, facingMode]); // Also restart camera when facing mode changes
 
   // Clean up on unmount
   useEffect(() => {
@@ -53,10 +54,10 @@ export default function PhotoCaptureModal({
         return;
       }
       
-      // Request camera access
+      // Request camera access with current facing mode
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: 'environment', // Prefer back camera
+          facingMode: facingMode, // Use current camera setting
           aspectRatio: 1 // Square aspect ratio
         } 
       });
@@ -74,6 +75,17 @@ export default function PhotoCaptureModal({
       setHasCamera(false);
       setIsCapturing(false);
     }
+  };
+
+  // Switch between front and back cameras
+  const switchCamera = () => {
+    // Stop current stream first
+    stopCamera();
+    
+    // Toggle facing mode
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+    
+    // Camera will restart with new facing mode due to useEffect dependency
   };
 
   const stopCamera = () => {
@@ -184,12 +196,26 @@ export default function PhotoCaptureModal({
             )}
             
             {hasCamera && !capturedPhoto && (
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                className="w-full h-full object-cover"
-              />
+              <>
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Camera switch button */}
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute bottom-2 right-2 rounded-full bg-white/70 hover:bg-white/90 shadow-md"
+                  onClick={switchCamera}
+                  disabled={isCapturing}
+                  title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </>
             )}
             
             {capturedPhoto && (
