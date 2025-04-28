@@ -46,12 +46,14 @@ export async function generateBingoItems(
       Avoid generic items that could apply to any city.
       Do not include "Arrive in ${cityName}" as this is already the center square.
       
-      Response format: Return a JSON array of objects with this format:
-      [
-        { "text": "Visit Eiffel Tower" },
-        { "text": "Eat croissant at local bakery" },
-        ...
-      ]
+      Response format: Return a JSON object with an "items" array containing objects with this format:
+      {
+        "items": [
+          { "text": "Visit Eiffel Tower" },
+          { "text": "Eat croissant at local bakery" },
+          ...
+        ]
+      }
     `;
 
     // Call OpenAI API with appropriate parameters
@@ -60,7 +62,7 @@ export async function generateBingoItems(
       messages: [
         {
           role: "system",
-          content: "You are a travel content creator specialized in crafting engaging travel experiences for college students. Your recommendations should be exciting, authentic, and appeal to young adult travelers on a budget."
+          content: "You are a travel content creator specialized in crafting engaging travel experiences for college students. Your recommendations should be exciting, authentic, and appeal to young adult travelers on a budget. Always return valid JSON conforming to the exact format requested in the prompt."
         },
         {
           role: "user",
@@ -80,11 +82,17 @@ export async function generateBingoItems(
 
     // Parse the JSON response and validate
     const parsedContent = JSON.parse(content);
-    if (!Array.isArray(parsedContent) && !Array.isArray(parsedContent.items)) {
-      throw new Error("Invalid response format from OpenAI");
+    if (!parsedContent || typeof parsedContent !== 'object') {
+      throw new Error("Invalid JSON response from OpenAI - not an object");
     }
-
-    const itemArray = Array.isArray(parsedContent) ? parsedContent : parsedContent.items;
+    
+    if (!parsedContent.items || !Array.isArray(parsedContent.items)) {
+      // Log the actual response for debugging
+      log(`OpenAI response format error: ${JSON.stringify(parsedContent)}`, "openai");
+      throw new Error("Invalid response format from OpenAI - items array missing");
+    }
+    
+    const itemArray = parsedContent.items;
     
     // Map the items to our format with IDs
     const bingoItems: BingoItem[] = itemArray.map((item: any) => ({
@@ -168,8 +176,9 @@ export async function generateStyleGuide(cityName: string): Promise<any> {
       const styleGuide = JSON.parse(content);
       log(`Successfully generated style guide for ${cityName} with ${styleGuide.styleGuide.length} styles`, "openai");
       return styleGuide;
-    } catch (parseError) {
-      log(`Error parsing style guide JSON for ${cityName}: ${parseError.message}`, "openai");
+    } catch (parseError: unknown) {
+      const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+      log(`Error parsing style guide JSON for ${cityName}: ${errorMessage}`, "openai");
       return { styleGuide: [] };
     }
   } catch (error: any) {
