@@ -28,46 +28,23 @@ export const bingoItems = pgTable("bingo_items", {
   gridCol: integer("grid_col"), // 0-based column index (0-4)
 });
 
+// Simplified: Combined cities and bingoState tables
 export const cities = pgTable("cities", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   subtitle: text("subtitle"),
-  backgroundImage: text("background_image").notNull(),
   styleGuide: jsonb("style_guide"),  // Store the style guide as a JSON object
   userId: integer("user_id"),
+  isCurrentCity: boolean("is_current_city").default(false),
 });
 
-export const cityTips = pgTable("city_tips", {
-  id: serial("id").primaryKey(),
-  cityId: text("city_id").notNull(),
-  title: text("title").notNull(),
-  text: text("text").notNull(),
-});
-
-export const bingoState = pgTable("bingo_state", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id"),
-  currentCity: text("current_city").notNull(),
-  data: jsonb("data").notNull(),
-});
-
+// Create insert schemas
 export const insertBingoItemSchema = createInsertSchema(bingoItems);
 export const insertCitySchema = createInsertSchema(cities);
-export const insertCityTipSchema = createInsertSchema(cityTips);
-export const insertBingoStateSchema = createInsertSchema(bingoState).pick({
-  userId: true,
-  currentCity: true,
-  data: true,
-});
 
+// Define types
 export type InsertBingoItem = z.infer<typeof insertBingoItemSchema>;
 export type BingoItem = typeof bingoItems.$inferSelect;
 
 export type InsertCity = z.infer<typeof insertCitySchema>;
 export type City = typeof cities.$inferSelect;
-
-export type InsertCityTip = z.infer<typeof insertCityTipSchema>;
-export type CityTip = typeof cityTips.$inferSelect;
-
-export type InsertBingoState = z.infer<typeof insertBingoStateSchema>;
-export type BingoState = typeof bingoState.$inferSelect;
