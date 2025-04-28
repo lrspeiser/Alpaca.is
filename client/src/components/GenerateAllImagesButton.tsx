@@ -50,8 +50,8 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       let failCount = 0;
       let currentProgress = 0;
       
-      // Process all items, not just the ones without images
-      const itemsToGenerate = items.filter(item => !item.isCenterSpace);
+      // Process ALL items, including the center space ("Arrive in <cityName>")
+      const itemsToGenerate = items; // No longer filtering out center space
       
       // Generate images in parallel with Promise.all
       const batchSize = 3; // Process 3 items concurrently as requested

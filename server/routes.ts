@@ -391,12 +391,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       process.nextTick(async () => {
         try {
           log(`Starting background image generation for ${cityName}...`, 'city-creation');
+          // Include ALL items including the center space ("Arrive in <cityName>")
           const itemsWithDescriptions = newCity.items
-            .filter(item => !item.isCenterSpace)
             .map(item => ({
               id: item.id,
               text: item.text,
-              description: item.description
+              description: item.description,
+              isCenterSpace: item.isCenterSpace // Include this flag for special handling if needed
             }));
           
           // Process images in batches of 3 with delays to avoid rate limiting
