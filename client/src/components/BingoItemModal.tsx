@@ -442,53 +442,34 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
   
-  // Improved photo capture close handler with server-first approach
+  // Simplified photo capture close handler - always close everything when skipped
   const handlePhotoCaptureClose = async () => {
-    console.log('[MODAL] Photo capture skipped, closing photo modal');
+    console.log('[MODAL] Photo capture skipped, closing all modals');
     
-    // First close photo capture modal
-    setIsPhotoCaptureOpen(false);
-    
-    // Make sure we have the item reference
+    // First ensure the item is still marked as completed in server
     if (localItem && localItem.id) {
       try {
-        // Server update first, ensure item is marked as completed
+        // Server update first
         console.log(`[MODAL] Sending server update to ensure item ${localItem.id} remains completed`);
         await toggleItemCompletion(localItem.id, true, true);
         
-        // Only then update UI state
-        setLocalItem(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            completed: true
-          };
-        });
-        
-        // Refresh grid
+        // Refresh grid to get latest state
         if (onToggleComplete) {
           console.log('[MODAL] Refreshing grid after photo capture was skipped');
           onToggleComplete();
         }
-        
-        // Clean up
-        setIsToggling(false);
-        
-        // Close modal after a short delay for better UX
-        setTimeout(() => {
-          console.log('[MODAL] Automatically closing item modal after skipping photo capture');
-          onClose(); // Close the entire modal to show the updated grid with thumbnail
-        }, 500); // Half-second delay for visual feedback
       } catch (error) {
         console.error('[MODAL] Error ensuring completion state after skipping photo:', error);
-        setIsToggling(false);
-        // Keep main modal open so user can retry
       }
-    } else {
-      // If we don't have an item reference, just close everything
-      setIsToggling(false);
-      onClose();
     }
+    
+    // Clean up and close everything
+    setIsToggling(false);
+    setIsPhotoCaptureOpen(false);
+    
+    // Close item modal immediately to return to the grid
+    console.log('[MODAL] Closing item modal');
+    onClose();
   };
   
   return (
@@ -580,23 +561,98 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             {/* Debug logs are in useEffect inside component body */}
             
             <div className="flex space-x-3">
-              <Button 
-                variant={localItem.completed ? "default" : "outline"} 
-                className="flex-1"
-                disabled={isPending || localItem.completed} // Disable if already completed
-                onClick={() => handleToggleCompletion(true)}
-              >
-                {localItem.completed ? "Completed ✓" : "Mark as Done"}
-              </Button>
-              
-              <Button 
-                variant={!localItem.completed ? "default" : "outline"} 
-                className="flex-1"
-                disabled={isPending || !localItem.completed} // Disable if already not completed
-                onClick={() => handleToggleCompletion(false)}
-              >
-                {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
-              </Button>
+              {localItem.completed ? (
+                <>
+                  {/* If completed, show the completed state and option to mark as not done */}
+                  <Button 
+                    variant="default"
+                    className="flex-1"
+                    disabled={true}
+                  >
+                    Completed ✓
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isPending}
+                    onClick={() => handleToggleCompletion(false)}
+                  >
+                    Mark as Not Done
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {/* If not completed, show take photo button and skip option */}
+                  <Button 
+                    variant="default"
+                    className="flex-1"
+                    disabled={isPending}
+                    onClick={() => {
+                      // Update server state but go directly to photo capture
+                      console.log('[MODAL] Take Photo button clicked, updating server and opening photo capture');
+                      setIsToggling(true);
+                      
+                      // Update server state first
+                      toggleItemCompletion(localItem.id, true, true)
+                        .then(() => {
+                          console.log('[MODAL] Server updated, now showing photo capture');
+                          
+                          // After server is updated successfully, open photo capture
+                          setLocalItem(prev => {
+                            if (!prev) return null;
+                            return {
+                              ...prev,
+                              completed: true
+                            };
+                          });
+                          
+                          // Open photo capture directly
+                          setIsPhotoCaptureOpen(true);
+                          setIsToggling(false);
+                        })
+                        .catch(error => {
+                          console.error('[MODAL] Error updating server:', error);
+                          setIsToggling(false);
+                        });
+                    }}
+                  >
+                    <Camera className="h-4 w-4 mr-2" /> Take Photo
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isPending}
+                    onClick={() => {
+                      // Mark as done without photo
+                      console.log('[MODAL] Skip Photo clicked, marking as done without photo');
+                      setIsToggling(true);
+                      
+                      // Update server state first
+                      toggleItemCompletion(localItem.id, true, true)
+                        .then(() => {
+                          console.log('[MODAL] Server updated, closing modal');
+                          
+                          // After server is updated successfully, close the modal
+                          if (onToggleComplete) {
+                            onToggleComplete();
+                          }
+                          
+                          // Close the modal
+                          setIsToggling(false);
+                          onClose();
+                        })
+                        .catch(error => {
+                          console.error('[MODAL] Error updating server:', error);
+                          setIsToggling(false);
+                        });
+                    }}
+                  >
+                    Skip Photo
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
