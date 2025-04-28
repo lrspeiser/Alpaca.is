@@ -227,9 +227,13 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
 
-  // Improved handleToggleCompletion with server-first approach
+  // Improved handleToggleCompletion with server-first approach and detailed logging
   const handleToggleCompletion = async (completed: boolean) => {
-    console.log(`[MODAL] Toggle completion called with completed=${completed}`);
+    console.log(`[MODAL] Toggle completion called with completed=${completed}`, {
+      itemId: localItem?.id,
+      currentStatus: localItem?.completed,
+      newStatus: completed
+    });
     
     // Guard against repeated clicks
     if (isToggling) {
@@ -245,40 +249,52 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     
     // Start toggling transition
     setIsToggling(true);
+    console.log('[MODAL] Setting isToggling to true');
     
     // Special case: If marking as complete, handle photo capture
     if (completed) {
       try {
         // STEP 1: Update server state FIRST (no optimistic UI update)
-        console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`);
+        console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`, {
+          timestamp: new Date().toISOString(),
+          forcedUpdate: true
+        });
         await toggleItemCompletion(localItem.id, completed, true); // Force update with true
         
-        // STEP 2: Only after successful server update, update local UI
-        console.log('[MODAL] Server update successful, updating UI');
+        console.log('[MODAL] Server update successful, item should now be marked completed in DB');
+        
+        // STEP 2: Do a full refetch from server to ensure we have latest state
+        console.log('[MODAL] Requesting full refresh of bingo state from server');
+        if (onToggleComplete) {
+          console.log('[MODAL] Refreshing grid after successful server update');
+          await onToggleComplete(); // Wait for this to complete to ensure latest state
+        }
+        
+        // STEP 3: Only after server refresh, update local UI
+        console.log('[MODAL] Updating local UI state to completed=true');
         setLocalItem(prev => {
+          console.log('[MODAL] Previous item state:', prev);
           if (!prev) return null;
-          return {
+          const updatedItem = {
             ...prev,
-            completed: completed
+            completed: true // Always use true here regardless of DB to ensure UI consistency
           };
+          console.log('[MODAL] New item state:', updatedItem);
+          return updatedItem;
         });
         
-        // STEP 3: After server confirmation, open photo capture
+        // STEP 4: After server confirmation, open photo capture
         console.log('[MODAL] Opening photo capture');
         setIsPhotoCaptureOpen(true);
         
-        // STEP 4: Refresh grid for immediate feedback
-        if (onToggleComplete) {
-          console.log('[MODAL] Refreshing grid after successful server update');
-          onToggleComplete();
-        }
-        
         setIsToggling(false);
+        console.log('[MODAL] Setting isToggling to false');
         return; // Exit here, photo capture will handle the rest
       } catch (error) {
         // Handle error without any UI updates since we haven't changed UI yet
         console.error('[MODAL] Server update failed:', error);
         setIsToggling(false);
+        console.log('[MODAL] Setting isToggling to false after error');
         return;
       }
     }
@@ -286,29 +302,39 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // For marking as not done, similar approach
     try {
       // STEP 1: Server update first, no optimistic UI update
-      console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`);
+      console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`, {
+        timestamp: new Date().toISOString(),
+        forcedUpdate: true
+      });
       await toggleItemCompletion(localItem.id, completed, true); // Force update with false
       
-      // STEP 2: Only update UI after server confirmation
-      console.log('[MODAL] Server update successful, updating UI');
-      setLocalItem(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          completed: completed
-        };
-      });
+      console.log('[MODAL] Server update successful, item should now be marked not completed in DB');
       
-      // STEP 3: Ensure grid gets refreshed
+      // STEP 2: Do a full refetch from server to ensure we have latest state
+      console.log('[MODAL] Requesting full refresh of bingo state from server');
       if (onToggleComplete) {
         console.log('[MODAL] Refreshing grid after successful server update');
-        onToggleComplete();
+        await onToggleComplete(); // Wait for this to complete to ensure latest state
       }
+      
+      // STEP 3: Only update UI after server confirmation
+      console.log('[MODAL] Updating local UI state to completed=false');
+      setLocalItem(prev => {
+        console.log('[MODAL] Previous item state:', prev);
+        if (!prev) return null;
+        const updatedItem = {
+          ...prev,
+          completed: false // Always use false here regardless of DB to ensure UI consistency
+        };
+        console.log('[MODAL] New item state:', updatedItem);
+        return updatedItem;
+      });
     } catch (error) {
       // No need to revert UI since we didn't update it optimistically
       console.error('[MODAL] Server update failed:', error);
     } finally {
       setIsToggling(false);
+      console.log('[MODAL] Setting isToggling to false after completion');
     }
   };
   

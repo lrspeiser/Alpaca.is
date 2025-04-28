@@ -238,71 +238,41 @@ export function useBingoStore() {
     }
   }, [state, saveState, fetchBingoState, clientId]);
   
-  // Toggle completion status of a bingo item
+  // Improved toggle completion with server-first approach and detailed logging
   // forcedState parameter allows forcing a specific completion state
   // forceUpdate parameter forces the update even if toggleItemCompletion is called multiple times
   const toggleItemCompletion = useCallback(async (itemId: string, forcedState: boolean, forceUpdate: boolean = false) => {
     const currentCity = state.currentCity;
     
-    // Update local state immediately for responsive UI
-    let newStatePromise = new Promise<BingoState>((resolve) => {
-      setState(prev => {
-        const cityItems = [...prev.cities[currentCity].items];
-        const itemIndex = cityItems.findIndex(item => item.id === itemId);
-        
-        if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
-          // Use forcedState if provided, otherwise toggle the current state
-          const newCompletionState = forcedState !== undefined 
-            ? forcedState 
-            : !cityItems[itemIndex].completed;
-            
-          cityItems[itemIndex] = {
-            ...cityItems[itemIndex],
-            completed: newCompletionState
-          };
-          
-          const updatedCity: City = {
-            ...prev.cities[currentCity],
-            items: cityItems
-          };
-          
-          const newState = {
-            ...prev,
-            cities: {
-              ...prev.cities,
-              [currentCity]: updatedCity
-            }
-          };
-          
-          // Save to localStorage as backup
-          saveToLocalStorage(STORAGE_KEY, newState);
-          
-          // Resolve the promise with the new state
-          resolve(newState);
-          return newState;
-        }
-        
-        resolve(prev);
-        return prev;
-      });
+    console.log(`[STORE] toggleItemCompletion called for item ${itemId} in city ${currentCity}`, {
+      itemId,
+      cityId: currentCity,
+      forcedState,
+      forceUpdate,
+      clientId: clientId || 'none',
+      timestamp: new Date().toISOString()
     });
     
-    // Then call API to persist changes
     try {
-      // Call API to toggle item completion
+      // STEP 1: Call API to update server state FIRST (server-first approach)
+      console.log(`[STORE] Making server API call to /api/toggle-item`, {
+        itemId,
+        cityId: currentCity,
+        forcedState: forcedState,
+        clientId: clientId || 'none'
+      });
+      
       const payload = clientId 
         ? { 
             itemId, 
             cityId: currentCity, 
             clientId,
-            // If forcedState is provided, include it in the payload
-            ...(forcedState !== undefined && { forcedState })
+            forcedState // Always include forcedState
           } 
         : { 
             itemId, 
             cityId: currentCity,
-            // If forcedState is provided, include it in the payload
-            ...(forcedState !== undefined && { forcedState })
+            forcedState // Always include forcedState
           };
         
       const response = await fetch('/api/toggle-item', {
@@ -310,29 +280,81 @@ export function useBingoStore() {
         body: JSON.stringify(payload),
         headers: {
           'Content-Type': 'application/json',
-          // Add cache-busting headers to ensure fresh response
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
         }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to toggle item completion via API');
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
       }
       
-      // Fetch updated state after change is persisted to ensure everything is in sync
-      // This makes sure all components using this state get the update
-      setTimeout(() => {
-        fetchBingoState(true);
-      }, 300);
+      const result = await response.json();
+      console.log(`[STORE] Server API call successful:`, result);
       
-      return await newStatePromise;
+      // STEP 2: After server success, fetch the latest state from server
+      console.log('[STORE] Fetching updated state from server');
+      await fetchBingoState(true);
+      
+      // STEP 3: Now update local state to match server
+      console.log(`[STORE] Updating local state with forcedState=${forcedState}`);
+      
+      // Now update local state with consistent value matching what we sent to server
+      const updatedState = await new Promise<BingoState>((resolve) => {
+        setState(prev => {
+          // Find the item in current state
+          const cityItems = [...prev.cities[currentCity].items];
+          const itemIndex = cityItems.findIndex(item => item.id === itemId);
+          
+          console.log(`[STORE] Found item at index ${itemIndex}, updating to forcedState=${forcedState}`);
+          
+          if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
+            // Apply the forced state (which matches what we sent to server)
+            cityItems[itemIndex] = {
+              ...cityItems[itemIndex],
+              completed: forcedState
+            };
+            
+            console.log(`[STORE] Updated item ${itemId} in local state`, {
+              before: prev.cities[currentCity].items[itemIndex].completed,
+              after: forcedState
+            });
+            
+            const updatedCity: City = {
+              ...prev.cities[currentCity],
+              items: cityItems
+            };
+            
+            const newState = {
+              ...prev,
+              cities: {
+                ...prev.cities,
+                [currentCity]: updatedCity
+              }
+            };
+            
+            // Update localStorage for redundancy
+            saveToLocalStorage(STORAGE_KEY, newState);
+            
+            resolve(newState);
+            return newState;
+          }
+          
+          console.log(`[STORE] No changes made to local state (item not found or is center space)`);
+          resolve(prev);
+          return prev;
+        });
+      });
+      
+      return updatedState;
     } catch (error) {
-      console.error('Failed to toggle item completion via API:', error);
-      // We've already updated the local state, so just return that
-      return await newStatePromise;
+      console.error('[STORE] Failed to toggle item completion via API:', error);
+      
+      // Return the current state in case of error
+      console.log('[STORE] Returning current state without changes due to API error');
+      return state;
     }
-  }, [state.currentCity, saveState, fetchBingoState, clientId]);
+  }, [state, state.currentCity, saveState, fetchBingoState, clientId]);
   
   // Reset all items for current city (except center space)
   const resetCity = useCallback(async () => {
