@@ -182,16 +182,16 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       if (!prev) return null;
       return {
         ...prev,
-        completed: !prev.completed
+        completed: completed // Use the exact completed state from the parameter
       };
     });
     
     // If marking as complete and not already completed, show photo capture modal
     if (completed && !localItem.completed) {
-      // Also update the backend immediately to avoid state inconsistency
+      // Also update the backend immediately with the explicit completed state
       try {
-        await toggleItemCompletion(localItem.id);
-        console.log('[MODAL] Item marked as completed in backend');
+        await toggleItemCompletion(localItem.id, completed);
+        console.log('[MODAL] Item explicitly marked as completed in backend');
       } catch (error) {
         console.error("Error toggling item completion:", error);
         // Revert local state if there was an error
@@ -199,7 +199,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
           if (!prev) return null;
           return {
             ...prev,
-            completed: false // Revert to not completed
+            completed: !completed // Revert to opposite state
           };
         });
         setIsToggling(false);
@@ -212,9 +212,9 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       return; // Don't proceed with the rest of the function
     }
     
-    // For marking as not done or other scenarios, update backend
+    // For marking as not done or other scenarios, update backend with explicit state
     try {
-      await toggleItemCompletion(localItem.id);
+      await toggleItemCompletion(localItem.id, completed);
       
       // Trigger grid refresh with the callback if provided
       if (onToggleComplete) {
@@ -228,7 +228,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         if (!prev) return null;
         return {
           ...prev,
-          completed: !prev.completed // Toggle back
+          completed: !completed // Revert to opposite state
         };
       });
     } finally {
@@ -247,7 +247,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // Ensure the item is marked as completed in both local state and backend
     // Make another call to the backend to ensure completion state is preserved
     try {
-      // First update our local state
+      // First update our local state with the photo and ensure completed state
       setLocalItem(prev => {
         if (!prev) return null;
         return {
@@ -257,34 +257,41 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         };
       });
       
-      // Double-check that the backend knows this item is completed
-      // This helps ensure the state doesn't get lost after photo capture
+      // Also update the backend using our hook function with explicit forcedState
       if (localItem && localItem.id) {
         try {
-          // Use current city from props or fall back to item's cityId
-          // (we already got currentCity from the hook at the component level)
+          // First attempt to use our hook with forcedState=true
+          await toggleItemCompletion(localItem.id, true);
           
-          // Make a manual API call to ensure completion
-          const payload = { 
-            itemId: localItem.id, 
-            cityId: currentCity || localItem.cityId,
-            forcedState: true, // Force it to be completed
-            // Add client ID if we have it
-            ...(clientId && { clientId })
-          };
+          console.log('[MODAL] Successfully marked item as completed via hook after photo capture');
+        } catch (hookError) {
+          console.error('[MODAL] Error using hook to set completion state:', hookError);
           
-          await fetch('/api/toggle-item', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
-          
-          console.log('[MODAL] Reinforced completed state for item', localItem.id, 'in city', currentCity);
-        } catch (error) {
-          console.error('[MODAL] Error reinforcing completion state:', error);
+          // Fallback: make a direct API call to ensure completion if the hook fails
+          try {
+            // Use current city from context or fall back to item's cityId
+            // Make a manual API call to ensure completion
+            const payload = { 
+              itemId: localItem.id, 
+              cityId: currentCity || localItem.cityId,
+              forcedState: true, // Force it to be completed
+              // Add client ID if we have it
+              ...(clientId && { clientId })
+            };
+            
+            await fetch('/api/toggle-item', {
+              method: 'POST',
+              body: JSON.stringify(payload),
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
+              }
+            });
+            
+            console.log('[MODAL] Reinforced completed state through direct API call for item', localItem.id, 'in city', currentCity);
+          } catch (apiError) {
+            console.error('[MODAL] Error making direct API call to set completion state:', apiError);
+          }
         }
       }
     } catch (error) {
@@ -305,11 +312,32 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   
   // Handle cancel/skip from photo capture
   const handlePhotoCaptureClose = async () => {
-    console.log('[MODAL] Photo capture skipped, proceeding with item completion');
+    console.log('[MODAL] Photo capture skipped, still ensuring item completion');
     setIsPhotoCaptureOpen(false);
     
-    // We already set the completed state when opening the photo modal,
-    // so we just need to ensure it stays that way and refresh the grid
+    // Even though we already set the completed state when opening the photo modal,
+    // we should reinforce it in case any state got lost during the photo capture process
+    try {
+      // Only do this if we have a valid item
+      if (localItem && localItem.id) {
+        // Ensure local state shows completed
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            completed: true
+          };
+        });
+        
+        // Make a call with forcedState=true to ensure backend state is correct
+        await toggleItemCompletion(localItem.id, true);
+        console.log('[MODAL] Successfully reinforced completed state after photo skip');
+      }
+    } catch (error) {
+      console.error('[MODAL] Error reinforcing completion state after photo skip:', error);
+    }
+    
+    // Refresh the grid with the callback if provided
     if (onToggleComplete) {
       console.log('[MODAL] Calling onToggleComplete callback after photo skip');
       onToggleComplete();
