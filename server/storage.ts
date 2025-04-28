@@ -2,15 +2,18 @@ import {
   users, 
   cities, 
   bingoItems,
+  userCompletions,
   type User, 
   type InsertUser,
   type BingoItem as DBBingoItem,
   type InsertBingoItem,
   type City as DBCity,
-  type InsertCity
+  type InsertCity,
+  type UserCompletion,
+  type InsertUserCompletion
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { log } from "./vite";
 
 // We need to import these types directly instead of using aliases
@@ -18,9 +21,10 @@ import { log } from "./vite";
 interface BingoItemType {
   id: string;
   text: string;
-  completed: boolean;
+  completed: boolean; // This is client-side only, not stored in the DB
   isCenterSpace?: boolean;
   image?: string;
+  userPhoto?: string; // This will be populated from userCompletions for the current user
   description?: string;
   gridRow?: number; // 0-based row index (0-4)
   gridCol?: number; // 0-based column index (0-4)
