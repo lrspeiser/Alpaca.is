@@ -360,6 +360,9 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // Set our completion state to TRUE in the ref to maintain it across renders
     completionStateRef.current = true;
     
+    // Store the fact that we need to close the modal after saving
+    const shouldCloseModalAfterSave = true;
+    
     // Save the photo first
     await saveUserPhoto(photoDataUrl);
     

@@ -35,6 +35,11 @@ export function ImageDebugger({ src, alt, className = '', onLoadInfo }: ImageDeb
   });
 
   useEffect(() => {
+    // Skip if source hasn't actually changed to prevent re-rendering
+    if (loadInfo.url === (proxiedSrc || src || '')) {
+      return;
+    }
+    
     if (!src) {
       setLoadInfo({
         loaded: false,
