@@ -125,7 +125,7 @@ export class DatabaseStorage implements IStorage {
         console.log('[DB] Checking for individual records in database tables');
         
         // Find the current city
-        let currentCity = "prague"; // Default
+        let currentCity = ""; // No default city
         
         // Get city that's marked as current (fallback to first city found)
         const [currentCityRecord] = await db
@@ -135,6 +135,12 @@ export class DatabaseStorage implements IStorage {
           
         if (currentCityRecord) {
           currentCity = currentCityRecord.id;
+        } else {
+          // If no city is marked as current, use the first city if any exists
+          const [firstCity] = await db.select().from(cities).limit(1);
+          if (firstCity) {
+            currentCity = firstCity.id;
+          }
         }
         
         // Get all cities
@@ -187,26 +193,23 @@ export class DatabaseStorage implements IStorage {
             };
           }
           
-          // Debug the content to verify descriptions are there
-          if (reconstructedState.cities.prague) {
-            const testItem = reconstructedState.cities.prague.items.find(i => i.id === 'prague-4');
-            if (testItem) {
-              console.log('[DB DEBUG] prague-4 item from individual tables:', { 
-                id: testItem.id,
-                text: testItem.text,
-                hasDescription: !!testItem.description,
-                description: testItem.description ? `${testItem.description.substring(0, 50)}...` : 'none',
-                hasImage: !!testItem.image
-              });
-            }
+          // Check for any city with descriptions to use as a measurement of data quality
+          let totalDescriptions = 0;
+          for (const cityId in reconstructedState.cities) {
+            const city = reconstructedState.cities[cityId];
+            const descriptionsInCity = city.items.filter(i => !!i.description).length;
+            totalDescriptions += descriptionsInCity;
             
-            // If we have items with descriptions, use this reconstructed state
-            const itemsWithDescriptions = reconstructedState.cities.prague.items.filter(i => !!i.description).length;
-            if (itemsWithDescriptions > 1) { // More than just the center space
-              console.log(`[DB] Using reconstructed state with ${itemsWithDescriptions} descriptions`);
-              this.inMemoryState = JSON.parse(JSON.stringify(reconstructedState));
-              return reconstructedState;
+            if (descriptionsInCity > 0) {
+              console.log(`[DB] City ${cityId} has ${descriptionsInCity} items with descriptions`);
             }
+          }
+          
+          // If we have any city with items that have descriptions, use the reconstructed state
+          if (totalDescriptions > 0) {
+            console.log(`[DB] Using reconstructed state with ${totalDescriptions} total descriptions`);
+            this.inMemoryState = JSON.parse(JSON.stringify(reconstructedState));
+            return reconstructedState;
           }
         }
       } catch (error) {
@@ -253,15 +256,14 @@ export class DatabaseStorage implements IStorage {
       })
     });
     
-    // Check for prague-4 item to debug description saving issue
-    if (state.cities.prague) {
-      const item = state.cities.prague.items.find(i => i.id === 'prague-4');
-      if (item) {
-        console.log('[DB DEBUG] SAVING prague-4 item with:', {
-          text: item.text,
-          hasDescription: !!item.description,
-          descriptionPreview: item.description ? item.description.substring(0, 50) + '...' : 'none'
-        });
+    // Log a summary of items with descriptions and images for debugging
+    for (const cityId in state.cities) {
+      const city = state.cities[cityId];
+      const itemsWithDescriptions = city.items.filter(i => !!i.description).length;
+      const itemsWithImages = city.items.filter(i => !!i.image).length;
+      
+      if (itemsWithDescriptions > 0 || itemsWithImages > 0) {
+        console.log(`[DB] City ${cityId} has ${itemsWithDescriptions} descriptions and ${itemsWithImages} images`);
       }
     }
     
