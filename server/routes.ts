@@ -50,6 +50,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Content-Type', 'image/svg+xml');
     res.send(svg);
   });
+
+  // Serve images from temporary directory if they exist there
+  app.use('/images', (req, res, next) => {
+    const tmpImagesDir = '/tmp/images';
+    
+    // Get just the filename without any path information
+    const requestedFilename = path.basename(req.path);
+    const requestedFile = path.join(tmpImagesDir, requestedFilename);
+    
+    // Check if the file exists in the temporary directory
+    if (fs.existsSync(requestedFile) && fs.statSync(requestedFile).isFile()) {
+      log(`[IMAGE-FALLBACK] Serving image from temporary directory: ${requestedFile}`, 'image-fallback');
+      return res.sendFile(requestedFile);
+    }
+    
+    // If we get here, try the next middleware
+    next();
+  });
   // Register a client ID for persistent user state without login
   app.post("/api/register-client", async (req: Request, res: Response) => {
     try {
