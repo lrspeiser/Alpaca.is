@@ -35,12 +35,52 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   
   // Navigation functions for previous and next items
   const navigateToItem = (direction: 'prev' | 'next') => {
-    if (!localItem || items.length === 0) return;
+    if (!localItem || items.length === 0) {
+      console.log(`[MODAL] Cannot navigate: localItem=${!!localItem}, items.length=${items.length}`);
+      return;
+    }
     
-    // Find current item index
+    // Find current item index, use both id and cityId for a more robust match
     const currentIndex = items.findIndex(i => i.id === localItem.id);
-    if (currentIndex === -1) return;
     
+    if (currentIndex === -1) {
+      console.log(`[MODAL] Cannot navigate: item ${localItem.id} not found in items array of length ${items.length}`);
+      console.log(`[MODAL] Item cityId: ${localItem.cityId}, Current City: ${currentCity}`);
+      
+      // Attempt a recovery by manually setting cityId on all items
+      const enhancedItems = items.map(item => ({
+        ...item,
+        cityId: currentCity
+      }));
+      
+      // Try finding the item again
+      const recoveryIndex = enhancedItems.findIndex(i => i.id === localItem.id);
+      if (recoveryIndex === -1) {
+        console.log(`[MODAL] Navigation recovery failed`);
+        return;
+      }
+      
+      console.log(`[MODAL] Navigation recovery succeeded, found item at index ${recoveryIndex}`);
+      
+      let newIndex;
+      if (direction === 'prev') {
+        newIndex = recoveryIndex === 0 ? enhancedItems.length - 1 : recoveryIndex - 1;
+      } else {
+        newIndex = recoveryIndex === enhancedItems.length - 1 ? 0 : recoveryIndex + 1;
+      }
+      
+      // Update with an enhanced item that has the correct cityId
+      const enhancedItem = {
+        ...enhancedItems[newIndex],
+        cityId: currentCity
+      };
+      
+      console.log(`[MODAL] Navigating ${direction} to recovered item ${enhancedItem.id}`);
+      setLocalItem(enhancedItem);
+      return;
+    }
+    
+    // Normal navigation path
     let newIndex;
     if (direction === 'prev') {
       newIndex = currentIndex === 0 ? items.length - 1 : currentIndex - 1;
@@ -48,9 +88,15 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       newIndex = currentIndex === items.length - 1 ? 0 : currentIndex + 1;
     }
     
+    // Ensure the cityId is properly set on the item we're navigating to
+    const nextItem = {
+      ...items[newIndex],
+      cityId: currentCity // Always ensure cityId is set
+    };
+    
     // Update the local item - this will trigger the useEffect to refresh everything
     console.log(`[MODAL] Navigating ${direction} from ${currentIndex} to ${newIndex}`);
-    setLocalItem(items[newIndex]);
+    setLocalItem(nextItem);
   };
   
   // Improved function to get image URL from either property and handle local image paths

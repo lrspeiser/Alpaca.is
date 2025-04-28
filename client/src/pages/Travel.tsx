@@ -60,7 +60,10 @@ export default function Travel() {
           forceGridRefresh();
         }}
         onToggleComplete={forceGridRefresh}
-        allItems={city?.items || []}
+        allItems={(city?.items || []).map(item => ({
+          ...item,
+          cityId: currentCity // Ensure every item has the cityId property set
+        }))}
       />
     </div>
   );
