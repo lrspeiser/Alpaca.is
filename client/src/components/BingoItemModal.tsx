@@ -360,44 +360,57 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       const cityId = localItem.cityId || currentCity; // Fallback to current city from store
       const itemId = localItem.id;
       
-      // Save to server API - this is asynchronous, so we'll continue without waiting
-      fetch('/api/save-user-photo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemId,
-          cityId,
-          photoDataUrl,
-          clientId
-        })
-      }).catch(error => {
-        console.error('[MODAL] Error saving photo to server:', error);
-      });
+      // STEP 4: Force synchronous server update to ensure UI consistency
+      try {
+        // Make a synchronous request to save the photo
+        const photoResponse = await fetch('/api/save-user-photo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            itemId,
+            cityId,
+            photoDataUrl,
+            clientId
+          })
+        });
+        
+        if (!photoResponse.ok) {
+          throw new Error(`Failed to save photo: ${photoResponse.status}`);
+        }
+        
+        console.log('[MODAL] Successfully saved photo to server');
+      } catch (photoError) {
+        console.error('[MODAL] Error saving photo to server:', photoError);
+        // Continue anyway, we'll still update local state
+      }
       
-      // STEP 4: Save photo to IndexedDB for local caching
+      // STEP 5: Save photo to IndexedDB for local caching
       console.log('[MODAL] Saving photo to IndexedDB');
       await saveUserPhoto(photoDataUrl);
       
-      // STEP 5: Update local UI with photo/completion state only after server operations
-      setLocalItem(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          cityId, // Ensure cityId is set correctly
-          completed: true, // Always force to true after photo capture
-          userPhoto: photoDataUrl
-        };
-      });
-      
-      // STEP 6: Force refresh grid to ensure latest state is displayed
+      // STEP 6: Do a full refresh to ensure we have the latest server state
+      console.log('[MODAL] Refreshing state from server');
       if (onToggleComplete) {
-        console.log('[MODAL] Refreshing grid with updated item state');
-        onToggleComplete();
+        await onToggleComplete();
       }
       
-      // STEP 7: Close both modals immediately
+      // STEP 7: Update local UI with photo/completion state only after server operations
+      console.log('[MODAL] Updating UI state with completed=true');
+      setLocalItem(prev => {
+        if (!prev) return null;
+        const updated = {
+          ...prev,
+          cityId, // Ensure cityId is set correctly
+          completed: true, // Always force to true after photo capture 
+          userPhoto: photoDataUrl
+        };
+        console.log('[MODAL] Updated local item:', updated);
+        return updated;
+      });
+      
+      // STEP 8: Close both modals immediately after all operations complete
       console.log('[MODAL] Closing photo capture modal and item modal');
       setIsToggling(false);
       setIsPhotoCaptureOpen(false);
@@ -548,11 +561,13 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               )}
             </div>
             
+            {/* Debug logs are in useEffect inside component body */}
+            
             <div className="flex space-x-3">
               <Button 
                 variant={localItem.completed ? "default" : "outline"} 
                 className="flex-1"
-                disabled={isPending}
+                disabled={isPending || localItem.completed} // Disable if already completed
                 onClick={() => handleToggleCompletion(true)}
               >
                 {localItem.completed ? "Completed ✓" : "Mark as Done"}
@@ -561,7 +576,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               <Button 
                 variant={!localItem.completed ? "default" : "outline"} 
                 className="flex-1"
-                disabled={isPending}
+                disabled={isPending || !localItem.completed} // Disable if already not completed
                 onClick={() => handleToggleCompletion(false)}
               >
                 {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
