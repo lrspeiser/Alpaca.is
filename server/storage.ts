@@ -230,8 +230,6 @@ export class DatabaseStorage implements IStorage {
             .from(bingoItems)
             .where(eq(bingoItems.cityId, city.id));
             
-          console.log(`[DB] Found ${cityItems.length} items for city ${city.id}`);
-          
           // Get user completions for this city if we have a userId
           let userCompletionsMap: Record<string, UserCompletion> = {};
           if (userId) {
@@ -242,8 +240,6 @@ export class DatabaseStorage implements IStorage {
                 eq(userCompletions.userId, userId),
                 sql`${userCompletions.itemId} IN (${sql.join(cityItems.map(item => sql`${item.id}`), sql`, `)})` 
               ));
-              
-            console.log(`[DB] Found ${completions.length} user completions for city ${city.id}`);
             
             // Create a map for quick lookup
             userCompletionsMap = completions.reduce((map, completion) => {
@@ -261,10 +257,7 @@ export class DatabaseStorage implements IStorage {
             items: cityItems.map(item => {
               const userCompletion = userCompletionsMap[item.id];
               
-              // Log items with images for debugging
-              if (item.image) {
-                console.log(`[DB RETRIEVE] Found item ${item.id} with image URL: ${item.image.substring(0, 30)}...`);
-              }
+              // No longer logging items with images during read operations
               
               // Build bingo item with user-specific completion status
               return {
