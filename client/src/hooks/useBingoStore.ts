@@ -120,9 +120,15 @@ export function useBingoStore() {
     // Try to save to API
     try {
       console.log('[STORE] Sending state to API endpoint /api/bingo-state');
+      
+      // Add client ID to the request if available
+      const payload = clientId 
+        ? { ...newState, clientId } 
+        : newState;
+        
       const response = await fetch('/api/bingo-state', {
         method: 'POST',
-        body: JSON.stringify(newState),
+        body: JSON.stringify(payload),
         headers: {
           'Content-Type': 'application/json'
         }
@@ -137,7 +143,7 @@ export function useBingoStore() {
       console.error('[STORE] Failed to save bingo state to API:', error);
       // We already saved to localStorage as backup
     }
-  }, []);
+  }, [clientId]);
   
   // Update document body background image when current city changes
   useEffect(() => {
@@ -205,9 +211,13 @@ export function useBingoStore() {
     // Then call API to persist changes
     try {
       // Call API to toggle item completion
+      const payload = clientId 
+        ? { itemId, cityId: currentCity, clientId } 
+        : { itemId, cityId: currentCity };
+        
       const response = await fetch('/api/toggle-item', {
         method: 'POST',
-        body: JSON.stringify({ itemId, cityId: currentCity }),
+        body: JSON.stringify(payload),
         headers: {
           'Content-Type': 'application/json'
         }
@@ -229,7 +239,7 @@ export function useBingoStore() {
       // We've already updated the local state, so just return that
       return await newStatePromise;
     }
-  }, [state.currentCity, saveState, fetchBingoState]);
+  }, [state.currentCity, saveState, fetchBingoState, clientId]);
   
   // Reset all items for current city (except center space)
   const resetCity = useCallback(async () => {
@@ -237,9 +247,13 @@ export function useBingoStore() {
     
     try {
       // Call API to reset city
+      const payload = clientId 
+        ? { cityId: currentCity, clientId } 
+        : { cityId: currentCity };
+        
       const response = await fetch('/api/reset-city', {
         method: 'POST',
-        body: JSON.stringify({ cityId: currentCity }),
+        body: JSON.stringify(payload),
         headers: {
           'Content-Type': 'application/json'
         }
@@ -303,7 +317,7 @@ export function useBingoStore() {
         return newState;
       });
     }
-  }, [state.currentCity, saveState]);
+  }, [state.currentCity, saveState, clientId]);
   
   return {
     cities: state.cities,
