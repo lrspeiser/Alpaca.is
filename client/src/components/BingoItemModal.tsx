@@ -298,9 +298,10 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         setIsPhotoCaptureOpen(true);
       }
       
-      // STEP 4: Refresh grid to ensure it's in sync
-      if (onToggleComplete) {
-        console.log('[MODAL] Refreshing grid');
+      // Only refresh the grid when marking as not complete
+      // Don't refresh when marking as complete to avoid overriding our local UI state
+      if (onToggleComplete && !completed) {
+        console.log('[MODAL] Refreshing grid after marking as not complete');
         onToggleComplete();
       }
       
@@ -415,9 +416,9 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
   
-  // Simplified photo capture close handler - always close everything when skipped
+  // Simplified photo capture close handler - only close photo modal when skipped
   const handlePhotoCaptureClose = async () => {
-    console.log('[MODAL] Photo capture skipped, closing all modals');
+    console.log('[MODAL] Photo capture skipped, closing only photo modal');
     
     // First ensure the item is still marked as completed in server
     if (localItem && localItem.id) {
@@ -426,23 +427,27 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         console.log(`[MODAL] Sending server update to ensure item ${localItem.id} remains completed`);
         await toggleItemCompletion(localItem.id, true, true);
         
-        // Refresh grid to get latest state
-        if (onToggleComplete) {
-          console.log('[MODAL] Refreshing grid after photo capture was skipped');
-          onToggleComplete();
-        }
+        // Don't refresh the grid here - it would reset our UI state
+        
+        // Make sure our local state shows as completed
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            completed: true // Force completed state
+          };
+        });
       } catch (error) {
         console.error('[MODAL] Error ensuring completion state after skipping photo:', error);
       }
     }
     
-    // Clean up and close everything
+    // Close only the photo capture modal and keep item modal open
     setIsToggling(false);
     setIsPhotoCaptureOpen(false);
     
-    // Close item modal immediately to return to the grid
-    console.log('[MODAL] Closing item modal');
-    onClose();
+    // Don't close the main modal - let user decide when to close it
+    console.log('[MODAL] Keeping item modal open after skipping photo');
   };
   
   return (
