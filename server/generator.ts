@@ -145,7 +145,7 @@ export async function generateItemImage(
     log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
     
     // Make direct API call to OpenAI with timeout and retry logic
-    let fetchResponse;
+    let fetchResponse: Response | undefined;
     const maxRetries = 2;
     let attempts = 0;
     
@@ -154,9 +154,9 @@ export async function generateItemImage(
         attempts++;
         log(`API attempt ${attempts}/${maxRetries + 1} for item "${itemText}"`, "openai-debug");
         
-        // Use AbortController to implement a timeout
+        // Use AbortController to implement a timeout - increased from 30s to 60s
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
         
         fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
@@ -211,7 +211,12 @@ export async function generateItemImage(
       }
     }
     
-    // Handle error responses
+    // Handle error responses or if no response was received
+    if (!fetchResponse) {
+      log(`No response received after all retry attempts`, "openai-debug");
+      throw new Error(`Failed to get response from OpenAI API after ${maxRetries + 1} attempts`);
+    }
+    
     if (!fetchResponse.ok) {
       const errorText = await fetchResponse.text();
       log(`OpenAI API error (${fetchResponse.status}): ${errorText}`, "openai-debug");

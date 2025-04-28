@@ -48,42 +48,35 @@ export default function GenerateAllImagesButton() {
       // Process all items, not just the ones without images
       const itemsToGenerate = items.filter(item => !item.isCenterSpace);
       
-      // Generate images in parallel with Promise.all
-      const batchSize = 3; // Smaller batch size (3) to avoid overwhelming the API
-      const batches = [];
-      
-      // Split items into batches for controlled parallelism
-      for (let i = 0; i < itemsToGenerate.length; i += batchSize) {
-        batches.push(itemsToGenerate.slice(i, i + batchSize));
-      }
-      
-      // Process each batch in parallel with a delay between batches
-      for (const batch of batches) {
+      // Process items one at a time to avoid API rate limits
+      for (let i = 0; i < itemsToGenerate.length; i++) {
         try {
-          // Create an array of promises, one for each item in the batch
-          const batchPromises = batch.map(item => 
-            generateImageForItem(city.id, item.id, item.text)
-              .then(() => {
-                successCount++;
-                currentProgress++;
-                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-              })
-              .catch(error => {
-                console.error(`Error generating image for ${item.id}:`, error);
-                failCount++;
-                currentProgress++;
-                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-              })
-          );
+          const item = itemsToGenerate[i];
+          console.log(`[BATCH] Processing item ${i+1}/${itemsToGenerate.length}: ${item.id}`);
           
-          // Wait for all promises in this batch to resolve before moving to the next batch
-          await Promise.all(batchPromises);
+          try {
+            await generateImageForItem(city.id, item.id, item.text);
+            successCount++;
+          } catch (error) {
+            console.error(`Error generating image for ${item.id}:`, error);
+            failCount++;
+          }
           
-          // Add a small delay between batches to prevent API rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Update progress after each item
+          currentProgress++;
+          setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+          
+          // Add a longer delay between requests to prevent API rate limiting (3 seconds)
+          if (i < itemsToGenerate.length - 1) {
+            console.log(`[BATCH] Adding 3-second delay before next request (${i+1}/${itemsToGenerate.length} complete)`);
+            await new Promise(resolve => setTimeout(resolve, 3000)); 
+          }
         } catch (error) {
-          console.error("Error processing batch:", error);
-          // Continue to the next batch even if this one had errors
+          console.error(`Error processing item ${i}:`, error);
+          // Continue to the next item even if this one had errors
+          failCount++;
+          currentProgress++;
+          setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
         }
       }
       
