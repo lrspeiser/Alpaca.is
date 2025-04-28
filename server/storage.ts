@@ -76,6 +76,8 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values(insertUser)
       .returning();
+      
+    console.log(`[DB CREATE] Created new user with ID ${user.id}, username: ${user.username || 'anonymous'}`);
     return user;
   }
   
@@ -277,20 +279,7 @@ export class DatabaseStorage implements IStorage {
           };
         }
         
-        // Log statistics about loaded data
-        let totalItems = 0;
-        let completedItems = 0;
-        let itemsWithPhotos = 0;
-        
-        for (const cityId in reconstructedState.cities) {
-          const city = reconstructedState.cities[cityId];
-          totalItems += city.items.length;
-          completedItems += city.items.filter(item => item.completed).length;
-          itemsWithPhotos += city.items.filter(item => item.userPhoto).length;
-        }
-        
-        console.log(`[DB] Loaded ${totalItems} items across ${Object.keys(reconstructedState.cities).length} cities`);
-        console.log(`[DB] User ${userId} has completed ${completedItems} items and has ${itemsWithPhotos} photos`);
+        // No longer logging read statistics
         
         return reconstructedState;
       } catch (error) {
@@ -381,7 +370,7 @@ export class DatabaseStorage implements IStorage {
                 isDefaultCity: false // New cities are not default by default
               });
               
-            console.log(`[DB] Created city ${cityId}`);
+            console.log(`[DB CREATE] Created new city "${city.title}" (ID: ${cityId}) with ${city.items.length} items`);
           }
         } catch (error) {
           console.error(`[DB] Error saving city ${cityId}:`, error);
@@ -423,6 +412,11 @@ export class DatabaseStorage implements IStorage {
                   gridRow: item.gridRow,
                   gridCol: item.gridCol,
                 });
+                
+              // Only log newly created items
+              const hasImage = item.image ? "with image" : "without image";
+              const hasDescription = item.description ? "with description" : "without description";
+              console.log(`[DB CREATE] Created item "${item.text}" (ID: ${item.id}) in city ${cityId} ${hasImage}, ${hasDescription}`);
             }
             
             // Handle user completion status separately (only if userId is available)
@@ -535,7 +529,7 @@ export class DatabaseStorage implements IStorage {
         newCompletionState = !completion; // Toggle current state
       }
       
-      console.log(`[DB] Setting item ${itemId} completion to ${newCompletionState} for user ${userId}`);
+      console.log(`[DB UPDATE] Setting item "${item.text}" (ID: ${itemId}) completion to ${newCompletionState ? 'COMPLETED' : 'NOT COMPLETED'} for user ${userId}`);
       
       if (newCompletionState) {
         // Item should be completed
@@ -548,6 +542,8 @@ export class DatabaseStorage implements IStorage {
               eq(userCompletions.userId, userId),
               eq(userCompletions.itemId, itemId)
             ));
+            
+          console.log(`[DB UPDATE] Updated existing completion for item "${item.text}" (ID: ${itemId})`);
         } else {
           // Create new completion
           await db
@@ -558,6 +554,8 @@ export class DatabaseStorage implements IStorage {
               completed: true,
               completedAt: new Date().toISOString()
             });
+            
+          console.log(`[DB CREATE] Created new completion record for item "${item.text}" (ID: ${itemId})`);
         }
       } else {
         // Item should not be completed, delete completion record
@@ -567,9 +565,9 @@ export class DatabaseStorage implements IStorage {
             eq(userCompletions.userId, userId),
             eq(userCompletions.itemId, itemId)
           ));
+          
+        console.log(`[DB DELETE] Removed completion for item "${item.text}" (ID: ${itemId})`);
       }
-      
-      console.log(`[DB] Successfully toggled item ${itemId} for user ${userId}`);
     } catch (error) {
       console.error(`[DB] Error toggling item ${itemId} in city ${cityId}:`, error);
       throw error;
@@ -606,7 +604,7 @@ export class DatabaseStorage implements IStorage {
         .from(bingoItems)
         .where(eq(bingoItems.cityId, cityId));
         
-      console.log(`[DB] Resetting ${cityItems.length} items in city ${cityId} for user ${userId}`);
+      console.log(`[DB DELETE] Resetting ${cityItems.length} items in city ${cityId} for user ${userId}`);
       
       // Delete all user completions for this city
       await db
@@ -616,7 +614,7 @@ export class DatabaseStorage implements IStorage {
           sql`${userCompletions.itemId} IN (${sql.join(cityItems.map(item => sql`${item.id}`), sql`, `)})`
         ));
         
-      console.log(`[DB] Successfully reset city ${cityId} for user ${userId}`);
+      console.log(`[DB DELETE] Successfully removed all user completions for city ${cityId}`);
     } catch (error) {
       console.error(`[DB] Error resetting city ${cityId}:`, error);
       throw error;
