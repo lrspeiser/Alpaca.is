@@ -18,7 +18,7 @@ interface BingoItemModalProps {
 }
 
 export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete, allItems = [] }: BingoItemModalProps) {
-  const { toggleItemCompletion } = useBingoStore();
+  const { toggleItemCompletion, currentCity } = useBingoStore();
   const { clientId } = useClientId();
   
   // All state declarations must come before any other code
@@ -260,9 +260,32 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       // Double-check that the backend knows this item is completed
       // This helps ensure the state doesn't get lost after photo capture
       if (localItem && localItem.id) {
-        // Force the completed state to be true in the backend
-        const isCurrentlyCompleted = true;
-        await toggleItemCompletion(localItem.id, isCurrentlyCompleted);
+        try {
+          // Use current city from props or fall back to item's cityId
+          // (we already got currentCity from the hook at the component level)
+          
+          // Make a manual API call to ensure completion
+          const payload = { 
+            itemId: localItem.id, 
+            cityId: currentCity || localItem.cityId,
+            forcedState: true, // Force it to be completed
+            // Add client ID if we have it
+            ...(clientId && { clientId })
+          };
+          
+          await fetch('/api/toggle-item', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          
+          console.log('[MODAL] Reinforced completed state for item', localItem.id, 'in city', currentCity);
+        } catch (error) {
+          console.error('[MODAL] Error reinforcing completion state:', error);
+        }
       }
     } catch (error) {
       console.error("Error ensuring completion state after photo capture:", error);

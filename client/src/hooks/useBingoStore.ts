@@ -234,7 +234,8 @@ export function useBingoStore() {
   }, [state, saveState, fetchBingoState, clientId]);
   
   // Toggle completion status of a bingo item
-  const toggleItemCompletion = useCallback(async (itemId: string) => {
+  // Optional forcedState parameter allows forcing a specific completion state
+  const toggleItemCompletion = useCallback(async (itemId: string, forcedState?: boolean) => {
     const currentCity = state.currentCity;
     
     // Update local state immediately for responsive UI
@@ -244,9 +245,14 @@ export function useBingoStore() {
         const itemIndex = cityItems.findIndex(item => item.id === itemId);
         
         if (itemIndex !== -1 && !cityItems[itemIndex].isCenterSpace) {
+          // Use forcedState if provided, otherwise toggle the current state
+          const newCompletionState = forcedState !== undefined 
+            ? forcedState 
+            : !cityItems[itemIndex].completed;
+            
           cityItems[itemIndex] = {
             ...cityItems[itemIndex],
-            completed: !cityItems[itemIndex].completed
+            completed: newCompletionState
           };
           
           const updatedCity: City = {
@@ -279,14 +285,28 @@ export function useBingoStore() {
     try {
       // Call API to toggle item completion
       const payload = clientId 
-        ? { itemId, cityId: currentCity, clientId } 
-        : { itemId, cityId: currentCity };
+        ? { 
+            itemId, 
+            cityId: currentCity, 
+            clientId,
+            // If forcedState is provided, include it in the payload
+            ...(forcedState !== undefined && { forcedState })
+          } 
+        : { 
+            itemId, 
+            cityId: currentCity,
+            // If forcedState is provided, include it in the payload
+            ...(forcedState !== undefined && { forcedState })
+          };
         
       const response = await fetch('/api/toggle-item', {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // Add cache-busting headers to ensure fresh response
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       });
       
