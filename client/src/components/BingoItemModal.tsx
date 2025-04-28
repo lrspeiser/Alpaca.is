@@ -339,8 +339,13 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // STEP 3: Update local UI state with photo and completed=true
     setLocalItem(prev => {
       if (!prev) return null;
+      
+      // Make sure cityId is set in our local item state
+      const cityId = prev.cityId || currentCity;
+      
       return {
         ...prev,
+        cityId, // Ensure cityId is set correctly
         completed: true, // Always force to true after photo capture
         userPhoto: photoDataUrl
       };

@@ -59,9 +59,20 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
       // Process items in sequence to avoid overwhelming IndexedDB
       for (const item of completedItems) {
         try {
-          const photoDataUrl = await getUserPhotoFromIndexedDB(item.cityId, item.id);
+          // Use currentCity as fallback if item.cityId is missing
+          const cityId = item.cityId || currentCity;
+          
+          // Make sure we always have a cityId
+          if (!cityId) {
+            console.warn(`[GRID] No cityId available for item ${item.id}, skipping photo fetch`);
+            continue;
+          }
+          
+          console.log(`[GRID] Attempting to fetch user photo for ${item.id} in city ${cityId}`);
+          const photoDataUrl = await getUserPhotoFromIndexedDB(cityId, item.id);
+          
           if (photoDataUrl) {
-            console.log(`[GRID] Found user photo in IndexedDB for ${item.id} in city ${item.cityId}`);
+            console.log(`[GRID] Found user photo in IndexedDB for ${item.id} in city ${cityId}`);
             newUserPhotos[item.id] = photoDataUrl;
           }
         } catch (error) {
