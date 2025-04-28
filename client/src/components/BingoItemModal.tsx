@@ -124,10 +124,26 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     return null;
   };
   
-  // Update local state when item changes
+  // Update local state when item changes, preserving local completion state
   useEffect(() => {
     if (item) {
-      setLocalItem(item);
+      console.log('[MODAL] Item prop changed, updating localItem while preserving local state');
+      
+      setLocalItem(prevLocalItem => {
+        // If we already have a local item with the same ID, preserve its completion state
+        if (prevLocalItem && prevLocalItem.id === item.id) {
+          console.log(`[MODAL] Preserving local completion state: ${prevLocalItem.completed}`);
+          return {
+            ...item,                     // Take all properties from the new item
+            completed: prevLocalItem.completed, // But preserve our local completion state
+            userPhoto: prevLocalItem.userPhoto || item.userPhoto // Preserve userPhoto if we have one
+          };
+        }
+        
+        // Otherwise, it's a completely different item, so use the new one directly
+        console.log(`[MODAL] New item, using provided completion state: ${item.completed}`);
+        return item;
+      });
     }
   }, [item]);
   
