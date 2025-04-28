@@ -20,25 +20,25 @@ const openai = new OpenAI({
 export async function generateItemDescription(itemText: string, cityName: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1", // Using gpt-4.1 which is the latest model as of April 26, 2025
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
-          content: `You are a knowledgeable travel guide providing detailed, engaging information about tourist attractions and experiences in ${cityName}. Limit your response to 2-3 sentences (max 80 words).`
+          content: `You are a cool, relatable travel guide specializing in experiences for college students visiting ${cityName}. Your descriptions should be exciting, fun, and educational. Keep responses to 2-3 sentences (max 80 words) and use language that appeals to college-aged travelers.`
         },
         {
           role: "user",
-          content: `Provide interesting facts, practical tips, or historical context about "${itemText}" in ${cityName}. Include specific details like location info, best time to visit, or cultural significance.`
+          content: `Give me a fun description of why college students must experience "${itemText}" in ${cityName} that would excite a student while still being educational. Include practical tips (like student discounts, best times, or Instagram spots), fun historical facts, or social aspects. Make it sound exciting and FOMO-inducing!`
         }
       ],
       max_tokens: 150,
-      temperature: 0.7,
+      temperature: 0.8, // Slightly higher temperature for more creative responses
     });
 
-    return response.choices[0].message.content || `Interesting facts about ${itemText} in ${cityName}`;
+    return response.choices[0].message.content || `Discover the excitement of ${itemText} in the awesome city of ${cityName}!`;
   } catch (error: any) {
     log(`Error generating description for ${itemText}: ${error?.message || 'Unknown error'}`, 'openai');
-    return `Discover the beauty and history of ${itemText} in the wonderful city of ${cityName}.`;
+    return `You absolutely have to experience ${itemText} while in ${cityName} - it's a must for every college student's bucket list!`;
   }
 }
 

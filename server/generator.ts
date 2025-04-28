@@ -38,13 +38,13 @@ export async function generateBingoItems(
   theme: string
 ): Promise<BingoItem[]> {
   try {
-    // Prepare the prompt for OpenAI
+    // Prepare the prompt for OpenAI specifically for college students
     const prompt = `
-      Generate 24 interesting and diverse tourist activities or sights for a travel bingo card for ${cityName}.
-      Focus on this theme: "${theme}".
+      What are 24 things a college student must experience in ${cityName} (food, sights, experiences)? Make them iconic and specifically appealing to college-aged travelers.
       
       Make each item brief (5-10 words), specific, action-oriented, and unique to ${cityName}.
-      Include a mix of famous landmarks, food experiences, cultural activities, and hidden gems.
+      Include a mix of famous landmarks, food experiences, cultural activities, nightlife, and hidden gems that would appeal to students.
+      Focus on social experiences, budget-friendly options, and Instagram-worthy moments.
       Avoid generic items that could apply to any city.
       Do not include "Arrive in ${cityName}" as this is already the center square.
       
@@ -58,11 +58,11 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1", // Using gpt-4.1 which is the latest model as of April 26, 2025
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
-          content: "You are a helpful travel content creator crafting concise, engaging bingo activities for tourists."
+          content: "You are a travel content creator specialized in crafting engaging travel experiences for college students. Your recommendations should be exciting, authentic, and appeal to young adult travelers on a budget."
         },
         {
           role: "user",
