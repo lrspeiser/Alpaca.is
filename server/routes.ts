@@ -150,19 +150,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { state, clientId } = req.body;
       
-      // Log summary of the state being saved
-      const citySummary = Object.keys(state.cities).map(cityId => {
-        const city = state.cities[cityId];
-        return {
-          id: city.id,
-          title: city.title,
-          itemCount: city.items.length,
-          itemsWithDescriptions: city.items.filter((item: any) => !!item.description).length,
-          itemsWithImages: city.items.filter((item: any) => !!item.image).length
-        };
-      });
+      // Validate required fields in state object
+      if (!state || typeof state !== 'object') {
+        return res.status(400).json({ error: "Invalid state object" });
+      }
       
-      log(`[SERVER] Saving bingo state for client ${clientId || 'anonymous'}: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
+      if (!state.currentCity || typeof state.currentCity !== 'string') {
+        return res.status(400).json({ error: "Missing or invalid currentCity field" });
+      }
+      
+      if (!state.cities || typeof state.cities !== 'object') {
+        return res.status(400).json({ error: "Missing or invalid cities object" });
+      }
+      
+      // For just changing the current city, the cities object might be empty/array
+      // Let's get the current state and merge with the new current city
+      if (Array.isArray(state.cities) || Object.keys(state.cities).length === 0) {
+        console.log("[SERVER] Detected city change request with empty cities object");
+        
+        // Get the current state first
+        const currentState = await storage.getBingoState(undefined, clientId);
+        
+        // Only update the current city field, keep the rest as is
+        const mergedState = {
+          ...currentState,
+          currentCity: state.currentCity
+        };
+        
+        // Save the merged state
+        console.log(`[SERVER] Updating current city to ${state.currentCity} for client ${clientId || 'anonymous'}`);
+        await storage.saveBingoState(mergedState, undefined, clientId);
+        return res.json({ success: true });
+      }
+      
+      // If we get here, we have a full state object to save - log summary
+      try {
+        const citySummary = Object.keys(state.cities).map(cityId => {
+          const city = state.cities[cityId];
+          return {
+            id: city.id,
+            title: city.title,
+            itemCount: city.items.length,
+            itemsWithDescriptions: city.items.filter((item: any) => !!item.description).length,
+            itemsWithImages: city.items.filter((item: any) => !!item.image).length
+          };
+        });
+        
+        log(`[SERVER] Saving bingo state for client ${clientId || 'anonymous'}: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
+      } catch (summaryError) {
+        console.error("[SERVER] Error creating city summary, continuing with save:", summaryError);
+      }
       
       // Save state using clientId if available
       await storage.saveBingoState(state, undefined, clientId);

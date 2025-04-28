@@ -196,10 +196,15 @@ export function useBingoStore() {
         // Call API to persist changes with explicit clientId if available
         console.log(`[STORE] Persisting city change to server (${cityId})`);
         
-        // Add client ID to the request if available
-        const payload = clientId 
-          ? { ...newState, clientId } 
-          : newState;
+        // Create a simplified payload for city change only
+        // This prevents errors with sending the full cities object which might be large
+        const payload = {
+          state: {
+            currentCity: cityId,
+            cities: {} // Empty cities object, server will handle this specially
+          },
+          clientId: clientId || undefined
+        };
             
         // Use a specific API call just for updating current city
         const response = await fetch('/api/bingo-state', {
