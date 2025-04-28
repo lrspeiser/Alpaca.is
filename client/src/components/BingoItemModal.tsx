@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { useEffect, useState } from "react";
 import type { BingoItem } from "@/types";
