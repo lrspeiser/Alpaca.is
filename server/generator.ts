@@ -42,7 +42,7 @@ export async function generateBingoItems(
       
       Make each item brief (5-10 words), specific, action-oriented, and unique to ${cityName}.
       Include a mix of famous landmarks, food experiences, cultural activities, nightlife, and hidden gems that would appeal to students.
-      Focus on social experiences, budget-friendly options, and Instagram-worthy moments.
+      Focus on educational experiences, budget-friendly options, historical sites, and meaningful cultural experiences.
       Avoid generic items that could apply to any city.
       Do not include "Arrive in ${cityName}" as this is already the center square.
       
@@ -62,7 +62,7 @@ export async function generateBingoItems(
       messages: [
         {
           role: "system",
-          content: "You are a travel content creator specialized in crafting engaging travel experiences for college students. Your recommendations should be exciting, authentic, and appeal to young adult travelers on a budget. Always return valid JSON conforming to the exact format requested in the prompt."
+          content: "You are a knowledgeable travel curator specialized in creating meaningful educational experiences for college students. Your recommendations should emphasize cultural understanding, historical appreciation, and authentic local experiences while still being engaging for young adult travelers. Always return valid JSON conforming to the exact format requested in the prompt."
         },
         {
           role: "user",

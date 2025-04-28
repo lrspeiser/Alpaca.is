@@ -24,21 +24,21 @@ export async function generateItemDescription(itemText: string, cityName: string
       messages: [
         {
           role: "system",
-          content: `You are a cool, relatable travel guide specializing in experiences for college students visiting ${cityName}. Your descriptions should be exciting, fun, and educational. Keep responses to 2-3 sentences (max 80 words) and use language that appeals to college-aged travelers.`
+          content: `You are a knowledgeable travel guide writing for college students visiting ${cityName}. Your descriptions should be insightful, authentic, and educational. Keep responses to 2-3 sentences (max 80 words) and focus on historical significance, cultural context, and practical information.`
         },
         {
           role: "user",
-          content: `Give me a fun description of why college students must experience "${itemText}" in ${cityName} that would excite a student while still being educational. Include practical tips (like student discounts, best times, or Instagram spots), fun historical facts, or social aspects. Make it sound exciting and FOMO-inducing!`
+          content: `Write a concise description of "${itemText}" in ${cityName} that balances educational value with genuine appeal for college students. Include relevant historical context, cultural significance, or practical information (like student discounts, best visiting times, or local insights). Avoid mentioning social media, Instagram, or creating FOMO. Focus on authentic experiences and knowledge rather than trends.`
         }
       ],
       max_tokens: 150,
       temperature: 0.8, // Slightly higher temperature for more creative responses
     });
 
-    return response.choices[0].message.content || `Discover the excitement of ${itemText} in the awesome city of ${cityName}!`;
+    return response.choices[0].message.content || `${itemText} is a notable experience in ${cityName} with cultural and historical significance.`;
   } catch (error: any) {
     log(`Error generating description for ${itemText}: ${error?.message || 'Unknown error'}`, 'openai');
-    return `You absolutely have to experience ${itemText} while in ${cityName} - it's a must for every college student's bucket list!`;
+    return `${itemText} represents an important part of ${cityName}'s heritage and offers visitors insight into local culture and history.`;
   }
 }
 
