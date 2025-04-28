@@ -174,8 +174,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       });
     } finally {
       setIsToggling(false);
-      // Close the modal after toggling is complete
-      onClose();
+      // We don't close the modal here anymore, just let the callback handle state refresh
     }
   };
   
@@ -209,7 +208,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     } finally {
       setIsToggling(false);
       setIsPhotoCaptureOpen(false);
-      onClose();
+      // We don't need to close the modal here if we want to preserve city selection
     }
   };
   
@@ -240,7 +239,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       });
     } finally {
       setIsToggling(false);
-      onClose();
+      // Keep the modal open to preserve city selection
     }
   };
   
