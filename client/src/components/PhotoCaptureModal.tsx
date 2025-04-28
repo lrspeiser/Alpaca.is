@@ -146,8 +146,12 @@ export default function PhotoCaptureModal({
   const handleSavePhoto = () => {
     if (capturedPhoto) {
       // Pass the photo data URL to the callback provided by the parent component
+      // Important: We call onPhotoCapture first to save the completion state
+      // BEFORE closing the modal to prevent state loss
       onPhotoCapture(capturedPhoto);
-      onClose();
+      
+      // Now it's safe to close the modal
+      // onClose is called by the parent component after saving is complete
     }
   };
 
