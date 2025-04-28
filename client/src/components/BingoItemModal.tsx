@@ -439,7 +439,12 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // Always clean up
     setIsToggling(false);
     setIsPhotoCaptureOpen(false);
-    // Close the photo modal but keep the item modal open
+    
+    // NEW: Add a slight delay before closing the modal to ensure state is updated
+    setTimeout(() => {
+      console.log('[MODAL] Automatically closing item modal after photo capture');
+      onClose(); // Close the entire modal to show the updated grid with thumbnail
+    }, 500); // Half-second delay for visual feedback and to ensure state updates
   };
   
   // Handle cancel/skip from photo capture
@@ -521,8 +526,14 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       onToggleComplete();
     }
     
-    // Clean up but keep modal open
+    // Clean up
     setIsToggling(false);
+    
+    // NEW: Add a slight delay before closing the modal to ensure state is updated
+    setTimeout(() => {
+      console.log('[MODAL] Automatically closing item modal after skipping photo capture');
+      onClose(); // Close the entire modal to show the updated grid with thumbnail
+    }, 500); // Half-second delay for visual feedback and to ensure state updates
   };
   
   return (
