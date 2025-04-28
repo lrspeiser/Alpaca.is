@@ -77,8 +77,17 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   
   // Function to handle clicking on a bingo tile with forced refresh
   const handleTileClick = (item: BingoItem) => {
-    // First, open the modal
-    onItemClick(item);
+    // Ensure the item has the correct cityId property
+    // This is CRITICAL for proper navigation between items in the modal
+    const enhancedItem: BingoItem = {
+      ...item,
+      cityId: currentCity // Make sure cityId is always set to the current city
+    };
+    
+    console.log(`[GRID] Opening item ${item.id} from city ${currentCity} with ${items.length} total items`);
+    
+    // First, open the modal with the enhanced item that has the cityId property
+    onItemClick(enhancedItem);
     
     // After a small delay, force refresh the component data
     setTimeout(() => {
