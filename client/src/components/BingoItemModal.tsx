@@ -188,12 +188,31 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     
     // If marking as complete and not already completed, show photo capture modal
     if (completed && !localItem.completed) {
+      // Also update the backend immediately to avoid state inconsistency
+      try {
+        await toggleItemCompletion(localItem.id);
+        console.log('[MODAL] Item marked as completed in backend');
+      } catch (error) {
+        console.error("Error toggling item completion:", error);
+        // Revert local state if there was an error
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            completed: false // Revert to not completed
+          };
+        });
+        setIsToggling(false);
+        return; // Don't proceed to photo capture if backend update failed
+      }
+      
+      // Now open the photo capture modal
       setIsPhotoCaptureOpen(true);
       setIsToggling(false); // Reset toggling state while photo capture is open
-      return; // Don't proceed with backend update yet
+      return; // Don't proceed with the rest of the function
     }
     
-    // Update backend
+    // For marking as not done or other scenarios, update backend
     try {
       await toggleItemCompletion(localItem.id);
       
@@ -209,7 +228,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         if (!prev) return null;
         return {
           ...prev,
-          completed: !prev.completed
+          completed: !prev.completed // Toggle back
         };
       });
     } finally {
@@ -253,30 +272,16 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     console.log('[MODAL] Photo capture skipped, proceeding with item completion');
     setIsPhotoCaptureOpen(false);
     
-    // Still proceed with marking as completed
-    try {
-      await toggleItemCompletion(localItem.id);
-      
-      // Trigger grid refresh with the callback if provided
-      if (onToggleComplete) {
-        console.log('[MODAL] Calling onToggleComplete callback after photo skip');
-        onToggleComplete();
-      }
-    } catch (error) {
-      console.error("Error toggling item completion after photo skip:", error);
-      
-      // Revert completed status
-      setLocalItem(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          completed: false
-        };
-      });
-    } finally {
-      setIsToggling(false);
-      // Keep the modal open to preserve city selection
+    // We already set the completed state when opening the photo modal,
+    // so we just need to ensure it stays that way and refresh the grid
+    if (onToggleComplete) {
+      console.log('[MODAL] Calling onToggleComplete callback after photo skip');
+      onToggleComplete();
     }
+    
+    // Clean up
+    setIsToggling(false);
+    // Keep the modal open to preserve city selection
   };
   
   return (
