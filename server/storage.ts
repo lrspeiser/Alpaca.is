@@ -52,7 +52,7 @@ export interface IStorage {
   saveBingoState(state: BingoStateType, userId?: number, clientId?: string): Promise<void>;
   
   // Additional methods for more granular operations
-  toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string): Promise<void>;
+  toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string, forcedState?: boolean): Promise<void>;
   resetCity(cityId: string, userId?: number, clientId?: string): Promise<void>;
 }
 
@@ -386,7 +386,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string): Promise<void> {
+  async toggleItemCompletion(itemId: string, cityId: string, userId?: number, clientId?: string, forcedState?: boolean): Promise<void> {
     try {
       // First, get the current state
       const state = await this.getBingoState(userId, clientId);
@@ -402,8 +402,14 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Item ${itemId} not found in city ${cityId}`);
       }
       
-      // Toggle completed state
-      state.cities[cityId].items[itemIndex].completed = !state.cities[cityId].items[itemIndex].completed;
+      // If forcedState is provided, use it; otherwise toggle the current state
+      if (forcedState !== undefined) {
+        console.log(`[DB] Setting item ${itemId} completion state to ${forcedState}`);
+        state.cities[cityId].items[itemIndex].completed = forcedState;
+      } else {
+        console.log(`[DB] Toggling item ${itemId} completion state from ${state.cities[cityId].items[itemIndex].completed} to ${!state.cities[cityId].items[itemIndex].completed}`);
+        state.cities[cityId].items[itemIndex].completed = !state.cities[cityId].items[itemIndex].completed;
+      }
       
       // Save the updated state
       await this.saveBingoState(state, userId, clientId);

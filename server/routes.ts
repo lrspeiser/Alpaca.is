@@ -179,14 +179,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const schema = z.object({
         itemId: z.string(),
         cityId: z.string(),
-        clientId: z.string().optional()
+        clientId: z.string().optional(),
+        forcedState: z.boolean().optional() // Add support for forcing a specific state
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, cityId, clientId } = validatedData;
+      const { itemId, cityId, clientId, forcedState } = validatedData;
       
-      // Use clientId if provided
-      await storage.toggleItemCompletion(itemId, cityId, undefined, clientId);
+      console.log(`[TOGGLE-ITEM] Toggling item ${itemId} in city ${cityId}${forcedState !== undefined ? ` to state: ${forcedState}` : ''}`);
+      
+      // Use clientId if provided and pass the forcedState parameter
+      await storage.toggleItemCompletion(itemId, cityId, undefined, clientId, forcedState);
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Error toggling item completion:", error);
