@@ -75,9 +75,28 @@
   padding: 0;
 }
 
-/* We no longer need this styling since we're using images */
+/* Style completed tiles */
 .bingo-tile.completed {
-  @apply border-secondary;
+  @apply border-secondary bg-gray-100;
+}
+
+/* Text fitting utilities */
+.text-fit-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.text-fit {
+  font-size: clamp(0.65rem, 2vw, 0.875rem);
+  line-height: 1.2;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  text-align: center;
+  max-width: 100%;
 }
 
 /* Using Tailwind classes in component directly */

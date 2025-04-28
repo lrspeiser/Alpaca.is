@@ -93,7 +93,6 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
     // First check if we have a user photo from IndexedDB for this item
     if (userPhotos[item.id]) {
-      console.log(`[GRID] Using user photo from IndexedDB for ${item.id}`);
       return userPhotos[item.id];
     }
     
@@ -106,13 +105,11 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
     const imageSource = item.image || (item as any).imageUrl;
     
     if (!imageSource || typeof imageSource !== 'string') {
-      console.log(`[GRID] No image found for ${item.id}`);
       return null;
     }
     
     // Handle local image paths that start with /images/
     if (imageSource.startsWith('/images/')) {
-      console.log(`[GRID] Using local image for ${item.id}: ${imageSource}`);
       // Cache the URL for future use
       setItemImages(prev => ({
         ...prev,
@@ -123,7 +120,6 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
     
     // Handle remote URLs that start with http
     if (imageSource.startsWith('http')) {
-      console.log(`[GRID] Using remote URL for ${item.id}: ${imageSource.substring(0, 30)}...`);
       // Cache the URL for future use
       setItemImages(prev => ({
         ...prev,
@@ -133,7 +129,6 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
     }
     
     // If we get here, the image URL format is unsupported
-    console.log(`[GRID] Unsupported image format for ${item.id}: ${imageSource}`);
     return null;
   };
   
@@ -183,16 +178,18 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   }
   
   // CSS Grid layout for the 5x5 bingo grid - ensures items are positioned correctly
-  // Using taller rows for better mobile readability (fixed 100px height for each cell)
+  // Using square cells with aspect ratio preserved
   const gridContainerStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateRows: 'repeat(5, 100px)',
+    gridTemplateRows: 'repeat(5, 1fr)',
     gridTemplateColumns: 'repeat(5, 1fr)',
     gap: '0',
     border: '1px solid #ddd',
     borderRadius: '0.5rem',
     overflow: 'hidden',
-    width: '100%'
+    width: '100%',
+    maxWidth: '500px', // Limit max width to avoid too much white space
+    margin: '0 auto'   // Center the grid
   };
   
   return (
@@ -236,9 +233,10 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
           const itemStyle = {
             gridRow: `${rowIndex + 1}`,    // CSS grid is 1-indexed
             gridColumn: `${colIndex + 1}`,  // CSS grid is 1-indexed
-            height: '100%' 
-            // No need for minHeight as we've set fixed height on grid rows
+            aspectRatio: '1 / 1',          // Keep tiles square
+            minHeight: 0                   // Prevent overflow
           } as React.CSSProperties;
+          
           if (!item) {
             return (
               <div 
@@ -254,7 +252,7 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
               key={`${item.id}-${forceRefresh}`}
               onClick={() => handleTileClick(item)}
               className={cn(
-                "bingo-tile border shadow-sm flex flex-col justify-between items-center text-center cursor-pointer overflow-hidden",
+                "bingo-tile border shadow-sm flex items-center justify-center text-center cursor-pointer overflow-hidden",
                 item.completed ? "completed" : "bg-white",
                 item.isCenterSpace && "center-space font-semibold"
               )}
@@ -262,37 +260,31 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
             >
               
               {item.completed ? (
-                <div className="w-full h-full flex flex-col overflow-hidden">
-                  {/* Top part: image (fixed proportional height) */}
-                  <div className="w-full h-[60%] relative">
-                    <ImageDebugger
-                      src={getImageUrl(item)}
+                /* For completed tiles, just show the image with no text */
+                <div className="w-full h-full relative">
+                  {getImageUrl(item) && (
+                    <img
+                      src={getImageUrl(item) as string}
                       alt={item.text}
-                      className="absolute inset-0 object-cover w-full h-full"
-                      onLoadInfo={(info: ImageLoadInfo) => {
-                        console.log(`[GRID-COMPLETED-DEBUG] ${item.id}:`, info);
-                      }}
+                      className="w-full h-full object-cover"
+                      title={item.text} /* Show text on hover */
                     />
-                    
-                    {/* Show camera icon badge when displaying a user photo */}
-                    {userPhotos[item.id] && (
-                      <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-1 shadow-md" title="Your photo">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-                          <circle cx="12" cy="13" r="3"></circle>
-                        </svg>
-                      </div>
-                    )}
-                  </div>
+                  )}
                   
-                  {/* Bottom part: text (fixed proportional height) */}
-                  <div className="w-full h-[40%] bg-white p-1 flex items-center justify-center">
-                    <p className="text-sm font-medium leading-tight text-primary-900 line-clamp-3">{item.text}</p>
-                  </div>
+                  {/* Show camera icon badge when displaying a user photo */}
+                  {userPhotos[item.id] && (
+                    <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-1 shadow-md" title="Your photo">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                        <circle cx="12" cy="13" r="3"></circle>
+                      </svg>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="p-3 h-full w-full flex flex-col justify-center">
-                  <p className="text-sm leading-tight font-medium">{item.text}</p>
+                /* For incomplete tiles, show text only */
+                <div className="p-2 h-full w-full flex items-center justify-center">
+                  <p className="text-xs md:text-sm leading-tight font-medium">{item.text}</p>
                 </div>
               )}
             </div>
