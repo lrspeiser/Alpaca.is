@@ -107,19 +107,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      // Check for prague-4 (Pilsner) item specifically
-      if (state.cities.prague) {
-        const testItem = state.cities.prague.items.find((item: any) => item.id === 'prague-4');
-        if (testItem) {
-          console.log('[DB DEBUG] prague-4 item in bingo state API:', {
-            id: testItem.id,
-            text: testItem.text,
-            hasDescription: !!testItem.description,
-            description: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none',
-            hasImage: !!testItem.image,
-            imageUrl: testItem.image ? testItem.image.substring(0, 30) + '...' : 'none'
-          });
-        }
+      // Log the first city's first item (if it exists) to verify data integrity
+      const firstCityId = Object.keys(state.cities)[0];
+      if (firstCityId && state.cities[firstCityId] && state.cities[firstCityId].items.length > 0) {
+        const firstItem = state.cities[firstCityId].items[0];
+        console.log(`[DB DEBUG] First item in city ${firstCityId}:`, {
+          id: firstItem.id,
+          text: firstItem.text,
+          hasDescription: !!firstItem.description,
+          hasImage: !!firstItem.image
+        });
       }
       
       log(`[SERVER] Sending bingo state to client: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');

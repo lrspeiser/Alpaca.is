@@ -62,16 +62,19 @@ export function useBingoStore() {
           })
         });
         
-        // Check specifically for prague-4 item (that we're testing)
-        if (data.cities.prague && data.cities.prague.items) {
-          const testItem = data.cities.prague.items.find((item: BingoItem) => item.id === 'prague-4');
-          if (testItem) {
-            console.log('[STORE] Test item (prague-4):', {
-              text: testItem.text,
-              hasDescription: !!testItem.description,
-              descriptionPreview: testItem.description ? testItem.description.substring(0, 50) + '...' : 'none'
-            });
-          }
+        // Log a summary of the first city's data if any cities exist
+        const firstCityId = Object.keys(data.cities)[0];
+        if (firstCityId && data.cities[firstCityId]?.items?.length > 0) {
+          const city = data.cities[firstCityId];
+          const itemsWithDescriptions = city.items.filter((item: BingoItem) => !!item.description).length;
+          const itemsWithImages = city.items.filter((item: BingoItem) => !!item.image).length;
+          
+          console.log(`[STORE] First city (${firstCityId}) data:`, {
+            title: city.title,
+            itemCount: city.items.length,
+            itemsWithDescriptions,
+            itemsWithImages
+          });
         }
         
         setState(data);
