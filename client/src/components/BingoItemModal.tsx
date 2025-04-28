@@ -176,8 +176,10 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   };
 
   const handleToggleCompletion = async (completed: boolean) => {
-    // Update local state immediately
+    // Start toggling transition
     setIsToggling(true);
+    
+    // Immediately update local UI state for better responsiveness
     setLocalItem(prev => {
       if (!prev) return null;
       return {
@@ -186,12 +188,50 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       };
     });
     
-    // If marking as complete and not already completed, show photo capture modal
-    if (completed && !localItem.completed) {
-      // Also update the backend immediately with the explicit completed state
+    // Update UI first, then continue with saving in the background
+    // Add a slight delay to let the UI update first
+    setTimeout(async () => {
+      // If marking as complete and wasn't already completed, show photo capture modal
+      if (completed && localItem.completed !== completed) {
+        try {
+          // Update backend with explicit completed state
+          await toggleItemCompletion(localItem.id, completed);
+          console.log('[MODAL] Item explicitly marked as completed in backend');
+          
+          // Also trigger the grid refresh callback
+          if (onToggleComplete) {
+            console.log('[MODAL] Calling onToggleComplete callback to refresh grid');
+            onToggleComplete();
+          }
+          
+          // Now open the photo capture modal
+          setIsPhotoCaptureOpen(true);
+          setIsToggling(false);
+          return; // Exit here
+        } catch (error) {
+          console.error("Error toggling item completion:", error);
+          // Revert local state if there was an error
+          setLocalItem(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              completed: !completed // Revert to opposite state
+            };
+          });
+          setIsToggling(false);
+          return; // Don't proceed if backend update failed
+        }
+      }
+      
+      // For marking as not done or toggling to the same state, update backend
       try {
         await toggleItemCompletion(localItem.id, completed);
-        console.log('[MODAL] Item explicitly marked as completed in backend');
+        
+        // Always trigger grid refresh callback for immediate visual feedback
+        if (onToggleComplete) {
+          console.log('[MODAL] Calling onToggleComplete callback for immediate grid refresh');
+          onToggleComplete();
+        }
       } catch (error) {
         console.error("Error toggling item completion:", error);
         // Revert local state if there was an error
@@ -202,39 +242,11 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             completed: !completed // Revert to opposite state
           };
         });
+      } finally {
         setIsToggling(false);
-        return; // Don't proceed to photo capture if backend update failed
+        // We keep the modal open, just let the grid refresh
       }
-      
-      // Now open the photo capture modal
-      setIsPhotoCaptureOpen(true);
-      setIsToggling(false); // Reset toggling state while photo capture is open
-      return; // Don't proceed with the rest of the function
-    }
-    
-    // For marking as not done or other scenarios, update backend with explicit state
-    try {
-      await toggleItemCompletion(localItem.id, completed);
-      
-      // Trigger grid refresh with the callback if provided
-      if (onToggleComplete) {
-        console.log('[MODAL] Calling onToggleComplete callback for immediate grid refresh');
-        onToggleComplete();
-      }
-    } catch (error) {
-      console.error("Error toggling item completion:", error);
-      // Revert local state if there was an error
-      setLocalItem(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          completed: !completed // Revert to opposite state
-        };
-      });
-    } finally {
-      setIsToggling(false);
-      // We don't close the modal here anymore, just let the callback handle state refresh
-    }
+    }, 50); // Very short delay for UI to update first
   };
   
   // Handle photo capture completion
@@ -438,7 +450,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               <Button 
                 variant={localItem.completed ? "default" : "outline"} 
                 className="flex-1"
-                disabled={isPending || localItem.completed}
+                disabled={isPending}
                 onClick={() => handleToggleCompletion(true)}
               >
                 {localItem.completed ? "Completed ✓" : "Mark as Done"}
@@ -447,7 +459,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               <Button 
                 variant={!localItem.completed ? "default" : "outline"} 
                 className="flex-1"
-                disabled={isPending || !localItem.completed}
+                disabled={isPending}
                 onClick={() => handleToggleCompletion(false)}
               >
                 {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
