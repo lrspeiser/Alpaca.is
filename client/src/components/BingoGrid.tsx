@@ -183,10 +183,10 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
   }
   
   // CSS Grid layout for the 5x5 bingo grid - ensures items are positioned correctly
-  // Using taller rows for better mobile readability
+  // Using taller rows for better mobile readability (120px height is better for rectangles)
   const gridContainerStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateRows: 'repeat(5, minmax(90px, 1fr))',
+    gridTemplateRows: 'repeat(5, minmax(120px, 1fr))',
     gridTemplateColumns: 'repeat(5, 1fr)',
     gap: '0',
     border: '1px solid #ddd',
@@ -263,8 +263,8 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
               
               {item.completed ? (
                 <div className="w-full h-full flex flex-col">
-                  {/* Top half: image */}
-                  <div className="w-full h-1/2 relative">
+                  {/* Top part: image (square aspect ratio) */}
+                  <div className="w-full aspect-square relative">
                     <ImageDebugger
                       src={getImageUrl(item)}
                       alt={item.text}
@@ -285,14 +285,14 @@ export default function BingoGrid({ onItemClick, refreshTrigger = 0 }: BingoGrid
                     )}
                   </div>
                   
-                  {/* Bottom half: text */}
-                  <div className="w-full h-1/2 bg-white p-1 flex items-center justify-center">
-                    <p className="text-sm font-medium leading-tight text-primary-900">{item.text}</p>
+                  {/* Bottom part: text (will take remaining space) */}
+                  <div className="w-full flex-grow bg-white p-2 flex items-center justify-center">
+                    <p className="text-base font-medium leading-tight text-primary-900">{item.text}</p>
                   </div>
                 </div>
               ) : (
-                <div className="p-2 h-full w-full flex flex-col justify-center">
-                  <p className="text-sm leading-tight font-medium">{item.text}</p>
+                <div className="p-3 h-full w-full flex flex-col justify-center">
+                  <p className="text-base leading-tight font-medium">{item.text}</p>
                 </div>
               )}
             </div>

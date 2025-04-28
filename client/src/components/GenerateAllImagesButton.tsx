@@ -64,9 +64,14 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       
       console.log(`[BATCH] Processing ${itemsToGenerate.length} items in ${batches.length} batches of up to ${batchSize} items each`);
       
-      // Process each batch in parallel with a delay between batches
+      // Store all batch promises so we can wait for them all at the end
+      const allBatchPromises: Promise<any>[] = [];
+      
+      // Process each batch with a timer-based approach
+      // Each batch starts 5 seconds after the previous batch started
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
+        const batchStartTime = Date.now();
         console.log(`[BATCH] Starting batch ${batchIndex + 1}/${batches.length} with ${batch.length} items`);
         
         try {
@@ -89,21 +94,35 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
               })
           );
           
-          // Wait for all promises in this batch to resolve before moving to the next batch
-          const batchResults = await Promise.all(batchPromises);
+          // Track this batch promise for later
+          const batchPromise = Promise.all(batchPromises).then(batchResults => {
+            console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}, success rate: ${batchResults.filter(r => r.success).length}/${batch.length}`);
+            return batchResults;
+          }).catch(error => {
+            console.error(`[BATCH] Error finalizing batch ${batchIndex + 1}:`, error);
+            return []; // Return empty array for failed batches
+          });
           
-          console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}, success rate: ${batchResults.filter(r => r.success).length}/${batch.length}`);
+          // Add this batch promise to our collection
+          allBatchPromises.push(batchPromise);
           
-          // Add a delay between batches to prevent API rate limiting
+          // If there's another batch coming up, wait until exactly 5 seconds have passed since this batch started
           if (batchIndex < batches.length - 1) {
-            console.log(`[BATCH] Adding 5-second delay before next batch`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            const elapsedMs = Date.now() - batchStartTime;
+            const delayNeeded = Math.max(0, 5000 - elapsedMs); // Ensure we wait at least 0ms
+            console.log(`[BATCH] Waiting ${delayNeeded}ms before starting next batch (${elapsedMs}ms elapsed)`);
+            await new Promise(resolve => setTimeout(resolve, delayNeeded));
           }
         } catch (error) {
           console.error(`[BATCH] Error processing batch ${batchIndex + 1}:`, error);
           // Continue to the next batch even if this one had errors
         }
       }
+      
+      // Wait for all batches to complete before refreshing state
+      console.log(`[BATCH] Waiting for all ${allBatchPromises.length} batches to complete...`);
+      await Promise.all(allBatchPromises);
+      console.log(`[BATCH] All batches completed!`);
       
       // Refresh state to get the latest data with new images
       await refreshState();
