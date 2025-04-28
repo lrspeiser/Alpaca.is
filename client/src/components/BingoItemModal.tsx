@@ -17,11 +17,13 @@ interface BingoItemModalProps {
 
 export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete }: BingoItemModalProps) {
   const { toggleItemCompletion } = useBingoStore();
+  const { clientId } = useClientId();
   
   // All state declarations must come before any other code
   const [localItem, setLocalItem] = useState<BingoItem | null>(null);
   const [isToggling, setIsToggling] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isPhotoCaptureOpen, setIsPhotoCaptureOpen] = useState(false);
   
   // Improved function to get image URL from either property and handle local image paths
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
@@ -84,6 +86,55 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   // Visual feedback for toggling state
   const isPending = isToggling;
   
+  // Function to save the user-captured photo
+  const saveUserPhoto = async (photoDataUrl: string) => {
+    if (!localItem) return;
+    
+    try {
+      const cityId = localItem.cityId;
+      const itemId = localItem.id;
+      
+      console.log(`[MODAL] Saving user photo for item ${itemId} in city ${cityId}`);
+      
+      const response = await fetch('/api/save-user-photo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemId,
+          cityId,
+          photoDataUrl,
+          clientId
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log(`[MODAL] Successfully saved user photo: ${data.photoUrl}`);
+        
+        // Update local item with the user photo URL
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            userPhoto: data.photoUrl
+          };
+        });
+        
+        // Trigger grid refresh with the callback if provided
+        if (onToggleComplete) {
+          onToggleComplete();
+        }
+      } else {
+        console.error(`[MODAL] Failed to save user photo: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error saving user photo:", error);
+    }
+  };
+
   const handleToggleCompletion = async (completed: boolean) => {
     // Update local state immediately
     setIsToggling(true);
@@ -94,6 +145,13 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         completed: !prev.completed
       };
     });
+    
+    // If marking as complete and not already completed, show photo capture modal
+    if (completed && !localItem.completed) {
+      setIsPhotoCaptureOpen(true);
+      setIsToggling(false); // Reset toggling state while photo capture is open
+      return; // Don't proceed with backend update yet
+    }
     
     // Update backend
     try {
@@ -121,71 +179,162 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
   
+  // Handle photo capture completion
+  const handlePhotoCapture = async (photoDataUrl: string) => {
+    console.log('[MODAL] Photo captured, proceeding with save and item completion');
+    
+    // Save the photo first
+    await saveUserPhoto(photoDataUrl);
+    
+    // Then proceed with marking the item as completed
+    try {
+      await toggleItemCompletion(localItem.id);
+      
+      // Trigger grid refresh with the callback if provided
+      if (onToggleComplete) {
+        console.log('[MODAL] Calling onToggleComplete callback after photo capture');
+        onToggleComplete();
+      }
+    } catch (error) {
+      console.error("Error toggling item completion after photo capture:", error);
+      
+      // Revert completed status
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          completed: false
+        };
+      });
+    } finally {
+      setIsToggling(false);
+      setIsPhotoCaptureOpen(false);
+      onClose();
+    }
+  };
+  
+  // Handle cancel/skip from photo capture
+  const handlePhotoCaptureClose = async () => {
+    console.log('[MODAL] Photo capture skipped, proceeding with item completion');
+    setIsPhotoCaptureOpen(false);
+    
+    // Still proceed with marking as completed
+    try {
+      await toggleItemCompletion(localItem.id);
+      
+      // Trigger grid refresh with the callback if provided
+      if (onToggleComplete) {
+        console.log('[MODAL] Calling onToggleComplete callback after photo skip');
+        onToggleComplete();
+      }
+    } catch (error) {
+      console.error("Error toggling item completion after photo skip:", error);
+      
+      // Revert completed status
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          completed: false
+        };
+      });
+    } finally {
+      setIsToggling(false);
+      onClose();
+    }
+  };
+  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
-          <h3 className="font-heading font-bold text-lg">{localItem.text}</h3>
-          <Button 
-            variant="ghost" 
-            size="iconSm" 
-            className="rounded-full" 
-            onClick={onClose}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        
-        <div className="p-5">
-          {/* Use ImageDebugger with square aspect ratio */}
-          <div className="mb-4 aspect-square w-full max-w-md overflow-hidden rounded-lg">
-            {localItem && (
-              <ImageDebugger
-                src={imageUrl}
-                alt={localItem.text}
-                className="w-full h-full object-cover"
-                onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] ${localItem.id}:`, info)}
-              />
-            )}
-          </div>
-          
-          {/* AI-generated description with improved styling */}
-          <div className="mb-6">
-            {localItem.description ? (
-              <div>
-                <h4 className="text-base font-bold mb-2 text-primary">About this activity:</h4>
-                <div className="text-sm bg-gray-50 p-4 rounded-lg border border-gray-200 leading-relaxed shadow-sm">
-                  {localItem.description}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-600 italic">
-                Have you completed "{localItem.text}" yet? Mark it as done when you have!
-              </p>
-            )}
-          </div>
-          
-          <div className="flex space-x-3">
+    <>
+      {/* Main modal */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-4 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+            <h3 className="font-heading font-bold text-lg">{localItem.text}</h3>
             <Button 
-              variant={localItem.completed ? "default" : "outline"} 
-              className="flex-1"
-              disabled={isPending}
-              onClick={() => handleToggleCompletion(true)}
+              variant="ghost" 
+              size="iconSm" 
+              className="rounded-full" 
+              onClick={onClose}
             >
-              {localItem.completed ? "Completed ✓" : "Mark as Done"}
+              <X className="h-5 w-5" />
             </Button>
+          </div>
+          
+          <div className="p-5">
+            {/* Display user photo if available, otherwise show AI-generated image */}
+            <div className="mb-4 aspect-square w-full max-w-md overflow-hidden rounded-lg">
+              {localItem && (
+                <ImageDebugger
+                  src={localItem.userPhoto || imageUrl}
+                  alt={localItem.text}
+                  className="w-full h-full object-cover"
+                  onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] ${localItem.id}:`, info)}
+                />
+              )}
+            </div>
             
-            <Button 
-              variant={!localItem.completed ? "default" : "outline"} 
-              className="flex-1"
-              disabled={isPending}
-              onClick={() => handleToggleCompletion(false)}
-            >
-              {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
-            </Button>
+            {/* Show a "Take New Photo" button if the item is completed */}
+            {localItem.completed && (
+              <div className="flex justify-center mb-4">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-2"
+                  onClick={() => setIsPhotoCaptureOpen(true)}
+                >
+                  <Camera className="w-4 h-4" />
+                  {localItem.userPhoto ? "Update Photo" : "Add Your Photo"}
+                </Button>
+              </div>
+            )}
+            
+            {/* AI-generated description with improved styling */}
+            <div className="mb-6">
+              {localItem.description ? (
+                <div>
+                  <h4 className="text-base font-bold mb-2 text-primary">About this activity:</h4>
+                  <div className="text-sm bg-gray-50 p-4 rounded-lg border border-gray-200 leading-relaxed shadow-sm">
+                    {localItem.description}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 italic">
+                  Have you completed "{localItem.text}" yet? Mark it as done when you have!
+                </p>
+              )}
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button 
+                variant={localItem.completed ? "default" : "outline"} 
+                className="flex-1"
+                disabled={isPending}
+                onClick={() => handleToggleCompletion(true)}
+              >
+                {localItem.completed ? "Completed ✓" : "Mark as Done"}
+              </Button>
+              
+              <Button 
+                variant={!localItem.completed ? "default" : "outline"} 
+                className="flex-1"
+                disabled={isPending}
+                onClick={() => handleToggleCompletion(false)}
+              >
+                {!localItem.completed ? "Not Done ✗" : "Mark as Not Done"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      
+      {/* Photo capture modal */}
+      <PhotoCaptureModal
+        isOpen={isPhotoCaptureOpen}
+        onClose={handlePhotoCaptureClose}
+        onPhotoCapture={handlePhotoCapture}
+        activityName={localItem?.text || ""}
+      />
+    </>
   );
 }

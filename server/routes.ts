@@ -8,6 +8,8 @@ import { generateBingoItems, generateItemImage, generateStyleGuide } from "./gen
 import { log } from "./vite";
 import { setupImageProxy } from "./imageProxy";
 import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
+import * as fs from 'fs';
+import * as path from 'path';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up image proxy for handling OpenAI image URLs
@@ -323,7 +325,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isCenterSpace: true,
         description: `Welcome to ${cityName}! Check this off as soon as you arrive to start your bingo adventure.`,
         gridRow: 2, // 0-based, so this is the middle row (3rd row)
-        gridCol: 2  // 0-based, so this is the middle column (3rd column)
+        gridCol: 2,  // 0-based, so this is the middle column (3rd column)
+        cityId: cityId, // Reference to the city this item belongs to
+        image: null,
+        userPhoto: null
       };
       
       // Create a 5x5 grid with the center item

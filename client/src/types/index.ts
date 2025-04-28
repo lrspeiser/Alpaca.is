@@ -4,7 +4,9 @@ export interface BingoItem {
   completed: boolean;
   isCenterSpace?: boolean;
   image?: string;
+  userPhoto?: string; // URL to user-captured photo
   description?: string;
+  cityId: string; // Reference to the city this item belongs to
   gridRow?: number; // 0-based row index (0-4)
   gridCol?: number; // 0-based column index (0-4)
 }
