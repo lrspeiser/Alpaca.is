@@ -7,7 +7,6 @@ export const initialBingoState: BingoState = {
       id: "prague",
       title: "Prague Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1541849546-216549ae216d?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'prague-1', text: 'Eat a Trdelník', completed: false },
         { id: 'prague-2', text: 'Walk Charles Bridge at sunrise', completed: false },
@@ -47,7 +46,6 @@ export const initialBingoState: BingoState = {
       id: "amsterdam",
       title: "Amsterdam Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1534351590666-13e3e96b5017?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'amsterdam-1', text: 'Take a canal cruise', completed: false },
         { id: 'amsterdam-2', text: 'Visit the Anne Frank House', completed: false },

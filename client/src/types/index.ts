@@ -20,7 +20,6 @@ export interface City {
   id: string;
   title: string;
   subtitle?: string;
-  backgroundImage: string;
   items: BingoItem[];
   tips: CityTip[];
 }
