@@ -139,6 +139,7 @@ export async function generateItemImage(
       model: "gpt-image-1", // Using gpt-image-1 for image generation (latest as of April 2025)
       prompt,
       size: "1024x1024", // Force square aspect ratio
+      quality: "hd", // Use higher quality setting
       output_format: "png", // Consistent format for better quality
       n: 1
     };

@@ -49,7 +49,7 @@ export default function GenerateAllImagesButton() {
       const itemsToGenerate = items.filter(item => !item.isCenterSpace);
       
       // Generate images in parallel with Promise.all
-      const batchSize = 5; // Generate 5 images in parallel at a time
+      const batchSize = 3; // Smaller batch size (3) to avoid overwhelming the API
       const batches = [];
       
       // Split items into batches for controlled parallelism
@@ -57,7 +57,7 @@ export default function GenerateAllImagesButton() {
         batches.push(itemsToGenerate.slice(i, i + batchSize));
       }
       
-      // Process each batch in parallel
+      // Process each batch in parallel with a delay between batches
       for (const batch of batches) {
         try {
           // Create an array of promises, one for each item in the batch
@@ -78,8 +78,12 @@ export default function GenerateAllImagesButton() {
           
           // Wait for all promises in this batch to resolve before moving to the next batch
           await Promise.all(batchPromises);
+          
+          // Add a small delay between batches to prevent API rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
           console.error("Error processing batch:", error);
+          // Continue to the next batch even if this one had errors
         }
       }
       
