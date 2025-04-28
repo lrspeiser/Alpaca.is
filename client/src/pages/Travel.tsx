@@ -50,7 +50,7 @@ export default function Travel() {
       
       <Footer />
       
-      {/* Bingo Item Modal with refresh callback */}
+      {/* Bingo Item Modal with refresh callback and all city items for navigation */}
       <BingoItemModal 
         item={selectedItem} 
         isOpen={!!selectedItem} 
@@ -60,6 +60,7 @@ export default function Travel() {
           forceGridRefresh();
         }}
         onToggleComplete={forceGridRefresh}
+        allItems={city?.items || []}
       />
     </div>
   );

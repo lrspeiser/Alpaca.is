@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { RefreshCw, X, Camera } from "lucide-react";
+import { RefreshCw, X, Camera, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { useEffect, useState } from "react";
 import type { BingoItem } from "@/types";
@@ -14,9 +14,10 @@ interface BingoItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   onToggleComplete?: () => void; // Optional callback to refresh grid after toggle
+  allItems?: BingoItem[]; // All bingo items for navigation between items
 }
 
-export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete }: BingoItemModalProps) {
+export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete, allItems = [] }: BingoItemModalProps) {
   const { toggleItemCompletion } = useBingoStore();
   const { clientId } = useClientId();
   
@@ -25,6 +26,29 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   const [isToggling, setIsToggling] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isPhotoCaptureOpen, setIsPhotoCaptureOpen] = useState(false);
+  
+  // We'll use the provided allItems or fetch them using the cityId from the provided item
+  const items = allItems.length > 0 ? allItems : [];
+  
+  // Navigation functions for previous and next items
+  const navigateToItem = (direction: 'prev' | 'next') => {
+    if (!localItem || items.length === 0) return;
+    
+    // Find current item index
+    const currentIndex = items.findIndex(i => i.id === localItem.id);
+    if (currentIndex === -1) return;
+    
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = currentIndex === 0 ? items.length - 1 : currentIndex - 1;
+    } else {
+      newIndex = currentIndex === items.length - 1 ? 0 : currentIndex + 1;
+    }
+    
+    // Update the local item - this will trigger the useEffect to refresh everything
+    console.log(`[MODAL] Navigating ${direction} from ${currentIndex} to ${newIndex}`);
+    setLocalItem(items[newIndex]);
+  };
   
   // Improved function to get image URL from either property and handle local image paths
   const getImageUrl = (item: BingoItem & { imageUrl?: string }): string | null => {
@@ -277,8 +301,8 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
           </div>
           
           <div className="p-5">
-            {/* Display user photo if available, otherwise show AI-generated image */}
-            <div className="mb-4 aspect-square w-full max-w-md overflow-hidden rounded-lg">
+            {/* Display user photo if available, otherwise show AI-generated image with navigation arrows */}
+            <div className="mb-4 aspect-square w-full max-w-md overflow-hidden rounded-lg relative">
               {localItem && (
                 <ImageDebugger
                   src={localItem.userPhoto || imageUrl}
@@ -286,6 +310,31 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
                   className="w-full h-full object-cover"
                   onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] ${localItem.id}:`, info)}
                 />
+              )}
+              
+              {/* Navigation arrows (only show if we have items to navigate through) */}
+              {items.length > 1 && (
+                <>
+                  {/* Left arrow */}
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 rounded-full bg-white/70 hover:bg-white/90 shadow-md"
+                    onClick={() => navigateToItem('prev')}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  
+                  {/* Right arrow */}
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full bg-white/70 hover:bg-white/90 shadow-md"
+                    onClick={() => navigateToItem('next')}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </>
               )}
             </div>
             
