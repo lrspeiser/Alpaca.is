@@ -326,12 +326,12 @@ export class DatabaseStorage implements IStorage {
           .set({ currentCity: state.currentCity })
           .where(eq(users.id, userId));
           
-        console.log(`[DB] Updated current city to ${state.currentCity} for user ${userId}`);
+        console.log(`[DB UPDATE] Updated current city to "${state.currentCity}" for user ${userId}`);
       } catch (error) {
         console.error('[DB] Error updating user current city:', error);
       }
     } else {
-      console.log(`[DB] Skipping user current city update as no userId is available`);
+      console.log(`[DB WARNING] Skipping user current city update as no userId is available`);
     }
     
     // STEP 3: Save all cities and their items
