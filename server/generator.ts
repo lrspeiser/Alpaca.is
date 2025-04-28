@@ -29,13 +29,11 @@ const imageOpenAI = new OpenAI({
  * 
  * @param cityId The ID of the city
  * @param cityName The name of the city
- * @param theme The theme or focus for the bingo items
  * @returns An array of bingo items
  */
 export async function generateBingoItems(
   cityId: string,
-  cityName: string,
-  theme: string
+  cityName: string
 ): Promise<BingoItem[]> {
   try {
     // Prepare the prompt for OpenAI specifically for college students
