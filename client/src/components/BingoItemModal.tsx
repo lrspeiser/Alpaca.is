@@ -227,7 +227,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
 
-  // Simplified handleToggleCompletion using optimistic UI updates pattern
+  // Improved handleToggleCompletion with server-first approach
   const handleToggleCompletion = async (completed: boolean) => {
     console.log(`[MODAL] Toggle completion called with completed=${completed}`);
     
@@ -246,77 +246,73 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     // Start toggling transition
     setIsToggling(true);
     
-    // STEP 1: Optimistically update local UI state immediately
-    setLocalItem(prev => {
-      if (!prev) return null;
-      console.log(`[MODAL] Optimistically updating UI to completed=${completed}`);
-      return {
-        ...prev,
-        completed: completed
-      };
-    });
-    
-    // Special case: If marking as complete, show photo capture modal
+    // Special case: If marking as complete, handle photo capture
     if (completed) {
       try {
-        // STEP 2: Update server state
+        // STEP 1: Update server state FIRST (no optimistic UI update)
         console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`);
-        await toggleItemCompletion(localItem.id, completed, false);
+        await toggleItemCompletion(localItem.id, completed, true); // Force update with true
         
-        // STEP 3: On success, open photo capture
-        console.log('[MODAL] Server update successful, opening photo capture');
+        // STEP 2: Only after successful server update, update local UI
+        console.log('[MODAL] Server update successful, updating UI');
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            completed: completed
+          };
+        });
+        
+        // STEP 3: After server confirmation, open photo capture
+        console.log('[MODAL] Opening photo capture');
         setIsPhotoCaptureOpen(true);
-        setIsToggling(false);
         
-        // Also refresh the grid for immediate feedback
+        // STEP 4: Refresh grid for immediate feedback
         if (onToggleComplete) {
           console.log('[MODAL] Refreshing grid after successful server update');
           onToggleComplete();
         }
         
+        setIsToggling(false);
         return; // Exit here, photo capture will handle the rest
       } catch (error) {
-        // STEP 4: On error, revert the optimistic update
-        console.error('[MODAL] Server update failed, reverting UI:', error);
-        setLocalItem(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            completed: !completed // Revert to original state
-          };
-        });
+        // Handle error without any UI updates since we haven't changed UI yet
+        console.error('[MODAL] Server update failed:', error);
         setIsToggling(false);
         return;
       }
     }
     
-    // For marking as not done, simpler flow
+    // For marking as not done, similar approach
     try {
-      // STEP 2: Update server after optimistic UI update
+      // STEP 1: Server update first, no optimistic UI update
       console.log(`[MODAL] Sending completed=${completed} to server for item ${localItem?.id}`);
-      await toggleItemCompletion(localItem.id, completed, false);
+      await toggleItemCompletion(localItem.id, completed, true); // Force update with false
       
-      // STEP 3: On success, ensure grid gets refreshed
-      if (onToggleComplete) {
-        console.log('[MODAL] Server update successful, refreshing grid');
-        onToggleComplete();
-      }
-    } catch (error) {
-      // STEP 4: On error, revert the optimistic update
-      console.error('[MODAL] Server update failed, reverting UI:', error);
+      // STEP 2: Only update UI after server confirmation
+      console.log('[MODAL] Server update successful, updating UI');
       setLocalItem(prev => {
         if (!prev) return null;
         return {
           ...prev,
-          completed: !completed // Revert to original state
+          completed: completed
         };
       });
+      
+      // STEP 3: Ensure grid gets refreshed
+      if (onToggleComplete) {
+        console.log('[MODAL] Refreshing grid after successful server update');
+        onToggleComplete();
+      }
+    } catch (error) {
+      // No need to revert UI since we didn't update it optimistically
+      console.error('[MODAL] Server update failed:', error);
     } finally {
       setIsToggling(false);
     }
   };
   
-  // Simplified photo capture handler using optimistic UI update pattern
+  // Improved photo capture handler with server-first approach
   const handlePhotoCapture = async (photoDataUrl: string) => {
     console.log('[MODAL] Photo captured, proceeding with save and item completion');
     
@@ -326,85 +322,118 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       return;
     }
     
-    // STEP 2: Make immediate forceful update to server to ensure completed=true
-    // Do this BEFORE updating local state to ensure server consistency
     try {
-      console.log(`[MODAL] Immediately updating server with completed=true for item ${localItem.id}`);
+      // STEP 2: Make immediate forceful update to server to ensure completed=true
+      console.log(`[MODAL] Updating server with completed=true for item ${localItem.id}`);
       await toggleItemCompletion(localItem.id, true, true); // Force completed=true
-    } catch (serverError) {
-      console.error('[MODAL] Failed to update server state, but will continue with local updates:', serverError);
-      // Continue anyway - we'll still update the UI optimistically
-    }
-    
-    // STEP 3: Update local UI state with photo and completed=true
-    setLocalItem(prev => {
-      if (!prev) return null;
       
-      // Make sure cityId is set in our local item state
-      const cityId = prev.cityId || currentCity;
+      // STEP 3: Save photo to server storage
+      console.log(`[MODAL] Saving photo to server`);
       
-      return {
-        ...prev,
-        cityId, // Ensure cityId is set correctly
-        completed: true, // Always force to true after photo capture
-        userPhoto: photoDataUrl
-      };
-    });
-    
-    // STEP 4: Save photo to IndexedDB
-    try {
+      // Ensure we have correct cityId from the current item
+      const cityId = localItem.cityId || currentCity; // Fallback to current city from store
+      const itemId = localItem.id;
+      
+      // Save to server API - this is asynchronous, so we'll continue without waiting
+      fetch('/api/save-user-photo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemId,
+          cityId,
+          photoDataUrl,
+          clientId
+        })
+      }).catch(error => {
+        console.error('[MODAL] Error saving photo to server:', error);
+      });
+      
+      // STEP 4: Save photo to IndexedDB for local caching
       console.log('[MODAL] Saving photo to IndexedDB');
       await saveUserPhoto(photoDataUrl);
-    } catch (saveError) {
-      console.error('[MODAL] Error saving photo to IndexedDB:', saveError);
-      // Continue anyway - we can still show the photo in memory
+      
+      // STEP 5: Update local UI with photo/completion state only after server operations
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          cityId, // Ensure cityId is set correctly
+          completed: true, // Always force to true after photo capture
+          userPhoto: photoDataUrl
+        };
+      });
+      
+      // STEP 6: Force refresh grid to ensure latest state is displayed
+      if (onToggleComplete) {
+        console.log('[MODAL] Refreshing grid with updated item state');
+        onToggleComplete();
+      }
+      
+      // STEP 7: Close both modals immediately
+      console.log('[MODAL] Closing photo capture modal and item modal');
+      setIsToggling(false);
+      setIsPhotoCaptureOpen(false);
+      onClose(); // Immediately close the entire modal to return to the grid
+      
+    } catch (error) {
+      // Handle errors with clear logging
+      console.error('[MODAL] Error processing photo capture:', error);
+      setIsToggling(false);
+      
+      // Keep photo modal open so user can retry
+      // Don't close main modal either
     }
-    
-    // STEP 5: Force refresh grid to ensure latest state is displayed
-    if (onToggleComplete) {
-      console.log('[MODAL] Refreshing grid with updated item state');
-      onToggleComplete();
-    }
-    
-    // STEP 6: Close both modals immediately - don't wait
-    console.log('[MODAL] Closing photo capture modal and item modal');
-    setIsToggling(false);
-    setIsPhotoCaptureOpen(false);
-    onClose(); // Immediately close the entire modal to return to the grid
   };
   
-  // Simplified photo capture close handler using optimistic UI update pattern
+  // Improved photo capture close handler with server-first approach
   const handlePhotoCaptureClose = async () => {
     console.log('[MODAL] Photo capture skipped, closing photo modal');
     
-    // Update UI immediately
+    // First close photo capture modal
     setIsPhotoCaptureOpen(false);
     
-    // Ensure bingo grid gets refreshed
-    if (onToggleComplete) {
-      console.log('[MODAL] Refreshing grid after photo capture was skipped');
-      onToggleComplete();
-    }
-    
-    // Make a single, clean server update to ensure completion state
+    // Make sure we have the item reference
     if (localItem && localItem.id) {
       try {
+        // Server update first, ensure item is marked as completed
         console.log(`[MODAL] Sending server update to ensure item ${localItem.id} remains completed`);
-        await toggleItemCompletion(localItem.id, true, false);
+        await toggleItemCompletion(localItem.id, true, true);
+        
+        // Only then update UI state
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            completed: true
+          };
+        });
+        
+        // Refresh grid
+        if (onToggleComplete) {
+          console.log('[MODAL] Refreshing grid after photo capture was skipped');
+          onToggleComplete();
+        }
+        
+        // Clean up
+        setIsToggling(false);
+        
+        // Close modal after a short delay for better UX
+        setTimeout(() => {
+          console.log('[MODAL] Automatically closing item modal after skipping photo capture');
+          onClose(); // Close the entire modal to show the updated grid with thumbnail
+        }, 500); // Half-second delay for visual feedback
       } catch (error) {
         console.error('[MODAL] Error ensuring completion state after skipping photo:', error);
-        // We don't revert UI here since we already showed item as completed
+        setIsToggling(false);
+        // Keep main modal open so user can retry
       }
+    } else {
+      // If we don't have an item reference, just close everything
+      setIsToggling(false);
+      onClose();
     }
-    
-    // Clean up
-    setIsToggling(false);
-    
-    // Close modal after a short delay for better UX
-    setTimeout(() => {
-      console.log('[MODAL] Automatically closing item modal after skipping photo capture');
-      onClose(); // Close the entire modal to show the updated grid with thumbnail
-    }, 500); // Half-second delay for visual feedback
   };
   
   return (
