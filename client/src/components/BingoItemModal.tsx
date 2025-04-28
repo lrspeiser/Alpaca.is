@@ -191,7 +191,9 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     if (!localItem) return;
     
     try {
-      const cityId = localItem.cityId;
+      // Ensure we have correct cityId from the current item
+      // This is critical - sometimes cityId might not be set on the item
+      const cityId = localItem.cityId || currentCity; // Fallback to current city from store
       const itemId = localItem.id;
       
       console.log(`[MODAL] Saving user photo for item ${itemId} in city ${cityId} to IndexedDB`);
@@ -207,12 +209,14 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
           if (!prev) return null;
           return {
             ...prev,
+            cityId: cityId, // Ensure cityId is set correctly
             userPhoto: photoDataUrl
           };
         });
         
         // Trigger grid refresh with the callback if provided
         if (onToggleComplete) {
+          console.log(`[MODAL] Triggering grid refresh after saving photo for ${itemId} in ${cityId}`);
           onToggleComplete();
         }
       } else {
