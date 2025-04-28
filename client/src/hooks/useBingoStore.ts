@@ -145,13 +145,12 @@ export function useBingoStore() {
     }
   }, [clientId]);
   
-  // Update document body background image when current city changes
+  // No longer need to update background image as the feature has been removed
   useEffect(() => {
-    const city = state.cities[state.currentCity];
-    if (city && city.backgroundImage) {
-      document.body.style.backgroundImage = `url('${city.backgroundImage}')`;
-    }
-  }, [state.currentCity, state.cities]);
+    // Set a white background regardless of the city
+    document.body.style.backgroundImage = 'none';
+    document.body.style.backgroundColor = '#ffffff';
+  }, [state.currentCity]);
   
   // Set the current city
   const setCurrentCity = useCallback(async (cityId: string) => {

@@ -85,7 +85,6 @@ export const initialBingoState: BingoState = {
       id: "barcelona",
       title: "Barcelona Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'barcelona-1', text: 'Visit Sagrada Familia', completed: false },
         { id: 'barcelona-2', text: 'Walk down La Rambla', completed: false },
@@ -125,7 +124,6 @@ export const initialBingoState: BingoState = {
       id: "london",
       title: "London Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'london-1', text: 'See Big Ben', completed: false },
         { id: 'london-2', text: 'Ride the London Eye', completed: false },
@@ -165,7 +163,6 @@ export const initialBingoState: BingoState = {
       id: "paris",
       title: "Paris Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'paris-1', text: 'Visit the Eiffel Tower', completed: false },
         { id: 'paris-2', text: 'See Mona Lisa at the Louvre', completed: false },
@@ -205,7 +202,6 @@ export const initialBingoState: BingoState = {
       id: "rome",
       title: "Rome Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1555992939-28145fbcad34?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'rome-1', text: 'Visit the Colosseum', completed: false },
         { id: 'rome-2', text: 'Throw a coin in Trevi Fountain', completed: false },
@@ -245,7 +241,6 @@ export const initialBingoState: BingoState = {
       id: "vienna",
       title: "Vienna Bingo",
       subtitle: "Complete activities to unlock achievements",
-      backgroundImage: "https://images.unsplash.com/photo-1516550893885-7b7791d42449?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3",
       items: [
         { id: 'vienna-1', text: 'Visit Schönbrunn Palace', completed: false },
         { id: 'vienna-2', text: 'Try Sachertorte at Hotel Sacher', completed: false },

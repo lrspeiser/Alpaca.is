@@ -761,14 +761,6 @@ export default function Admin() {
                     />
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Background Image URL (Optional)</label>
-                    <Input 
-                      placeholder="https://example.com/image.jpg" 
-                      value={newCity.backgroundImage}
-                      onChange={(e) => setNewCity({...newCity, backgroundImage: e.target.value})}
-                    />
-                  </div>
                   
                   <Button 
                     onClick={handleCreateCity}
