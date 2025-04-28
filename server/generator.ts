@@ -413,7 +413,8 @@ export async function generateItemImage(
         console.error('Image saving error details:', error);
         
         // Generate a placeholder SVG as a last resort
-        const svgImageUrl = `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}`;
+        const errorMessage = error.message || 'Unknown error';
+        const svgImageUrl = `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}&reason=${encodeURIComponent(errorMessage)}`;
         log(`Returning placeholder SVG URL: ${svgImageUrl}`, "openai-debug");
         return svgImageUrl;
       }
@@ -428,12 +429,14 @@ export async function generateItemImage(
     
     // No image data found in response
     log(`No image data found in response format`, "openai-debug");
-    return `/api/placeholder-image?text=${encodeURIComponent('No Image Data')}`;
+    return `/api/placeholder-image?text=${encodeURIComponent('No Image Data')}&reason=${encodeURIComponent('OpenAI response did not contain image data')}`;
   } catch (error: any) {
     // Log detailed error information
     log(`Error generating image for ${itemText}: ${error?.message || "Unknown error"}`, "openai");
     log(`Error details: ${JSON.stringify(error)}`, "openai-debug");
     log(`Error stack: ${error?.stack}`, "openai-debug");
-    return `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}`;
+    
+    const errorMessage = error?.message || 'API error occurred';
+    return `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}&reason=${encodeURIComponent(errorMessage)}`;
   }
 }
