@@ -134,27 +134,82 @@ export async function generateItemImage(
     
     log(`Starting image generation via OpenAI API with gpt-image-1 model (updated April 2025), prompt: ${prompt}`, "openai-debug");
     
-    // Prepare request body with explicit square size
+    // Prepare request body with explicit square size - removed potentially unsupported parameters
     const reqBody = {
       model: "gpt-image-1", // Using gpt-image-1 for image generation (latest as of April 2025)
       prompt,
       size: "1024x1024", // Force square aspect ratio
-      quality: "hd", // Use higher quality setting
-      output_format: "png", // Consistent format for better quality
       n: 1
     };
     
     log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
     
-    // Make direct API call to OpenAI
-    const fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify(reqBody)
-    });
+    // Make direct API call to OpenAI with timeout and retry logic
+    let fetchResponse;
+    const maxRetries = 2;
+    let attempts = 0;
+    
+    while (attempts <= maxRetries) {
+      try {
+        attempts++;
+        log(`API attempt ${attempts}/${maxRetries + 1} for item "${itemText}"`, "openai-debug");
+        
+        // Use AbortController to implement a timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify(reqBody),
+          signal: controller.signal
+        });
+        
+        // Clear the timeout
+        clearTimeout(timeoutId);
+        
+        // Break out of the retry loop if the request was successful
+        if (fetchResponse.ok) {
+          log(`Successful API response on attempt ${attempts}`, "openai-debug");
+          break;
+        }
+        
+        // If we get here, the response was not OK
+        const errorText = await fetchResponse.text();
+        log(`API error on attempt ${attempts}: ${errorText}`, "openai-debug");
+        
+        // For 429 (too many requests) or 5xx errors, retry after a delay
+        if (fetchResponse.status === 429 || (fetchResponse.status >= 500 && fetchResponse.status < 600)) {
+          if (attempts <= maxRetries) {
+            const delay = attempts * 1000; // Exponential backoff: 1s, 2s
+            log(`Retrying after ${delay}ms for status ${fetchResponse.status}`, "openai-debug");
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        
+        // For other errors or if we've exhausted retries, break out of the loop
+        break;
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          log(`Request timed out on attempt ${attempts}`, "openai-debug");
+        } else {
+          log(`Fetch error on attempt ${attempts}: ${error.message}`, "openai-debug");
+        }
+        
+        if (attempts <= maxRetries) {
+          const delay = attempts * 1000;
+          log(`Retrying after ${delay}ms due to error`, "openai-debug");
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        throw error; // Re-throw if we've exhausted retries
+      }
+    }
     
     // Handle error responses
     if (!fetchResponse.ok) {

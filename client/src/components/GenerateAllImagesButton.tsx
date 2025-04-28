@@ -109,34 +109,55 @@ export default function GenerateAllImagesButton() {
     }
   };
   
-  // Generate a single image
+  // Generate a single image with improved error handling
   const generateImageForItem = async (cityId: string, itemId: string, itemText: string) => {
-    // Find the item in the city to get its description
-    const item = items.find(item => item.id === itemId);
-    const description = item?.description || "";
-    
-    const response = await fetch('/api/generate-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        cityId, 
-        itemId,
-        itemText, // Include both itemId and itemText to be safe
-        description // Pass description to be used in image generation
-      }),
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to generate image');
+    try {
+      // Find the item in the city to get its description
+      const item = items.find(item => item.id === itemId);
+      const description = item?.description || "";
+      
+      console.log(`[IMAGE-GEN] Starting generation for ${itemId}: "${itemText}" with description length: ${description.length}`);
+      
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          cityId, 
+          itemId,
+          itemText, // Include both itemId and itemText to be safe
+          description // Pass description to be used in image generation
+        }),
+      });
+      
+      // Handle HTTP errors
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[IMAGE-GEN] HTTP error (${response.status}): ${errorText}`);
+        throw new Error(`HTTP error ${response.status}: ${errorText}`);
+      }
+      
+      // Parse the response
+      let data;
+      try {
+        data = await response.json() as GenerateImageResponse;
+      } catch (parseError) {
+        console.error(`[IMAGE-GEN] Error parsing JSON response: ${parseError}`);
+        throw new Error('Invalid server response');
+      }
+      
+      // Check for API errors
+      if (!data.success) {
+        console.error(`[IMAGE-GEN] API error: ${data.error || 'Unknown error'}`);
+        throw new Error(data.error || 'Failed to generate image');
+      }
+      
+      console.log(`[IMAGE-GEN] Successfully generated image for ${itemId}`);
+      return data.imageUrl;
+    } catch (error) {
+      console.error(`[IMAGE-GEN] Error generating image for ${itemId}:`, error);
+      // Re-throw to let the caller handle it
+      throw error;
     }
-    
-    const data = await response.json() as GenerateImageResponse;
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to generate image');
-    }
-    
-    return data.imageUrl;
   };
 
   // Always show the button, even if all items have images
