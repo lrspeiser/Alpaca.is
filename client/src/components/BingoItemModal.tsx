@@ -328,9 +328,9 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
   };
   
-  // Improved photo capture handler with server-first approach
+  // Simplified photo capture handler - only saves to IndexedDB
   const handlePhotoCapture = async (photoDataUrl: string) => {
-    console.log('[MODAL] Photo captured, proceeding with save and item completion');
+    console.log('[MODAL] Photo captured, proceeding with save to local storage only');
     
     // STEP 1: First ensure we have the right item reference
     if (!localItem || !localItem.id) {
@@ -339,55 +339,26 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     }
     
     try {
-      // STEP 2: Make immediate forceful update to server to ensure completed=true
+      // STEP 2: Make immediate update to server to ensure completed=true
       console.log(`[MODAL] Updating server with completed=true for item ${localItem.id}`);
       await toggleItemCompletion(localItem.id, true, true); // Force completed=true
-      
-      // STEP 3: Save photo to server storage
-      console.log(`[MODAL] Saving photo to server`);
       
       // Ensure we have correct cityId from the current item
       const cityId = localItem.cityId || currentCity; // Fallback to current city from store
       const itemId = localItem.id;
       
-      // STEP 4: Force synchronous server update to ensure UI consistency
-      try {
-        // Make a synchronous request to save the photo
-        const photoResponse = await fetch('/api/save-user-photo', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            itemId,
-            cityId,
-            photoDataUrl,
-            clientId
-          })
-        });
-        
-        if (!photoResponse.ok) {
-          throw new Error(`Failed to save photo: ${photoResponse.status}`);
-        }
-        
-        console.log('[MODAL] Successfully saved photo to server');
-      } catch (photoError) {
-        console.error('[MODAL] Error saving photo to server:', photoError);
-        // Continue anyway, we'll still update local state
-      }
-      
-      // STEP 5: Save photo to IndexedDB for local caching
+      // STEP 3: Save photo to IndexedDB only (not server)
       console.log('[MODAL] Saving photo to IndexedDB');
       await saveUserPhoto(photoDataUrl);
       
-      // STEP 6: Do a full refresh to ensure we have the latest server state
+      // STEP 4: Do a full refresh to ensure we have the latest server state
       console.log('[MODAL] Refreshing state from server');
       if (onToggleComplete) {
         await onToggleComplete();
       }
       
-      // STEP 7: Update local UI with photo/completion state only after server operations
-      console.log('[MODAL] Updating UI state with completed=true');
+      // STEP 5: Update local UI with photo/completion state
+      console.log('[MODAL] Updating UI state with completed=true and photo');
       setLocalItem(prev => {
         if (!prev) return null;
         const updated = {
@@ -396,12 +367,12 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
           completed: true, // Always force to true after photo capture 
           userPhoto: photoDataUrl
         };
-        console.log('[MODAL] Updated local item:', updated);
+        console.log('[MODAL] Updated local item with photo');
         return updated;
       });
       
-      // STEP 8: Close both modals immediately after all operations complete
-      console.log('[MODAL] Closing photo capture modal and item modal');
+      // STEP 6: Close both modals immediately after all operations complete
+      console.log('[MODAL] Closing both modals');
       setIsToggling(false);
       setIsPhotoCaptureOpen(false);
       onClose(); // Immediately close the entire modal to return to the grid
@@ -411,8 +382,8 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       console.error('[MODAL] Error processing photo capture:', error);
       setIsToggling(false);
       
-      // Keep photo modal open so user can retry
-      // Don't close main modal either
+      // Close photo modal even if there was an error
+      setIsPhotoCaptureOpen(false);
     }
   };
   
