@@ -597,7 +597,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const batchPromises = batch.map(async (item) => {
               try {
                 // Generate image with style guide
-                const imageUrl = await generateItemImage(item.text, cityName, item.description, newCity.styleGuide);
+                const imageUrl = await generateItemImage(
+                  item.text, 
+                  cityName, 
+                  item.description, 
+                  newCity.styleGuide,
+                  item.id, // Pass the actual item ID for consistent file naming
+                  true // Force a new image generation
+                );
                 
                 if (!imageUrl) {
                   log(`Failed to generate image for item ${item.id}`, 'city-creation');
