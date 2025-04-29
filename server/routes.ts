@@ -858,6 +858,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generate an image for a bingo item
   app.post("/api/generate-image", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       const schema = z.object({
         itemId: z.string().optional(),
@@ -873,12 +876,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = schema.parse(req.body);
       const { itemId, itemText: providedItemText, description: providedDescription, cityId, clientId, forceNewImage } = validatedData;
       
+      console.log(`[USER ACTION] Client ${clientId || 'unknown'} from ${requestIP} is generating image for city ${cityId}`);
+      console.log(`[USER DEVICE] Client ${clientId || 'unknown'} using: ${req.headers['user-agent']}`);
+      
       // Get the current state
       const state = await storage.getBingoState();
-      const city = state.cities[cityId];
+      
+      // Enhanced logging around city lookup
+      console.log(`[DEBUG] Attempting to generate image for city: ${cityId}`);
+      console.log(`[DEBUG] Available cities in state: ${Object.keys(state.cities).join(', ')}`);
+      
+      let city = state.cities[cityId];
       
       if (!city) {
-        return res.status(404).json({ error: `City ${cityId} not found` });
+        // Enhanced error logging when city not found
+        console.log(`[ERROR] City ${cityId} not found in state object. Available cities: ${Object.keys(state.cities).join(', ')}`);
+        
+        // Try to fetch directly from database as fallback
+        try {
+          // Import necessary modules
+          const { eq } = await import('drizzle-orm');
+          const { cities, bingoItems } = await import('@shared/schema');
+          const { db } = await import('./db');
+          
+          console.log(`[DB LOOKUP] Attempting to fetch city ${cityId} directly from database`);
+          const [cityFromDb] = await db.select().from(cities).where(eq(cities.id, cityId));
+          
+          if (cityFromDb) {
+            console.log(`[DB RECOVERY] Found city ${cityId} in database: ${cityFromDb.title}`);
+            const cityItemsFromDb = await db.select().from(bingoItems).where(eq(bingoItems.cityId, cityId));
+            console.log(`[DB RECOVERY] Found ${cityItemsFromDb.length} items for city ${cityId} in database`);
+            
+            if (cityItemsFromDb.length > 0) {
+              // Create minimal city object to continue processing
+              city = {
+                id: cityFromDb.id,
+                title: cityFromDb.title,
+                subtitle: cityFromDb.subtitle || '',
+                items: cityItemsFromDb.map(item => ({
+                  id: item.id,
+                  text: item.text,
+                  completed: false,
+                  isCenterSpace: item.isCenterSpace === null ? undefined : item.isCenterSpace,
+                  image: item.image,
+                  description: item.description,
+                  gridRow: item.gridRow,
+                  gridCol: item.gridCol
+                }))
+              };
+              console.log(`[DB RECOVERY] Created fallback city object for ${cityId}`);
+            } else {
+              console.log(`[DB ERROR] No items found for city ${cityId} in database`);
+              return res.status(404).json({ error: `City ${cityId} found in database but has no items` });
+            }
+          } else {
+            console.log(`[DB ERROR] City ${cityId} not found in database either`);
+            return res.status(404).json({ error: `City ${cityId} not found in application state or database` });
+          }
+        } catch (dbError) {
+          console.error(`[DB ERROR] Failed to fetch city ${cityId} from database:`, dbError);
+          return res.status(404).json({ error: `City ${cityId} not found and database lookup failed` });
+        }
       }
       
       let itemText = providedItemText;
@@ -1026,13 +1084,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      const processingTime = Date.now() - startTime;
+      console.log(`[PERFORMANCE] Image generation completed in ${processingTime}ms for client ${clientId || 'unknown'}`);
+      console.log(`[USER SUCCESS] Client ${clientId || 'unknown'} generated image for "${itemText}" in ${city.title}`);
+      
       res.json({ 
         success: true, 
         imageUrl: imageUrl,
         message: `Generated image for "${itemText}" in ${city.title}`
       });
     } catch (error) {
-      console.error("Error generating image:", error);
+      const processingTime = Date.now() - startTime;
+      console.error(`[SERVER ERROR] Error generating image after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}, city ${cityId}`);
+      
+      // Check which OpenAI API key we're using (without revealing it)
+      console.log(`[DEBUG] OPENAI_API_KEY availability: ${!!process.env.OPENAI_API_KEY}`);
+      
       res.status(500).json({ error: "Failed to generate image" });
     }
   });
