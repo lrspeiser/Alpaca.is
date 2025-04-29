@@ -530,12 +530,25 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
             {/* Display user photo if available, otherwise show AI-generated image with navigation arrows */}
             <div className="mb-3 aspect-square w-full max-w-md overflow-hidden rounded-lg relative">
               {localItem && (
-                <ImageDebugger
-                  src={localItem.userPhoto || imageUrl}
-                  alt={localItem.text}
-                  className="w-full h-full object-cover"
-                  onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] ${localItem.id}:`, info)}
-                />
+                <>
+                  {/* First priority - show user photo if available and item is completed */}
+                  {localItem.completed && localItem.userPhoto ? (
+                    <ImageDebugger
+                      src={localItem.userPhoto}
+                      alt={`User photo for ${localItem.text}`}
+                      className="w-full h-full object-cover"
+                      onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] User photo for ${localItem.id}:`, info)}
+                    />
+                  ) : (
+                    /* Second priority - if not completed or no user photo, show AI image */
+                    <ImageDebugger
+                      src={imageUrl}
+                      alt={localItem.text}
+                      className="w-full h-full object-cover"
+                      onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] AI image for ${localItem.id}:`, info)}
+                    />
+                  )}
+                </>
               )}
               
               {/* Navigation arrows (only show if we have items to navigate through) */}
