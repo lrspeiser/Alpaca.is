@@ -401,20 +401,23 @@ export async function generateItemImage(
     const data = await fetchResponse.json();
     log(`OpenAI API success response received`, "openai-debug");
     
-    // Process the response data from DALL-E-3
+    // Process the response data from gpt-image-1 (always returns base64)
     let imageUrl: string | null = null;
     
-    // Handle URL format
-    if (data.data && data.data.length > 0 && data.data[0].url) {
-      imageUrl = data.data[0].url;
-      log(`Successfully generated image with URL: ${imageUrl}`, "openai-debug");
-    } 
-    // Handle base64 format
-    else if (data.data && data.data.length > 0 && data.data[0].b64_json) {
+    // With gpt-image-1, the API always returns b64_json and not URL
+    if (data.data && data.data.length > 0 && data.data[0].b64_json) {
       // Create a data URL from the base64 data
       const b64Data = data.data[0].b64_json;
       imageUrl = `data:image/png;base64,${b64Data}`;
-      log(`Successfully generated image with base64 data (length: ${b64Data.length})`, "openai-debug");
+      const dataLength = b64Data.length;
+      log(`Successfully generated image with base64 data (length: ${dataLength})`, "openai-debug");
+      console.log(`[OPENAI IMAGE] Got base64 image data of length ${dataLength} for "${itemText}"`); 
+    }
+    // Handle URL format as fallback (though gpt-image-1 doesn't use this)
+    else if (data.data && data.data.length > 0 && data.data[0].url) {
+      imageUrl = data.data[0].url;
+      log(`Successfully generated image with URL: ${imageUrl}`, "openai-debug");
+      console.log(`[OPENAI IMAGE] Got URL-based image (unexpected for gpt-image-1) for "${itemText}"`); 
     }
     
     if (imageUrl) {
