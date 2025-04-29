@@ -16,6 +16,15 @@ interface GenerateAllImagesButtonProps {
   cityId?: string;  // Optional cityId parameter
 }
 
+// Response interface for the image generation API
+interface GenerateImageResponse {
+  success: boolean;
+  imageUrl?: string;
+  error?: string;
+  message?: string;
+  inProgress?: boolean; // Added to handle duplicate generation detection
+}
+
 export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -79,6 +88,13 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       // Check for API errors
       if (!data.success) {
         console.error(`[IMAGE-GEN] API error: ${data.error || 'Unknown error'}`);
+        
+        // Special handling for in-progress duplication errors
+        if (data.inProgress) {
+          console.log(`[IMAGE-GEN] Item ${itemId} is already being processed: ${data.message}`);
+          throw new Error(`Duplicate: ${data.message}`);
+        }
+        
         throw new Error(data.error || 'Failed to generate image');
       }
       
@@ -118,8 +134,31 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       });
       
       // Filter to get only items that need images
-      const itemsWithoutImages = items.filter(item => !processedItemIds.has(item.id) && (!item.image || item.image === null || item.image === ""));
-      const itemsToGenerate = itemsWithoutImages.length > 0 ? itemsWithoutImages : items;
+      // Prioritize items without images or with broken/placeholder images
+      const itemsWithoutImages = items.filter(item => 
+        !processedItemIds.has(item.id) && 
+        (
+          !item.image || 
+          item.image === null || 
+          item.image === "" || 
+          item.image.includes('placeholder') || 
+          item.image.includes('api/placeholder')
+        )
+      );
+      
+      // Only use itemsWithoutImages, don't fall back to all items
+      // This helps prevent duplicate generations for items that already have images
+      const itemsToGenerate = itemsWithoutImages;
+      
+      // Early return if no items need images
+      if (itemsToGenerate.length === 0) {
+        console.log(`[BATCH] No items need images, skipping generation`);
+        toast({
+          title: "No Images Needed",
+          description: `All ${totalItems} items in ${city.title} already have images.`,
+        });
+        return;
+      }
       
       console.log(`[BATCH] Processing ${itemsToGenerate.length} items with exactly 3 seconds between each start time`);
       console.log(`[BATCH] Items for generation: ${itemsToGenerate.map(i => i.id).join(', ')}`);
