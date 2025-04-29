@@ -23,17 +23,19 @@ interface GenerateAllImagesButtonProps {
 export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const { currentCity, cities, refreshState } = useBingoStore();
+  const { currentCity, cities, refreshState, isLoading } = useBingoStore();
   const { toast } = useToast();
   
   // Get the items from the specified city or current city
   const targetCityId = cityId || currentCity;
   const city = cities?.[targetCityId];
   const items = city?.items || [];
-  const totalItems = items.length;
   
-  // Count items that already have images
-  const itemsWithImages = items.filter(item => !!item.image).length;
+  // Only calculate these values when data is fully loaded
+  const totalItems = !isLoading && city ? (city.itemCount || items.length) : 0;
+  
+  // Use precalculated values from the database when available
+  const itemsWithImages = !isLoading && city ? (city.itemsWithImages || items.filter(item => !!item.image).length) : 0;
   
   // Generate a single image with improved error handling
   const generateImageForItem = async (cityId: string, itemId: string, itemText: string) => {

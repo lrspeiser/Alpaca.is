@@ -22,6 +22,13 @@ export interface City {
   subtitle?: string;
   items: BingoItem[];
   tips: CityTip[];
+  // Metadata fields from database
+  itemCount?: number;
+  itemsWithDescriptions?: number;
+  itemsWithImages?: number;
+  itemsWithValidImageFiles?: number;
+  itemsWithDescriptionsIds?: string[];
+  lastMetadataUpdate?: string;
 }
 
 export interface BingoState {
