@@ -31,7 +31,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
   // Count items that already have images
   const itemsWithImages = items.filter(item => !!item.image).length;
   
-  // Function to generate all images at once
+  // Function to generate all images at once, with improved batching and database reliability
   const handleGenerateAllImages = async () => {
     if (!city || isGenerating) return;
     
@@ -42,7 +42,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       // Show toast to indicate we're starting
       toast({
         title: "Generating Images",
-        description: `Starting image generation for ${totalItems - itemsWithImages} items in ${city.title}.`,
+        description: `Starting image generation for ${totalItems} items in ${city.title}.`,
       });
       
       // Keep track of successful and failed generations
@@ -51,80 +51,70 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       let currentProgress = 0;
       
       // Process ALL items, including the center space ("Arrive in <cityName>")
-      const itemsToGenerate = items; // No longer filtering out center space
+      const itemsToGenerate = items;
       
-      // Generate images in parallel with Promise.all
-      const batchSize = 5; // Process 5 items concurrently as requested
+      // Generate images in smaller batches with greater delays to ensure database updates complete
+      const batchSize = 3; // Reduce batch size from 5 to 3 for better reliability
       const batches = [];
       
-      // Split items into batches for controlled parallelism
+      // Split items into batches for controlled processing
       for (let i = 0; i < itemsToGenerate.length; i += batchSize) {
         batches.push(itemsToGenerate.slice(i, i + batchSize));
       }
       
       console.log(`[BATCH] Processing ${itemsToGenerate.length} items in ${batches.length} batches of up to ${batchSize} items each`);
       
-      // Store all batch promises so we can wait for them all at the end
-      const allBatchPromises: Promise<any>[] = [];
-      
-      // Process each batch with a timer-based approach
-      // Each batch starts 5 seconds after the previous batch started
+      // Process batches one after another instead of creating all promises at once
+      // This ensures proper database synchronization between batches
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
-        const batchStartTime = Date.now();
         console.log(`[BATCH] Starting batch ${batchIndex + 1}/${batches.length} with ${batch.length} items`);
         
         try {
-          // Create an array of promises, one for each item in the batch
-          const batchPromises = batch.map(item => 
-            generateImageForItem(city.id, item.id, item.text)
-              .then(() => {
-                successCount++;
-                currentProgress++;
-                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-                console.log(`[BATCH] Completed item ${item.id} (success)`);
-                return { success: true, id: item.id };
-              })
-              .catch(error => {
-                console.error(`[BATCH] Error generating image for ${item.id}:`, error);
-                failCount++;
-                currentProgress++;
-                setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-                return { success: false, id: item.id, error };
-              })
-          );
-          
-          // Track this batch promise for later
-          const batchPromise = Promise.all(batchPromises).then(batchResults => {
-            console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}, success rate: ${batchResults.filter(r => r.success).length}/${batch.length}`);
-            return batchResults;
-          }).catch(error => {
-            console.error(`[BATCH] Error finalizing batch ${batchIndex + 1}:`, error);
-            return []; // Return empty array for failed batches
-          });
-          
-          // Add this batch promise to our collection
-          allBatchPromises.push(batchPromise);
-          
-          // If there's another batch coming up, wait until exactly 5 seconds have passed since this batch started
-          if (batchIndex < batches.length - 1) {
-            const elapsedMs = Date.now() - batchStartTime;
-            const delayNeeded = Math.max(0, 5000 - elapsedMs); // Ensure we wait at least 0ms
-            console.log(`[BATCH] Waiting ${delayNeeded}ms before starting next batch (${elapsedMs}ms elapsed)`);
-            await new Promise(resolve => setTimeout(resolve, delayNeeded));
+          // Process each item in the batch one by one
+          // This ensures proper database updates between items for greater reliability
+          for (const item of batch) {
+            try {
+              // Generate the image
+              await generateImageForItem(city.id, item.id, item.text);
+              
+              // Update progress
+              successCount++;
+              currentProgress++;
+              setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+              console.log(`[BATCH] Completed item ${item.id} (success)`);
+            } catch (itemError) {
+              console.error(`[BATCH] Error generating image for ${item.id}:`, itemError);
+              failCount++;
+              currentProgress++;
+              setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+            }
+            
+            // Small delay between items in the same batch (500ms)
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
-        } catch (error) {
-          console.error(`[BATCH] Error processing batch ${batchIndex + 1}:`, error);
+          
+          console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}`);
+          
+          // After each batch completes, refresh the state to ensure changes are reflected
+          if (batchIndex % 2 === 1 || batchIndex === batches.length - 1) {
+            console.log(`[BATCH] Refreshing state after batch ${batchIndex + 1}`);
+            await refreshState();
+          }
+          
+          // Add a delay between batches (5 seconds) to prevent overwhelming the server
+          if (batchIndex < batches.length - 1) {
+            console.log(`[BATCH] Waiting 5 seconds before starting next batch...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        } catch (batchError) {
+          console.error(`[BATCH] Error processing batch ${batchIndex + 1}:`, batchError);
           // Continue to the next batch even if this one had errors
         }
       }
       
-      // Wait for all batches to complete before refreshing state
-      console.log(`[BATCH] Waiting for all ${allBatchPromises.length} batches to complete...`);
-      await Promise.all(allBatchPromises);
-      console.log(`[BATCH] All batches completed!`);
-      
-      // Refresh state to get the latest data with new images
+      // Final state refresh to ensure all changes are reflected
+      console.log(`[BATCH] All batches completed! Refreshing state...`);
       await refreshState();
       
       // Show completion toast
@@ -155,6 +145,12 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       
       console.log(`[IMAGE-GEN] Starting generation for ${itemId}: "${itemText}" with description length: ${description.length}`);
       
+      // Get client ID from localStorage to ensure backend can associate the request with the user
+      const clientId = localStorage.getItem('clientId');
+      
+      // Log the HTTP request details for debugging
+      console.log(`[IMAGE-GEN] Sending request with clientId: ${clientId || 'not available'}`);
+      
       const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -162,7 +158,9 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
           cityId, 
           itemId,
           itemText, // Include both itemId and itemText to be safe
-          description // Pass description to be used in image generation
+          description, // Pass description to be used in image generation
+          clientId, // Include client ID for proper tracking in database
+          forceNewImage: true // Force new image generation
         }),
       });
       
@@ -188,7 +186,13 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
         throw new Error(data.error || 'Failed to generate image');
       }
       
-      console.log(`[IMAGE-GEN] Successfully generated image for ${itemId}`);
+      console.log(`[IMAGE-GEN] Successfully generated image for ${itemId}: ${data.imageUrl ? data.imageUrl.substring(0, 30) + '...' : 'No URL returned'}`);
+      
+      // Verify we got a valid image URL back
+      if (!data.imageUrl) {
+        throw new Error('No image URL returned from server');
+      }
+      
       return data.imageUrl;
     } catch (error) {
       console.error(`[IMAGE-GEN] Error generating image for ${itemId}:`, error);
