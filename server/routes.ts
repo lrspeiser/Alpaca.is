@@ -604,6 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Get the latest state to ensure we have the latest data
                 // Use clientId if available for consistency
+                log(`Retrieving current state for database update after image generation for item ${item.id}`, 'db-update');
                 const currentState = clientId 
                   ? await storage.getBingoState(undefined, clientId)
                   : await storage.getBingoState();
@@ -611,9 +612,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const currentCity = currentState.cities[cityId];
                 
                 if (!currentCity) {
-                  log(`City ${cityId} no longer exists, stopping image generation`, 'city-creation');
+                  log(`[DB ERROR] City ${cityId} no longer exists, stopping image generation for item ${item.id}`, 'db-update');
+                  console.error(`[DB-IMAGE] Database update failed: City ${cityId} does not exist for item ${item.id}`);
                   return;
                 }
+                
+                // Find the item to update
+                const targetItem = currentCity.items.find(i => i.id === item.id);
+                if (!targetItem) {
+                  log(`[DB ERROR] Item ${item.id} does not exist in city ${cityId}`, 'db-update');
+                  console.error(`[DB-IMAGE] Database update failed: Item ${item.id} does not exist in city ${cityId}`);
+                  return;
+                }
+                
+                // Log the current image state before updating
+                log(`[DB UPDATE] Updating image for item ${item.id} in city ${cityId}`, 'db-update');
+                log(`[DB UPDATE] Previous image: ${targetItem.image || 'none'}`, 'db-update');
+                log(`[DB UPDATE] New image: ${imageUrl}`, 'db-update');
                 
                 // Update the item with the image URL
                 const updatedItems = currentCity.items.map(i => 
@@ -636,9 +651,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 };
                 
                 // Save the updated state with clientId if provided
-                await storage.saveBingoState(updatedState, undefined, clientId);
-                completedImages++;
-                log(`Generated image for item ${item.id} (${completedImages}/${itemsWithDescriptions.length})`, 'city-creation');
+                try {
+                  log(`[DB WRITE] Saving updated state with new image for item ${item.id} in city ${cityId}`, 'db-update');
+                  await storage.saveBingoState(updatedState, undefined, clientId);
+                  log(`[DB SUCCESS] Successfully updated image for item ${item.id} in city ${cityId}`, 'db-update');
+                  console.log(`[DB-IMAGE] Successfully saved image URL to database: ${imageUrl.substring(0, 30)}... for item ${item.id} in city ${cityId}`);
+                  completedImages++;
+                  log(`Generated image for item ${item.id} (${completedImages}/${itemsWithDescriptions.length})`, 'city-creation');
+                } catch (dbError) {
+                  log(`[DB ERROR] Failed to save image update for item ${item.id}: ${dbError.message}`, 'db-update');
+                  console.error(`[DB-IMAGE] Database update FAILED for item ${item.id} in city ${cityId}: ${dbError.message}`);
+                  throw new Error(`Database update failed: ${dbError.message}`);
+                }
               } catch (error) {
                 log(`Error generating image for item ${item.id}: ${error.message}`, 'city-creation');
                 failedImages++;

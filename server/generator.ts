@@ -204,16 +204,12 @@ export async function generateItemImage(
   description?: string,
   styleGuide?: any
 ): Promise<string> {
-  // Add check for Washington DC to debug the specific issue
-  // and provide a formatted placeholder until we resolve the underlying issue
+  // We used to have special handling for Washington DC, but now we'll generate 
+  // images for all cities including Washington DC
   if (cityName.toLowerCase().includes("washington") || cityName.toLowerCase().includes("d.c.")) {
-    log(`[CITY DEBUG] Special handling for Washington DC image: ${itemText}`, "openai-debug");
-    console.log(`[DC ISSUE] Detected Washington DC item: "${itemText}"`);
-    
-    // Return a properly formatted placeholder instead of trying to generate an image
-    // which can timeout and cause cascading issues
-    const placeholderReason = "Washington DC images are being processed in batches";
-    return `/api/placeholder-image?text=${encodeURIComponent(itemText)}&reason=${encodeURIComponent(placeholderReason)}`;
+    log(`[CITY DEBUG] Generating image for Washington DC item: ${itemText}`, "openai-debug");
+    console.log(`[DC PROCESSING] Processing Washington DC item: "${itemText}"`);
+    // Continue with normal image generation, no special handling
   }
   
   try {
@@ -433,16 +429,16 @@ export async function generateItemImage(
       }
     }
     
-    // No image data found in response
+    // No image data found in response - throw an error instead of using placeholder
     log(`No image data found in response format`, "openai-debug");
-    return `/api/placeholder-image?text=${encodeURIComponent('No Image Data')}&reason=${encodeURIComponent('OpenAI response did not contain image data')}`;
+    throw new Error(`Failed to generate image: OpenAI API response did not contain valid image data for "${itemText}" in ${cityName}`);
   } catch (error: any) {
     // Log detailed error information
     log(`Error generating image for ${itemText}: ${error?.message || "Unknown error"}`, "openai");
     log(`Error details: ${JSON.stringify(error)}`, "openai-debug");
     log(`Error stack: ${error?.stack}`, "openai-debug");
     
-    const errorMessage = error?.message || 'API error occurred';
-    return `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}&reason=${encodeURIComponent(errorMessage)}`;
+    // Throw the error instead of returning a placeholder
+    throw new Error(`Failed to generate image for "${itemText}" in ${cityName}: ${error?.message || "Unknown error"}`);
   }
 }

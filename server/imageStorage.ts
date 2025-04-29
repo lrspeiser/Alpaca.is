@@ -67,6 +67,8 @@ function generateImageFilename(cityId: string, itemId: string, itemText: string)
  * 
  * This function attempts to save the image to both the primary image directory
  * and a fallback directory in /tmp for better availability in production
+ * 
+ * @throws Error if download or storage fails
  */
 export async function downloadAndStoreImage(
   imageUrl: string, 
@@ -81,25 +83,53 @@ export async function downloadAndStoreImage(
     
     // Check if we already have this image
     if (fs.existsSync(localPath)) {
-      log(`[IMAGE-STORAGE] Image already exists at ${localPath}`, 'image-storage');
+      const fileSize = fs.statSync(localPath).size;
+      log(`[IMAGE-STORAGE] Image already exists at ${localPath} (${fileSize} bytes)`, 'image-storage');
+      console.log(`[DB-IMAGE] Reusing existing image for "${itemText}" in ${cityId} at path: ${localPath}`);
       return `/images/${filename}`;
     }
     
-    log(`[IMAGE-STORAGE] Downloading image from ${imageUrl.substring(0, 50)}...`, 'image-storage');
+    // Log URL starting point but truncate for privacy/security
+    const loggableUrl = imageUrl.startsWith('data:') 
+      ? `data:image (base64 data of length ${imageUrl.length})`
+      : imageUrl.substring(0, 50) + '...';
     
-    // Fetch the image
-    const response = await fetch(imageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BingoAppProxy/1.0)',
-      },
-    });
+    log(`[IMAGE-STORAGE] Downloading image from ${loggableUrl} for "${itemText}" in ${cityId}`, 'image-storage');
+    console.log(`[DB-IMAGE] Starting download of image for "${itemText}" in ${cityId}`);
     
-    if (!response.ok) {
-      throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+    let imageBuffer: Buffer;
+    
+    // Handle both URL and data URL formats
+    if (imageUrl.startsWith('data:')) {
+      // Extract base64 data from data URL
+      const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        throw new Error('Invalid data URL format');
+      }
+      
+      // Convert base64 to buffer
+      imageBuffer = Buffer.from(matches[2], 'base64');
+      log(`[IMAGE-STORAGE] Extracted image data from data URL (${imageBuffer.length} bytes)`, 'image-storage');
+    } else {
+      // Fetch the image from URL
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; BingoAppProxy/1.0)',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+      }
+      
+      // Get the image data
+      imageBuffer = await response.buffer();
+      log(`[IMAGE-STORAGE] Downloaded image from URL (${imageBuffer.length} bytes)`, 'image-storage');
     }
     
-    // Get the image data
-    const imageBuffer = await response.buffer();
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new Error('Image data is empty');
+    }
     
     // Make sure the directory exists
     ensureImageDir();
@@ -107,13 +137,26 @@ export async function downloadAndStoreImage(
     // Save the image to disk
     fs.writeFileSync(localPath, imageBuffer);
     
-    log(`[IMAGE-STORAGE] Saved image to ${localPath} (${imageBuffer.length} bytes)`, 'image-storage');
+    // Verify file was written successfully
+    if (!fs.existsSync(localPath)) {
+      throw new Error(`File was not created at ${localPath}`);
+    }
+    
+    const fileSize = fs.statSync(localPath).size;
+    if (fileSize === 0) {
+      throw new Error(`File was created but is empty: ${localPath}`);
+    }
+    
+    log(`[IMAGE-STORAGE] Successfully saved image to ${localPath} (${fileSize} bytes)`, 'image-storage');
+    console.log(`[DB-IMAGE] Saved image for "${itemText}" in ${cityId} at path: ${localPath} (${fileSize} bytes)`);
     
     // Return the URL path to the image (relative to the server root)
     return `/images/${filename}`;
   } catch (error: any) {
-    log(`[IMAGE-STORAGE] Error storing image: ${error.message}`, 'image-storage');
-    throw error;
+    const errorMsg = `Error storing image for "${itemText}" in ${cityId}: ${error.message}`;
+    log(`[IMAGE-STORAGE] ERROR: ${errorMsg}`, 'image-storage');
+    console.error(`[DB-IMAGE] FAILED: ${errorMsg}`);
+    throw new Error(errorMsg);
   }
 }
 
@@ -141,6 +184,7 @@ export function getLocalImageUrl(cityId: string, itemId: string, itemText: strin
  * @param itemText The text of the item
  * @param forceNewImage If true, generates a new image even if one exists
  * @returns The local URL of the stored image
+ * @throws Error if image processing fails
  */
 export async function processOpenAIImageUrl(
   imageUrl: string,
@@ -149,19 +193,46 @@ export async function processOpenAIImageUrl(
   itemText: string,
   forceNewImage: boolean = false
 ): Promise<string> {
-  if (!forceNewImage) {
-    // First check if we already have this image locally
-    const existingUrl = getLocalImageUrl(cityId, itemId, itemText);
-    if (existingUrl) {
-      return existingUrl;
+  try {
+    log(`[IMAGE-STORAGE] Processing image for "${itemText}" in ${cityId}`, 'image-storage');
+    
+    if (!forceNewImage) {
+      // First check if we already have this image locally
+      const existingUrl = getLocalImageUrl(cityId, itemId, itemText);
+      if (existingUrl) {
+        log(`[IMAGE-STORAGE] Using existing image at ${existingUrl} for "${itemText}"`, 'image-storage');
+        return existingUrl;
+      }
     }
+    
+    // Add a timestamp to make the filename unique for regenerated images
+    const uniqueItemId = forceNewImage ? `${itemId}-${Date.now()}` : itemId;
+    
+    // Download and store the image with the potentially modified item ID
+    const localUrl = await downloadAndStoreImage(imageUrl, cityId, uniqueItemId, itemText);
+    
+    if (!localUrl) {
+      throw new Error(`Failed to generate local URL for image of "${itemText}"`);
+    }
+    
+    // Verify the file was actually saved
+    const filename = localUrl.split('/').pop();
+    const fullPath = path.join(getImageDir(), filename || '');
+    
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`Image file does not exist at expected location: ${fullPath}`);
+    }
+    
+    const fileSize = fs.statSync(fullPath).size;
+    log(`[IMAGE-STORAGE] Verified image was saved at ${fullPath} (${fileSize} bytes)`, 'image-storage');
+    
+    return localUrl;
+  } catch (error: any) {
+    const errorMsg = `Failed to process and store image for "${itemText}" in ${cityId}: ${error.message}`;
+    log(`[IMAGE-STORAGE] ERROR: ${errorMsg}`, 'image-storage');
+    console.error(`[IMAGE-STORAGE] ERROR: ${errorMsg}`);
+    throw new Error(errorMsg);
   }
-  
-  // Add a timestamp to make the filename unique for regenerated images
-  const uniqueItemId = forceNewImage ? `${itemId}-${Date.now()}` : itemId;
-  
-  // Download and store the image with the potentially modified item ID
-  return await downloadAndStoreImage(imageUrl, cityId, uniqueItemId, itemText);
 }
 
 /**
