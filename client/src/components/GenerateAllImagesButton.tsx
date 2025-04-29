@@ -5,25 +5,20 @@ import { useBingoStore } from '@/hooks/useBingoStore';
 import { useToast } from '@/hooks/use-toast';
 import type { BingoItem, City } from '@/types';
 
-// Define the expected response type from our API
+// Define the expected response type from our API with support for in-progress detection
 interface GenerateImageResponse {
   success: boolean;
-  error?: string;
   imageUrl?: string;
+  error?: string;
+  message?: string;
+  inProgress?: boolean; // For detecting duplicate image generation requests
 }
 
 interface GenerateAllImagesButtonProps {
   cityId?: string;  // Optional cityId parameter
 }
 
-// Response interface for the image generation API
-interface GenerateImageResponse {
-  success: boolean;
-  imageUrl?: string;
-  error?: string;
-  message?: string;
-  inProgress?: boolean; // Added to handle duplicate generation detection
-}
+// This is just a comment to maintain the spacing - the duplicate interface was removed
 
 export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);

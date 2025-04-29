@@ -139,20 +139,28 @@ export async function downloadAndStoreImage(
       imageBuffer = Buffer.from(matches[2], 'base64');
       log(`[IMAGE-STORAGE] Extracted image data from data URL (${imageBuffer.length} bytes)`, 'image-storage');
     } else {
-      // Fetch the image from URL
-      const response = await fetch(imageUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; BingoAppProxy/1.0)',
-        },
-      });
+      // Fetch the image from URL with a generous timeout (30 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
       
-      if (!response.ok) {
-        throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+      try {
+        const response = await fetch(imageUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; BingoAppProxy/1.0)',
+          },
+          signal: controller.signal,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+        }
+        
+        // Get the image data
+        imageBuffer = await response.buffer();
+        log(`[IMAGE-STORAGE] Downloaded image from URL (${imageBuffer.length} bytes)`, 'image-storage');
+      } finally {
+        clearTimeout(timeoutId); // Clean up the timeout
       }
-      
-      // Get the image data
-      imageBuffer = await response.buffer();
-      log(`[IMAGE-STORAGE] Downloaded image from URL (${imageBuffer.length} bytes)`, 'image-storage');
     }
     
     if (!imageBuffer || imageBuffer.length === 0) {
