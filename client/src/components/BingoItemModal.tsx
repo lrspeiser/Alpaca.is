@@ -130,31 +130,42 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
   // Update local state when item changes, with better synchronization
   useEffect(() => {
     if (item) {
-      console.log('[MODAL] Item prop changed, updating localItem with server state');
+      console.log(`[MODAL-DEBUG] Item prop changed for ${item.id}: "${item.text}"`);
+      console.log(`[MODAL-DEBUG] Server state: completed=${item.completed}, userPhoto=${!!item.userPhoto}`);
       
       setLocalItem(prevLocalItem => {
         // If we already have a local item with the same ID
         if (prevLocalItem && prevLocalItem.id === item.id) {
-          // Check if the server state is different from our local state
-          if (prevLocalItem.completed !== item.completed) {
-            console.log(`[MODAL] Server completion state (${item.completed}) differs from local (${prevLocalItem.completed}), using server state`);
-            // Always trust the server state after a refresh
+          const hasLocalUserPhoto = !!prevLocalItem.userPhoto;
+          const hasServerUserPhoto = !!item.userPhoto;
+          
+          console.log(`[MODAL-DEBUG] Previous local state: completed=${prevLocalItem.completed}, userPhoto=${hasLocalUserPhoto}`);
+          console.log(`[MODAL-DEBUG] New server state: completed=${item.completed}, userPhoto=${hasServerUserPhoto}`);
+          
+          // Always use server completion state, but be careful with photos
+          if (!item.completed) {
+            // If server says not completed, remove user photo
+            console.log(`[MODAL-DEBUG] Item ${item.id} is marked as NOT COMPLETED, clearing any user photo`);
             return {
               ...item,
-              userPhoto: prevLocalItem.userPhoto || item.userPhoto // Keep user photo if we have one
+              userPhoto: undefined // Clear user photo when not completed
+            };
+          } else if (prevLocalItem.completed && prevLocalItem.userPhoto) {
+            // If already completed and has a local user photo, keep it
+            console.log(`[MODAL-DEBUG] Item ${item.id} was already completed with user photo, preserving it`);
+            return {
+              ...item,
+              userPhoto: prevLocalItem.userPhoto
             };
           } else {
-            console.log(`[MODAL] Server and local completion states match: ${item.completed}`);
-            // Both states match, preserve any local user photo
-            return {
-              ...item,
-              userPhoto: prevLocalItem.userPhoto || item.userPhoto
-            };
+            // Otherwise use server state
+            console.log(`[MODAL-DEBUG] Using server state for ${item.id}, userPhoto=${!!item.userPhoto}`);
+            return item;
           }
         }
         
         // For a new item, use the server state directly
-        console.log(`[MODAL] New item, using server completion state: ${item.completed}`);
+        console.log(`[MODAL-DEBUG] New item ${item.id}, setting initial state: completed=${item.completed}`);
         return item;
       });
     }
@@ -186,11 +197,15 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       const customEvent = event as CityResetEvent;
       const { cityId, timestamp } = customEvent.detail;
       
-      console.log(`[MODAL] Received city reset event for ${cityId} at ${new Date(timestamp).toISOString()}`);
+      console.log(`[RESET-DEBUG] =====================================================`);
+      console.log(`[RESET-DEBUG] Received city reset event for ${cityId} at ${new Date(timestamp).toISOString()}`);
+      console.log(`[RESET-DEBUG] Current item: ${localItem?.id} (${localItem?.text})`);
+      console.log(`[RESET-DEBUG] Item cityId: ${localItem?.cityId}, Current city context: ${currentCity}`);
+      console.log(`[RESET-DEBUG] Item completed: ${localItem?.completed}, Has user photo: ${!!localItem?.userPhoto}`);
       
       // Only clear local state if it affects the current item
       if (localItem && (cityId === localItem.cityId || cityId === currentCity)) {
-        console.log(`[MODAL] Clearing user photo for item ${localItem.id} due to city reset`);
+        console.log(`[RESET-DEBUG] RESETTING item ${localItem.id} due to city reset`);
         
         // Update reset tracking
         const resetKey = `${cityId}-${timestamp}`;
@@ -199,24 +214,39 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         // Clear user photo both from local state and IndexedDB
         try {
           if (localItem.id) {
-            // Use the deletePhoto function from useLocalPhotos hook
-            await deletePhoto(cityId, localItem.id);
-            console.log(`[MODAL] Successfully deleted photo for item ${localItem.id} from IndexedDB`);
+            // Check if a photo exists before trying to delete
+            const existingPhoto = await getUserPhotoFromIndexedDB(cityId, localItem.id);
+            if (existingPhoto) {
+              console.log(`[RESET-DEBUG] Found photo for ${localItem.id} in IndexedDB, deleting it`);
+              // Use the deletePhoto function from useLocalPhotos hook
+              await deletePhoto(cityId, localItem.id);
+              console.log(`[RESET-DEBUG] Successfully deleted photo for item ${localItem.id} from IndexedDB`);
+            } else {
+              console.log(`[RESET-DEBUG] No photo found for ${localItem.id} in IndexedDB, nothing to delete`);
+            }
+            
+            // Verify no photo exists after deletion
+            const verifyPhoto = await getUserPhotoFromIndexedDB(cityId, localItem.id);
+            console.log(`[RESET-DEBUG] After deletion, photo exists: ${!!verifyPhoto}`);
           }
         } catch (error) {
-          console.error(`[MODAL] Error deleting photo from IndexedDB:`, error);
+          console.error(`[RESET-DEBUG] Error working with IndexedDB:`, error);
         }
         
         // Update local state to reflect the changes
         setLocalItem(prev => {
           if (!prev) return null;
+          console.log(`[RESET-DEBUG] Resetting local state for ${prev.id}: completed=${prev.completed} → false, userPhoto=${!!prev.userPhoto} → undefined`);
           return {
             ...prev,
             userPhoto: undefined, // Remove user photo
             completed: false      // Reset completion state
           };
         });
+      } else {
+        console.log(`[RESET-DEBUG] Reset event doesn't affect current item. Item cityId: ${localItem?.cityId}, Reset cityId: ${cityId}`);
       }
+      console.log(`[RESET-DEBUG] =====================================================`);
     };
     
     // Register event listener for the custom reset event
@@ -532,22 +562,36 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
               {localItem && (
                 <>
                   {/* First priority - show user photo if available and item is completed */}
-                  {localItem.completed && localItem.userPhoto ? (
-                    <ImageDebugger
-                      src={localItem.userPhoto}
-                      alt={`User photo for ${localItem.text}`}
-                      className="w-full h-full object-cover"
-                      onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] User photo for ${localItem.id}:`, info)}
-                    />
-                  ) : (
-                    /* Second priority - if not completed or no user photo, show AI image */
-                    <ImageDebugger
-                      src={imageUrl}
-                      alt={localItem.text}
-                      className="w-full h-full object-cover"
-                      onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] AI image for ${localItem.id}:`, info)}
-                    />
-                  )}
+                  {(() => {
+                    // Display decision logic with detailed logging
+                    console.log(`[IMAGE-DISPLAY] Item ${localItem.id} display decision:`);
+                    console.log(`[IMAGE-DISPLAY] - Item completed: ${localItem.completed}`);
+                    console.log(`[IMAGE-DISPLAY] - User photo exists: ${!!localItem.userPhoto}`);
+                    console.log(`[IMAGE-DISPLAY] - AI image exists: ${!!imageUrl}`);
+                    
+                    if (localItem.completed && localItem.userPhoto) {
+                      console.log(`[IMAGE-DISPLAY] SHOWING USER PHOTO for ${localItem.id}`);
+                      return (
+                        <ImageDebugger
+                          src={localItem.userPhoto}
+                          alt={`User photo for ${localItem.text}`}
+                          className="w-full h-full object-cover"
+                          onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] User photo for ${localItem.id}:`, info)}
+                        />
+                      );
+                    } else {
+                      // Only show AI image (if available) when item is not completed or has no user photo
+                      console.log(`[IMAGE-DISPLAY] SHOWING AI IMAGE for ${localItem.id}: ${imageUrl?.substring(0, 30)}...`);
+                      return (
+                        <ImageDebugger
+                          src={imageUrl}
+                          alt={localItem.text}
+                          className="w-full h-full object-cover"
+                          onLoadInfo={(info) => console.log(`[MODAL-IMAGE-DEBUG] AI image for ${localItem.id}:`, info)}
+                        />
+                      );
+                    }
+                  })()}
                 </>
               )}
               
