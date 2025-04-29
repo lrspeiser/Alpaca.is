@@ -97,76 +97,87 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
     }
   };
   
-  // Function to generate all images at once with new timing logic
+  // Function to handle generating images with exactly 3 seconds between starts
   const handleGenerateAllImages = async () => {
     if (!city || isGenerating) return;
     
     setIsGenerating(true);
     setProgress(0);
     
+    let successCount = 0;
+    let failCount = 0;
+    let currentProgress = 0;
+    
     try {
-      // Show toast to indicate we're starting
       toast({
         title: "Generating Images",
         description: `Starting image generation for ${totalItems} items in ${city.title}.`,
       });
       
-      // Keep track of successful and failed generations
-      let successCount = 0;
-      let failCount = 0;
-      let currentProgress = 0;
-      
-      // Use all items for generation
       const itemsToGenerate = items;
+      console.log(`[BATCH] Processing ${itemsToGenerate.length} items with exactly 3 seconds between each start time`);
       
-      // Process items sequentially with a 3-second delay between starts
-      console.log(`[BATCH] Processing ${itemsToGenerate.length} items sequentially with 3-second delay between each`);
+      // Track when to start each item
+      let nextStartTime = Date.now();
       
-      // Process items one at a time with fixed delay between starts
+      // Array to collect all generation promises
+      const generationPromises = [];
+      
+      // Start each item exactly 3 seconds apart
       for (let i = 0; i < itemsToGenerate.length; i++) {
         const item = itemsToGenerate[i];
-        console.log(`[BATCH] Starting item ${i + 1}/${itemsToGenerate.length}: ${item.text}`);
+        const itemIndex = i;
         
-        // Start a timer for tracking generation time
+        // Wait until we reach the scheduled start time for this item
+        const now = Date.now();
+        const waitTime = Math.max(0, nextStartTime - now);
+        if (waitTime > 0) {
+          console.log(`[BATCH] Waiting ${waitTime}ms before starting next item...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        // Set next start time to exactly 3 seconds from now
+        nextStartTime = Date.now() + 3000;
+        
+        console.log(`[BATCH] Starting item ${itemIndex + 1}/${itemsToGenerate.length}: ${item.text}`);
         const startTime = Date.now();
         
-        try {
-          // Process this item
-          await generateImageForItem(city.id, item.id, item.text);
-          successCount++;
-          const timeElapsed = Math.round((Date.now() - startTime) / 1000);
-          console.log(`[BATCH] Successfully generated image for item ${i + 1}/${itemsToGenerate.length} in ${timeElapsed}s`);
-        } catch (error) {
-          console.error(`[BATCH] Error generating image for ${item.id}:`, error);
-          failCount++;
-        }
-        
-        // Update progress regardless of success/failure
-        currentProgress++;
-        setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-        
-        // Refresh state every 5 items
-        if (currentProgress % 5 === 0 || currentProgress === itemsToGenerate.length) {
+        // Create a promise for this item but don't await it yet
+        const itemPromise = (async () => {
           try {
-            await refreshState();
-            console.log(`[BATCH] State refreshed after ${currentProgress} items`);
+            await generateImageForItem(city.id, item.id, item.text);
+            successCount++;
+            const timeElapsed = Math.round((Date.now() - startTime) / 1000);
+            console.log(`[BATCH] Successfully generated image for item ${itemIndex + 1}/${itemsToGenerate.length} in ${timeElapsed}s`);
           } catch (error) {
-            console.error(`[BATCH] Error refreshing state:`, error);
+            console.error(`[BATCH] Error generating image for ${item.id}:`, error);
+            failCount++;
+          } finally {
+            currentProgress++;
+            setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+            
+            // Refresh state every 5 items or when all are complete
+            if (currentProgress % 5 === 0 || currentProgress === itemsToGenerate.length) {
+              try {
+                await refreshState();
+                console.log(`[BATCH] State refreshed after ${currentProgress} items`);
+              } catch (refreshError) {
+                console.error(`[BATCH] Error refreshing state:`, refreshError);
+              }
+            }
           }
-        }
+        })();
         
-        // Wait 3 seconds before starting the next item (but skip the wait after the last item)
-        if (i < itemsToGenerate.length - 1) {
-          console.log(`[BATCH] Waiting 3 seconds before starting next item...`);
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
+        generationPromises.push(itemPromise);
       }
       
-      // Final state refresh
+      // Wait for all generation promises to complete
+      await Promise.all(generationPromises);
+      
+      // Final refresh when everything is done
       console.log(`[BATCH] All items completed! Refreshing state...`);
       await refreshState();
       
-      // Show completion toast
       toast({
         title: "Image Generation Complete",
         description: `Successfully generated ${successCount} images. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''}`,
