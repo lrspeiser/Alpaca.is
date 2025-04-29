@@ -1,11 +1,22 @@
 import { useBingoStore } from "@/hooks/useBingoStore";
+import { useLocalPhotos } from "@/hooks/useLocalPhotos";
 
 export default function Footer() {
-  const { resetCity } = useBingoStore();
+  const { resetCity, currentCity } = useBingoStore();
+  const { deleteAllPhotosForCity } = useLocalPhotos();
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm('Are you sure you want to reset your bingo card? This will clear all your progress for the current city.')) {
-      resetCity();
+      try {
+        // Reset the city in the database first
+        await resetCity();
+        
+        // Then clear all photos for this city from IndexedDB
+        const deletedCount = await deleteAllPhotosForCity(currentCity);
+        console.log(`[FOOTER] Deleted ${deletedCount} photos for city ${currentCity} from IndexedDB`);
+      } catch (error) {
+        console.error('[FOOTER] Error resetting city:', error);
+      }
     }
   };
 
