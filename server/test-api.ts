@@ -36,8 +36,8 @@ async function testOpenAI() {
     
     console.log("[TEST SUCCESS] Text generation response:", textResponse.choices[0].message.content);
     
-    // Test image generation with gpt-image-1 
-    console.log("[TEST] Testing image generation with gpt-image-1 model...");
+    // Test image generation with dall-e-3 
+    console.log("[TEST] Testing image generation with dall-e-3 model...");
     const imageResponse = await openai.images.generate({
       model: "dall-e-3", // Using dall-e-3 for image generation since the gpt-image-1 model is not available
       prompt: "A simple test image of a sunrise over mountains. Square format.",
@@ -45,12 +45,12 @@ async function testOpenAI() {
       size: "1024x1024",
     });
     
-    console.log("[TEST SUCCESS] Image response received from gpt-image-1");
+    console.log("[TEST SUCCESS] Image response received from dall-e-3");
     
-    // Handle both possible response formats for gpt-image-1
+    // Handle possible response formats from dall-e-3
     let imageUrl = "No URL available";
     
-    // GPT-image-1 might return data in different formats than DALL-E-3
+    // DALL-E-3 returns URLs but handle other formats just in case
     if (imageResponse?.data?.[0]?.url) {
       imageUrl = imageResponse.data[0].url;
     } else if (imageResponse?.data?.[0]?.b64_json) {

@@ -266,7 +266,7 @@ export async function generateItemImage(
       prompt += ` Context: ${shortDescription}`;
     }
     
-    log(`Starting image generation via OpenAI API with gpt-image-1 model, prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via OpenAI API with dall-e-3 model, prompt: ${prompt}`, "openai-debug");
     
     // Prepare request body with explicit square size - removed potentially unsupported parameters
     const reqBody = {
@@ -385,7 +385,7 @@ export async function generateItemImage(
     const data = await fetchResponse.json();
     log(`OpenAI API success response received`, "openai-debug");
     
-    // Process the response data from GPT-image-1
+    // Process the response data from DALL-E-3
     let imageUrl: string | null = null;
     
     // Handle URL format
