@@ -97,9 +97,12 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
           console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}`);
           
           // After each batch completes, refresh the state to ensure changes are reflected
-          if (batchIndex % 2 === 1 || batchIndex === batches.length - 1) {
-            console.log(`[BATCH] Refreshing state after batch ${batchIndex + 1}`);
-            await refreshState();
+          console.log(`[BATCH] Refreshing state after batch ${batchIndex + 1}`);
+          try {
+            await refreshState(true); // Force refresh from server
+            console.log(`[BATCH] Successfully refreshed state after batch ${batchIndex + 1}`);
+          } catch (refreshError) {
+            console.error(`[BATCH] Error refreshing state after batch ${batchIndex + 1}:`, refreshError);
           }
           
           // Add a delay between batches (5 seconds) to prevent overwhelming the server
@@ -115,7 +118,12 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       
       // Final state refresh to ensure all changes are reflected
       console.log(`[BATCH] All batches completed! Refreshing state...`);
-      await refreshState();
+      try {
+        await refreshState(true); // Force refresh from server
+        console.log(`[BATCH] Successfully completed final state refresh`);
+      } catch (finalRefreshError) {
+        console.error(`[BATCH] Error during final state refresh:`, finalRefreshError);
+      }
       
       // Show completion toast
       toast({
@@ -146,10 +154,11 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       console.log(`[IMAGE-GEN] Starting generation for ${itemId}: "${itemText}" with description length: ${description.length}`);
       
       // Get client ID from localStorage to ensure backend can associate the request with the user
-      const clientId = localStorage.getItem('clientId');
+      // Use empty string as fallback instead of undefined/null to avoid Zod validation errors
+      const clientId = localStorage.getItem('clientId') || "batch-user";
       
       // Log the HTTP request details for debugging
-      console.log(`[IMAGE-GEN] Sending request with clientId: ${clientId || 'not available'}`);
+      console.log(`[IMAGE-GEN] Sending request with clientId: ${clientId}`);
       
       const response = await fetch('/api/generate-image', {
         method: 'POST',

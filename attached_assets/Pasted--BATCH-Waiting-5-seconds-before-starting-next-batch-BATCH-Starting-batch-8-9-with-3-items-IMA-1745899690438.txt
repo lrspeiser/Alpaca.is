@@ -1,0 +1,51 @@
+[BATCH] Waiting 5 seconds before starting next batch...
+[BATCH] Starting batch 8/9 with 3 items
+[IMAGE-GEN] Starting generation for washingtondc-512c150f: "Explore the Smithsonian’s secret rooftop garden" with description length: 448
+[IMAGE-GEN] Sending request with clientId: not available
+[IMAGE-GEN] HTTP error (500): {"error":"Failed to generate image"}
+[IMAGE-GEN] Error generating image for washingtondc-512c150f: 
+Error {}
+
+[BATCH] Error generating image for washingtondc-512c150f: 
+Error {}
+
+[IMAGE-GEN] Starting generation for washingtondc-ff338709: "Explore the crypts at Congressional Cemetery" with description length: 432
+[IMAGE-GEN] Sending request with clientId: not available
+[IMAGE-GEN] HTTP error (500): {"error":"Failed to generate image"}
+[IMAGE-GEN] Error generating image for washingtondc-ff338709: 
+Error {}
+
+[BATCH] Error generating image for washingtondc-ff338709: 
+Error {}
+
+[IMAGE-GEN] Starting generation for washingtondc-99dc0b6c: "Wander the haunting halls of the O Street Mansion" with description length: 445
+[IMAGE-GEN] Sending request with clientId: not available
+[IMAGE-GEN] HTTP error (500): {"error":"Failed to generate image"}
+[IMAGE-GEN] Error generating image for washingtondc-99dc0b6c: 
+Error {}
+
+[BATCH] Error generating image for washingtondc-99dc0b6c: 
+Error {}
+
+[BATCH] Completed batch 8/9
+[BATCH] Refreshing state after batch 8
+[STORE] Fetching bingo state from API (force refresh)
+[STORE] Received bingo state from API 
+Object {currentCity: "", cities: Array(0)}
+[BATCH] Waiting 5 seconds before starting next batch...
+[BATCH] Starting batch 9/9 with 1 items
+[IMAGE-GEN] Starting generation for washingtondc-db11bce9: "Hunt for street art in Blagden Alley" with description length: 393
+[IMAGE-GEN] Sending request with clientId: not available
+[IMAGE-GEN] HTTP error (500): {"error":"Failed to generate image"}
+[IMAGE-GEN] Error generating image for washingtondc-db11bce9: 
+Error {}
+
+[BATCH] Error generating image for washingtondc-db11bce9: 
+Error {}
+
+[BATCH] Completed batch 9/9
+[BATCH] Refreshing state after batch 9
+[STORE] Fetching bingo state from API (force refresh)
+[STORE] Received bingo state from API 
+Object {currentCity: "", cities: Array(0)}
+[BATCH] All batches completed! Refreshing state...
