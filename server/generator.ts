@@ -196,13 +196,17 @@ export async function generateStyleGuide(cityName: string): Promise<any> {
  * @param cityName The name of the city
  * @param description Optional item description to provide context for image generation
  * @param styleGuide Optional style guide to use for generating the image
+ * @param actualItemId The actual item ID from the database to ensure consistent filenames
+ * @param forceNewImage Whether to force new image generation even if one exists
  * @returns The URL of the generated image (local file path or OpenAI URL)
  */
 export async function generateItemImage(
   itemText: string,
   cityName: string,
   description?: string,
-  styleGuide?: any
+  styleGuide?: any,
+  actualItemId?: string,
+  forceNewImage: boolean = false
 ): Promise<string> {
   // We used to have special handling for Washington DC, but now we'll generate 
   // images for all cities including Washington DC
@@ -423,13 +427,25 @@ export async function generateItemImage(
     if (imageUrl) {
       
       try {
+        // Generate a consistent cityId
+        const cityId = cityName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        // Use the actual item ID from the database if provided, otherwise create a temporary one
+        const effectiveItemId = actualItemId || `${cityId}-temp-${Date.now()}`;
+        
+        if (!actualItemId) {
+          log(`Warning: generateItemImage called without actualItemId for text: "${itemText}". Using temporary ID: ${effectiveItemId}`, "openai-debug");
+        } else {
+          log(`Using actual item ID ${actualItemId} for image generation`, "openai-debug");
+        }
+        
         // Download and store the image locally
         const localImageUrl = await processOpenAIImageUrl(
           imageUrl,
-          cityName.toLowerCase().replace(/[^a-z0-9]/g, ''), // cityId
-          `${cityName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`, // itemId
+          cityId,
+          effectiveItemId, // Use the actual or temp item ID
           itemText,
-          true // force new image
+          forceNewImage // Use the force flag parameter
         );
         
         if (localImageUrl) {

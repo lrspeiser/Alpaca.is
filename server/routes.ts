@@ -1083,7 +1083,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Attempt to generate the image with description if available
-        imageUrl = await generateItemImage(itemText!, city.title, description);
+        imageUrl = await generateItemImage(
+          itemText!, 
+          city.title, 
+          description, 
+          city.styleGuide,  // Pass the style guide if available
+          itemId, // Pass the actual item ID for consistent file naming
+          forceNewImage // Pass the force flag from request body
+        );
         
         if (!imageUrl) {
           const errorMsg = `Image generation failed - empty URL returned for "${itemText}" in ${city.title}`;
@@ -1093,49 +1100,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         log(`Successfully generated image from OpenAI for "${itemText}" - URL: ${imageUrl.slice(0, 50)}...`, 'ai-generation');
         
-        // Now store the OpenAI image locally
-        log(`Storing OpenAI image locally...`, 'ai-generation');
-        try {
-          // Always force a new image when explicitly generating an image for an item
-          const forceNewImage = !!itemId; // Force new image when regenerating for a specific item
-          
-          log(`Processing image with forceNewImage=${forceNewImage}`, 'ai-generation');
-          
-          const localImageUrl = await processOpenAIImageUrl(
-            imageUrl,
-            cityId,
-            itemId || `generated-${Date.now()}`,
-            itemText || 'Generated Image',
-            forceNewImage
-          );
-          
-          if (!localImageUrl) {
-            throw new Error(`Failed to process and store image locally - empty URL returned`);
-          }
-          
-          // Verify image exists at expected location
-          const filename = localImageUrl.split('/').pop();
+        // The image has already been processed and stored locally by generateItemImage
+        // Verify image exists at expected location
+        if (imageUrl.startsWith('/images/')) {
+          const filename = imageUrl.split('/').pop();
           const fullPath = path.join(process.cwd(), 'public', 'images', filename || '');
           
           if (!fs.existsSync(fullPath)) {
-            throw new Error(`Image file does not exist at expected location: ${fullPath}`);
+            log(`[DB-IMAGE] WARNING: Image file does not exist at expected location: ${fullPath}`, 'ai-generation');
+          } else {
+            const fileSize = fs.statSync(fullPath).size;
+            if (fileSize === 0) {
+              log(`[DB-IMAGE] WARNING: Image file exists but is empty: ${fullPath}`, 'ai-generation');
+            } else {
+              log(`[DB-IMAGE] Verified image file: ${fullPath} (${fileSize} bytes)`, 'ai-generation');
+            }
           }
-          
-          const fileSize = fs.statSync(fullPath).size;
-          if (fileSize === 0) {
-            throw new Error(`Image file was created but is empty: ${fullPath}`);
-          }
-          
-          log(`[DB-IMAGE] Image stored locally at ${localImageUrl} (${fileSize} bytes)`, 'ai-generation');
-          console.log(`[DB-IMAGE] Successfully saved image for "${itemText}" at ${fullPath} (${fileSize} bytes)`);
-          
-          // Replace the OpenAI URL with our local URL
-          imageUrl = localImageUrl;
-        } catch (storageError: any) {
-          // Instead of falling back to the OpenAI URL, throw an error to ensure consistent handling
-          log(`[DB-IMAGE] ERROR: Failed to store image locally: ${storageError.message}`, 'ai-generation');
-          console.error(`[DB-IMAGE] Failed to store image for "${itemText}" in ${city.title}: ${storageError.message}`);
-          throw new Error(`Failed to save image file: ${storageError.message}`);
+        } else {
+          log(`[DB-IMAGE] Image URL is not a local path: ${imageUrl.substring(0, 30)}...`, 'ai-generation');
         }
       } catch (imageError: any) {
         const errorDetails = {
