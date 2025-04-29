@@ -77,15 +77,15 @@ export const getSavedCurrentCity = (defaultCity: string): string => {
  */
 
 // Constants for IndexedDB
-const DB_NAME = 'BingoPhotosDB';
-const DB_VERSION = 1;
-const PHOTOS_STORE = 'userPhotos';
+export const DB_NAME = 'BingoPhotosDB';
+export const DB_VERSION = 1;
+export const PHOTOS_STORE = 'userPhotos';
 
 /**
  * Opens the IndexedDB database for user photos
  * @returns Promise resolving to an open database connection
  */
-const openPhotosDB = (): Promise<IDBDatabase> => {
+export const openPhotosDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     if (!window.indexedDB) {
       reject(new Error('IndexedDB is not supported in this browser'));

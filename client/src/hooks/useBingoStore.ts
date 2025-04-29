@@ -356,37 +356,58 @@ export function useBingoStore() {
     }
   }, [state, state.currentCity, saveState, fetchBingoState, clientId]);
   
-  // Reset all items for current city (except center space)
-  const resetCity = useCallback(async () => {
-    const currentCity = state.currentCity;
+  // Reset all items for a specific city (except center space)
+  // If no cityId is provided, resets the current city
+  const resetCity = useCallback(async (cityId?: string) => {
+    // Use the provided cityId or fall back to current city
+    const targetCityId = cityId || state.currentCity;
+    
+    console.log(`[STORE] Resetting city ${targetCityId}${clientId ? ' with clientId' : ''}`);
     
     try {
       // Call API to reset city
       const payload = clientId 
-        ? { cityId: currentCity, clientId } 
-        : { cityId: currentCity };
+        ? { cityId: targetCityId, clientId } 
+        : { cityId: targetCityId };
         
+      console.log(`[STORE] Sending reset request to API for city ${targetCityId}`);
+      
       const response = await fetch('/api/reset-city', {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to reset city via API');
+        throw new Error(`Failed to reset city via API: ${response.status} ${response.statusText}`);
       }
       
-      // Update local state
+      console.log(`[STORE] Successfully reset city ${targetCityId} on server`);
+      
+      // Fetch fresh state from the server to ensure consistency
+      await fetchBingoState(true);
+      
+      // Update local state to match the reset
       setState(prev => {
-        const updatedItems = prev.cities[currentCity].items.map(item => {
+        // Check if city exists in state
+        if (!prev.cities[targetCityId]) {
+          console.warn(`[STORE] Can't reset city ${targetCityId} locally - not found in state`);
+          return prev;
+        }
+        
+        console.log(`[STORE] Updating local state for city ${targetCityId}`);
+        
+        const updatedItems = prev.cities[targetCityId].items.map(item => {
           if (item.isCenterSpace) return item;
           return { ...item, completed: false };
         });
         
         const updatedCity: City = {
-          ...prev.cities[currentCity],
+          ...prev.cities[targetCityId],
           items: updatedItems
         };
         
@@ -394,27 +415,38 @@ export function useBingoStore() {
           ...prev,
           cities: {
             ...prev.cities,
-            [currentCity]: updatedCity
+            [targetCityId]: updatedCity
           }
         };
         
         // Save to localStorage as backup
         saveToLocalStorage(STORAGE_KEY, newState);
+        console.log(`[STORE] Local state updated for ${targetCityId}`);
         
         return newState;
       });
+      
+      return true; // Signal success
     } catch (error) {
-      console.error('Failed to reset city:', error);
+      console.error(`[STORE] Failed to reset city ${targetCityId}:`, error);
       
       // Fallback to direct state update if API fails
       setState(prev => {
-        const updatedItems = prev.cities[currentCity].items.map(item => {
+        // Check if city exists in state
+        if (!prev.cities[targetCityId]) {
+          console.warn(`[STORE] Can't reset city ${targetCityId} locally - not found in state`);
+          return prev;
+        }
+        
+        console.log(`[STORE] Falling back to local reset for city ${targetCityId}`);
+        
+        const updatedItems = prev.cities[targetCityId].items.map(item => {
           if (item.isCenterSpace) return item;
           return { ...item, completed: false };
         });
         
         const updatedCity: City = {
-          ...prev.cities[currentCity],
+          ...prev.cities[targetCityId],
           items: updatedItems
         };
         
@@ -422,7 +454,7 @@ export function useBingoStore() {
           ...prev,
           cities: {
             ...prev.cities,
-            [currentCity]: updatedCity
+            [targetCityId]: updatedCity
           }
         };
         
@@ -431,8 +463,10 @@ export function useBingoStore() {
         
         return newState;
       });
+      
+      return false; // Signal failure
     }
-  }, [state.currentCity, saveState, clientId]);
+  }, [state, fetchBingoState, clientId]);
   
   return {
     cities: state.cities,

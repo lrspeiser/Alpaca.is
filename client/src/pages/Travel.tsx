@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import BingoGrid from "@/components/BingoGrid";
 import BingoItemModal from "@/components/BingoItemModal";
 import Footer from "@/components/Footer";
+import CityResetButton from "@/components/CityResetButton";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import type { BingoItem } from "@/types";
 
@@ -46,6 +47,16 @@ export default function Travel() {
           onItemClick={setSelectedItem} 
           refreshTrigger={gridRefreshTrigger} 
         />
+        
+        {/* City Reset Button */}
+        {city && (
+          <div className="container mx-auto px-4 mb-4 flex justify-center">
+            <CityResetButton 
+              cityId={currentCity} 
+              cityName={city.title}
+            />
+          </div>
+        )}
       </main>
       
       <Footer />

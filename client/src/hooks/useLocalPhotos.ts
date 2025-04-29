@@ -78,7 +78,7 @@ export const useLocalPhotos = () => {
         const request = index.openCursor(IDBKeyRange.only(cityId));
         let deleteCount = 0;
         
-        request.onsuccess = (event) => {
+        request.onsuccess = (event: Event) => {
           const cursor = (event.target as IDBRequest).result;
           if (cursor) {
             // Delete this photo entry
@@ -94,7 +94,7 @@ export const useLocalPhotos = () => {
           resolve(true);
         };
         
-        transaction.onerror = (event) => {
+        transaction.onerror = (event: Event) => {
           console.error('Error deleting photos from IndexedDB:', event);
           db.close();
           reject(new Error('Failed to delete photos'));
