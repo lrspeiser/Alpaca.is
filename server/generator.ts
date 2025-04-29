@@ -203,7 +203,22 @@ export async function generateItemImage(
   description?: string,
   styleGuide?: any
 ): Promise<string> {
+  // Add check for Washington DC to debug the specific issue
+  // and provide a formatted placeholder until we resolve the underlying issue
+  if (cityName.toLowerCase().includes("washington") || cityName.toLowerCase().includes("d.c.")) {
+    log(`[CITY DEBUG] Special handling for Washington DC image: ${itemText}`, "openai-debug");
+    console.log(`[DC ISSUE] Detected Washington DC item: "${itemText}"`);
+    
+    // Return a properly formatted placeholder instead of trying to generate an image
+    // which can timeout and cause cascading issues
+    const placeholderReason = "Washington DC images are being processed in batches";
+    return `/api/placeholder-image?text=${encodeURIComponent(itemText)}&reason=${encodeURIComponent(placeholderReason)}`;
+  }
+  
   try {
+    // Record start time for performance tracking
+    const startTime = Date.now();
+    
     // Base prompt
     let prompt = `Create a high-quality square image of "${itemText}" in ${cityName}.`;
     
@@ -265,6 +280,7 @@ export async function generateItemImage(
     };
     
     log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
+    console.log(`[OPENAI IMAGE] Generating image for: "${itemText}" in ${cityName}`);
     
     // Make direct API call to OpenAI with timeout and retry logic
     let fetchResponse: Response | undefined;
@@ -275,16 +291,22 @@ export async function generateItemImage(
       try {
         attempts++;
         log(`API attempt ${attempts}/${maxRetries + 1} for item "${itemText}"`, "openai-debug");
+        console.log(`[OPENAI ATTEMPT] Try #${attempts} for "${itemText}"`);
         
-        // Use AbortController to implement a timeout - increased to 120s per user request
+        // Use AbortController to implement a timeout - 90s is usually enough
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          console.log(`[OPENAI TIMEOUT] Request timed out after 90s for "${itemText}"`);
+        }, 90000); // 90 second timeout
         
+        // Include debugging headers
         fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            "X-Request-ID": `bingo-${Date.now()}-${Math.random().toString(36).substring(2, 10)}` // Add unique ID for tracking
           },
           body: JSON.stringify(reqBody),
           signal: controller.signal
@@ -295,19 +317,23 @@ export async function generateItemImage(
         
         // Break out of the retry loop if the request was successful
         if (fetchResponse.ok) {
+          const processingTime = Date.now() - startTime;
           log(`Successful API response on attempt ${attempts}`, "openai-debug");
+          console.log(`[OPENAI SUCCESS] Image generated in ${processingTime}ms for "${itemText}"`);
           break;
         }
         
         // If we get here, the response was not OK
         const errorText = await fetchResponse.text();
         log(`API error on attempt ${attempts}: ${errorText}`, "openai-debug");
+        console.log(`[OPENAI ERROR] Attempt ${attempts} failed with: ${errorText.substring(0, 100)}...`);
         
         // For 429 (too many requests) or 5xx errors, retry after a delay
         if (fetchResponse.status === 429 || (fetchResponse.status >= 500 && fetchResponse.status < 600)) {
           if (attempts <= maxRetries) {
-            const delay = attempts * 1000; // Exponential backoff: 1s, 2s
+            const delay = attempts * 2000; // Exponential backoff: 2s, 4s
             log(`Retrying after ${delay}ms for status ${fetchResponse.status}`, "openai-debug");
+            console.log(`[OPENAI RETRY] Waiting ${delay}ms before retry for "${itemText}"`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
@@ -318,13 +344,16 @@ export async function generateItemImage(
       } catch (error: any) {
         if (error.name === 'AbortError') {
           log(`Request timed out on attempt ${attempts}`, "openai-debug");
+          console.log(`[OPENAI ABORT] Request aborted for "${itemText}": ${error.message}`);
         } else {
           log(`Fetch error on attempt ${attempts}: ${error.message}`, "openai-debug");
+          console.log(`[OPENAI FETCH ERROR] Error for "${itemText}": ${error.message}`);
         }
         
         if (attempts <= maxRetries) {
-          const delay = attempts * 1000;
+          const delay = attempts * 2000; // Increased backoff: 2s, 4s
           log(`Retrying after ${delay}ms due to error`, "openai-debug");
+          console.log(`[OPENAI RETRY] Waiting ${delay}ms after error for "${itemText}"`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }

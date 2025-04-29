@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { preloadCitiesFromDatabase, repairWashingtonDCImages } from "./preload";
 
 const app = express();
 app.use(express.json());
@@ -54,6 +55,15 @@ app.use((req, res, next) => {
     await setupVite(app, server);
   } else {
     serveStatic(app);
+  }
+
+  // Preload cities from database to ensure all cities are available
+  try {
+    await preloadCitiesFromDatabase();
+    await repairWashingtonDCImages();
+    log('Successfully preloaded cities and fixed Washington DC images', 'preload');
+  } catch (preloadError) {
+    console.error('Error during preloading:', preloadError);
   }
 
   // ALWAYS serve the app on port 5000
