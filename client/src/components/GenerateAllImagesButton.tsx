@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ImageIcon } from 'lucide-react';
 import { useBingoStore } from '@/hooks/useBingoStore';
@@ -31,7 +31,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
   // Count items that already have images
   const itemsWithImages = items.filter(item => !!item.image).length;
   
-  // Function to generate all images at once, with improved batching and database reliability
+  // Function to generate all images at once with new timing logic
   const handleGenerateAllImages = async () => {
     if (!city || isGenerating) return;
     
@@ -50,80 +50,68 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       let failCount = 0;
       let currentProgress = 0;
       
-      // Process ALL items, including the center space ("Arrive in <cityName>")
+      // Use all items for generation
       const itemsToGenerate = items;
       
-      // Generate images in smaller batches with greater delays to ensure database updates complete
-      const batchSize = 3; // Reduce batch size from 5 to 3 for better reliability
+      // Prepare batches
+      const batchSize = 3;
       const batches = [];
-      
-      // Split items into batches for controlled processing
       for (let i = 0; i < itemsToGenerate.length; i += batchSize) {
         batches.push(itemsToGenerate.slice(i, i + batchSize));
       }
       
       console.log(`[BATCH] Processing ${itemsToGenerate.length} items in ${batches.length} batches of up to ${batchSize} items each`);
       
-      // Process batches one after another instead of creating all promises at once
-      // This ensures proper database synchronization between batches
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      // The main batch processor function that runs as a separate promise chain
+      const processBatch = async (batchIndex: number) => {
         const batch = batches[batchIndex];
         console.log(`[BATCH] Starting batch ${batchIndex + 1}/${batches.length} with ${batch.length} items`);
         
-        try {
-          // Process each item in the batch one by one
-          // This ensures proper database updates between items for greater reliability
-          for (const item of batch) {
-            try {
-              // Generate the image
-              await generateImageForItem(city.id, item.id, item.text);
-              
-              // Update progress
-              successCount++;
-              currentProgress++;
-              setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-              console.log(`[BATCH] Completed item ${item.id} (success)`);
-            } catch (itemError) {
-              console.error(`[BATCH] Error generating image for ${item.id}:`, itemError);
-              failCount++;
-              currentProgress++;
-              setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-            }
-            
-            // Small delay between items in the same batch (500ms)
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-          
-          console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}`);
-          
-          // After each batch completes, refresh the state to ensure changes are reflected
-          console.log(`[BATCH] Refreshing state after batch ${batchIndex + 1}`);
+        // Create promises for each item in the batch
+        const batchPromises = batch.map(async (item) => {
           try {
-            await refreshState(); // This already forces a refresh in its implementation
-            console.log(`[BATCH] Successfully refreshed state after batch ${batchIndex + 1}`);
-          } catch (refreshError) {
-            console.error(`[BATCH] Error refreshing state after batch ${batchIndex + 1}:`, refreshError);
+            await generateImageForItem(city.id, item.id, item.text);
+            successCount++;
+            currentProgress++;
+            setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+          } catch (error) {
+            console.error(`[BATCH] Error generating image for ${item.id}:`, error);
+            failCount++;
+            currentProgress++;
+            setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
           }
-          
-          // Add a delay between batches (5 seconds) to prevent overwhelming the server
-          if (batchIndex < batches.length - 1) {
-            console.log(`[BATCH] Waiting 5 seconds before starting next batch...`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-          }
-        } catch (batchError) {
-          console.error(`[BATCH] Error processing batch ${batchIndex + 1}:`, batchError);
-          // Continue to the next batch even if this one had errors
+        });
+        
+        // Wait for all items in this batch to complete
+        await Promise.all(batchPromises);
+        console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}`);
+        
+        // Refresh state after each batch
+        try {
+          await refreshState();
+          console.log(`[BATCH] State refreshed after batch ${batchIndex + 1}`);
+        } catch (error) {
+          console.error(`[BATCH] Error refreshing state after batch ${batchIndex + 1}:`, error);
         }
-      }
+      };
       
-      // Final state refresh to ensure all changes are reflected
+      // Start all batches with a 5-second delay between starts
+      const batchStartPromises = batches.map((_, index) => {
+        return new Promise<void>((resolve) => {
+          // Schedule this batch to start after (index * 5000) milliseconds
+          setTimeout(async () => {
+            await processBatch(index);
+            resolve();
+          }, index * 5000);
+        });
+      });
+      
+      // Wait for all batches to complete
+      await Promise.all(batchStartPromises);
+      
+      // Final state refresh
       console.log(`[BATCH] All batches completed! Refreshing state...`);
-      try {
-        await refreshState(); // This already forces a refresh in its implementation
-        console.log(`[BATCH] Successfully completed final state refresh`);
-      } catch (finalRefreshError) {
-        console.error(`[BATCH] Error during final state refresh:`, finalRefreshError);
-      }
+      await refreshState();
       
       // Show completion toast
       toast({
