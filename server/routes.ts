@@ -1227,7 +1227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       const processingTime = Date.now() - startTime;
       console.error(`[SERVER ERROR] Error generating image after ${processingTime}ms:`, error);
-      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId}, city ${cityId}`);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}, city ${cityId || 'unknown'}`);
       
       // Check which OpenAI API key we're using (without revealing it)
       console.log(`[DEBUG] OPENAI_API_KEY availability: ${!!process.env.OPENAI_API_KEY}`);

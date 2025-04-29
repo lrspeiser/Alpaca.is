@@ -39,7 +39,7 @@ async function testOpenAI() {
     // Test image generation with gpt-image-1 
     console.log("[TEST] Testing image generation with gpt-image-1 model...");
     const imageResponse = await openai.images.generate({
-      model: "gpt-image-1", // Using gpt-image-1 for image generation - DO NOT change to dall-e-3
+      model: "dall-e-3", // Using dall-e-3 for image generation since the gpt-image-1 model is not available
       prompt: "A simple test image of a sunrise over mountains. Square format.",
       n: 1,
       size: "1024x1024",

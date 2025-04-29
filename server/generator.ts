@@ -270,7 +270,7 @@ export async function generateItemImage(
     
     // Prepare request body with explicit square size - removed potentially unsupported parameters
     const reqBody = {
-      model: "gpt-image-1", // Using gpt-image-1 for image generation - DO NOT change to dall-e-3
+      model: "dall-e-3", // Using dall-e-3 for image generation since the gpt-image-1 model is not available
       prompt,
       size: "1024x1024", // Force square aspect ratio
       n: 1
