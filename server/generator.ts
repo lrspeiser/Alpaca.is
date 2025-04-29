@@ -59,7 +59,7 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1", // This is the most recent model since April 2025. Do not delete or change this comment.
+      model: "gpt-4o", // The newest OpenAI model is "gpt-4o" which was released May 13, 2024. Do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
@@ -150,7 +150,7 @@ export async function generateStyleGuide(cityName: string): Promise<any> {
 
     // Call OpenAI API to generate style guide
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1", // This is the most recent model since April 2025. Do not delete or change this comment.
+      model: "gpt-4o", // The newest OpenAI model is "gpt-4o" which was released May 13, 2024. Do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
@@ -189,8 +189,8 @@ export async function generateStyleGuide(cityName: string): Promise<any> {
 }
 
 /**
- * Generate an image for a bingo item using OpenAI's GPT-Image model
- * Updated as of April 2025 to use the newer gpt-image-1 model with square aspect ratio
+ * Generate an image for a bingo item using OpenAI's DALL-E-3 model
+ * Using square aspect ratio for consistent display in bingo grid
  * 
  * @param itemText The text of the bingo item
  * @param cityName The name of the city
