@@ -216,8 +216,8 @@ export async function generateItemImage(
     // Record start time for performance tracking
     const startTime = Date.now();
     
-    // Base prompt optimized for DALL-E-3
-    let prompt = `Create a high-quality, detailed photorealistic image showing "${itemText}" in ${cityName}. Make it visually rich and engaging with good lighting and composition. No text or captions. No borders. Square format with 1:1 aspect ratio. Emphasize authenticity and realism.`;
+    // Base prompt
+    let prompt = `Create a high-quality square image of "${itemText}" in ${cityName}.`; // DO NOT CHANGE THIS MODEL - CRITICAL - USES GPT-IMAGE-1
     
     // If we have a style guide, choose an appropriate style based on the item text
     if (styleGuide && styleGuide.styleGuide && styleGuide.styleGuide.length > 0) {
@@ -266,14 +266,16 @@ export async function generateItemImage(
       prompt += ` Context: ${shortDescription}`;
     }
     
-    log(`Starting image generation via OpenAI API with dall-e-3 model, prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via OpenAI API with gpt-image-1 model, prompt: ${prompt}`, "openai-debug");
     
-    // Prepare request body with explicit square size - removed potentially unsupported parameters
+    // Prepare request body with correct parameters for gpt-image-1
     const reqBody = {
-      model: "dall-e-3", // Using dall-e-3 for image generation since the gpt-image-1 model is not available
+      model: "gpt-image-1", // DO NOT CHANGE THIS MODEL TO DALL-E-3 OR ANY OTHER MODEL!!! MUST REMAIN GPT-IMAGE-1 PER USER'S EXPLICIT REQUIREMENT!!!
       prompt,
       size: "1024x1024", // Force square aspect ratio
-      n: 1
+      n: 1,
+      output_format: "png", // Explicitly use PNG for best quality
+      background: "auto" // Let model decide background style
     };
     
     log(`Direct API call with params: ${JSON.stringify(reqBody)}`, "openai-debug");
