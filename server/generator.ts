@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import fs from 'fs';
 import path from 'path';
 import type { BingoItem } from "../shared/schema";
+import { processOpenAIImageUrl } from "./imageStorage";
 
 // Initialize OpenAI client
 const apiKey = process.env.OPENAI_API_KEY;
@@ -269,11 +270,11 @@ export async function generateItemImage(
       prompt += ` Context: ${shortDescription}`;
     }
     
-    log(`Starting image generation via OpenAI API with gpt-image-1 model (updated April 2025), prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via OpenAI API with dall-e-3 model, prompt: ${prompt}`, "openai-debug");
     
     // Prepare request body with explicit square size - removed potentially unsupported parameters
     const reqBody = {
-      model: "gpt-image-1", // Using gpt-image-1 for image generation (latest as of April 2025)
+      model: "dall-e-3", // Using dall-e-3 for image generation (most reliable option)
       prompt,
       size: "1024x1024", // Force square aspect ratio
       n: 1
@@ -388,72 +389,35 @@ export async function generateItemImage(
     const data = await fetchResponse.json();
     log(`OpenAI API success response received`, "openai-debug");
     
-    // Check for base64 data in response (gpt-image-1 model returns base64 instead of URL)
-    if (data.data && data.data.length > 0 && data.data[0].b64_json) {
-      log(`Successfully received base64 image data from GPT-image-1 model`, "openai-debug");
-      
-      // For gpt-image-1 model we get base64 data directly
-      const imageBase64 = data.data[0].b64_json;
-      
-      // Generate a filename
-      const filename = `generated-${Date.now()}.png`;
-      const filePath = `./public/images/${filename}`;
-      
-      try {
-        // Use the path module to ensure consistent path handling
-        const dirPath = path.join(process.cwd(), 'public', 'images');
-        const fullFilePath = path.join(process.cwd(), 'public', 'images', filename);
-        
-        // Make sure the directory exists
-        if (!fs.existsSync(dirPath)) {
-          try {
-            fs.mkdirSync(dirPath, { recursive: true });
-            log(`Created images directory at ${dirPath}`, "openai-debug");
-          } catch (dirError) {
-            // Try fallback to /tmp if we can't create in public
-            log(`Could not create images directory at ${dirPath}: ${dirError.message}`, "openai-debug");
-            log(`Attempting to use /tmp/images as fallback`, "openai-debug");
-            
-            const tmpDirPath = '/tmp/images';
-            fs.mkdirSync(tmpDirPath, { recursive: true });
-            
-            const tmpFilePath = path.join(tmpDirPath, filename);
-            const imageBuffer = Buffer.from(imageBase64, 'base64');
-            fs.writeFileSync(tmpFilePath, imageBuffer);
-            
-            const imageUrl = `/images/${filename}`;
-            log(`Successfully saved base64 image to fallback location ${tmpFilePath}`, "openai-debug");
-            return imageUrl;
-          }
-        }
-        
-        // Convert base64 to buffer and save to file
-        const imageBuffer = Buffer.from(imageBase64, 'base64');
-        fs.writeFileSync(fullFilePath, imageBuffer);
-        
-        // Return the path to the saved image
-        const imageUrl = `/images/${filename}`;
-        log(`Successfully saved base64 image to ${fullFilePath}`, "openai-debug");
-        return imageUrl;
-      } catch (err) {
-        // Handle as generic error object
-        const error = err as Error;
-        log(`Error saving base64 image: ${error.message || 'Unknown error'}`, "openai-debug");
-        console.error('Image saving error details:', error);
-        
-        // Generate a placeholder SVG as a last resort
-        const errorMessage = error.message || 'Unknown error';
-        const svgImageUrl = `/api/placeholder-image?text=${encodeURIComponent('Image Generation Failed')}&reason=${encodeURIComponent(errorMessage)}`;
-        log(`Returning placeholder SVG URL: ${svgImageUrl}`, "openai-debug");
-        return svgImageUrl;
-      }
-    }
-    
-    // Check for URL in response (old model format)
-    else if (data.data && data.data.length > 0 && data.data[0].url) {
+    // DALL-E-3 returns a URL, not base64 data
+    if (data.data && data.data.length > 0 && data.data[0].url) {
       const imageUrl = data.data[0].url;
       log(`Successfully generated image with URL: ${imageUrl}`, "openai-debug");
-      return imageUrl;
+      
+      try {
+        // Download and store the image locally
+        const localImageUrl = await processOpenAIImageUrl(
+          imageUrl,
+          cityName.toLowerCase().replace(/[^a-z0-9]/g, ''), // cityId
+          `${cityName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`, // itemId
+          itemText,
+          true // force new image
+        );
+        
+        if (localImageUrl) {
+          log(`Successfully processed and stored image locally: ${localImageUrl}`, "openai-debug");
+          return localImageUrl;
+        } else {
+          // If local processing fails, return the OpenAI URL directly
+          log(`Local image processing failed, using direct OpenAI URL: ${imageUrl}`, "openai-debug");
+          return imageUrl;
+        }
+      } catch (processError: any) {
+        // If processing fails, log the error but still return the original URL
+        log(`Error processing image locally: ${processError.message}`, "openai-debug");
+        console.error('Image processing error:', processError);
+        return imageUrl;
+      }
     }
     
     // No image data found in response
