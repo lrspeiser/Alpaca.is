@@ -71,18 +71,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   // Register a client ID for persistent user state without login
   app.post("/api/register-client", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       const { clientId } = req.body;
       
       if (!clientId) {
+        console.log(`[USER ERROR] Client registration attempt without ID from IP: ${requestIP}`);
         return res.status(400).json({ 
           success: false, 
           error: "Client ID is required" 
         });
       }
       
+      // Enhanced logging about new connections
+      console.log(`[USER CONNECT] New client ${clientId} from IP: ${requestIP}`);
+      console.log(`[USER DEVICE] Client ${clientId} using: ${req.headers['user-agent']}`);
+      
       // Register the client ID or update if it exists
       const user = await storage.createOrUpdateClientUser(clientId);
+      
+      // Log success with timing information
+      const processingTime = Date.now() - startTime;
+      console.log(`[USER REGISTERED] Client ${clientId} registered as user ${user.id} in ${processingTime}ms`);
+      console.log(`[USER HISTORY] Client ${clientId} previous visit: ${user.lastVisitedAt || 'First visit'}`);
       
       return res.json({ 
         success: true, 
@@ -92,6 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("[ERROR] Failed to register client:", error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, processing time: ${Date.now() - startTime}ms`);
       return res.status(500).json({ 
         success: false, 
         error: "Failed to register client" 
@@ -101,6 +115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Get the current bingo state
   app.get("/api/bingo-state", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       // Check for clientId in query parameters or headers
       let clientId = req.query.clientId as string | undefined;
@@ -109,6 +126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientId && req.headers['x-client-id']) {
         clientId = req.headers['x-client-id'] as string;
       }
+      
+      console.log(`[USER ACTIVITY] Client ${clientId || 'unknown'} from ${requestIP} requested bingo state`);
+      console.log(`[USER REFERRER] Page context: ${req.headers.referer || 'direct navigation'}`);
       
       // Get bingo state using clientId if available
       const state = await storage.getBingoState(undefined, clientId);
@@ -125,13 +145,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
       
-      // We're no longer logging read operations, removing debug output for first item
-      const firstCityId = Object.keys(state.cities)[0];
+      // Calculate completion statistics for the current city if available
+      if (state.currentCity && state.cities[state.currentCity]) {
+        const currentCity = state.cities[state.currentCity];
+        const totalItems = currentCity.items.length;
+        const completedItems = currentCity.items.filter((item: any) => item.completed).length;
+        const completionPercentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+        
+        console.log(`[USER PROGRESS] Client ${clientId || 'unknown'} has completed ${completedItems}/${totalItems} (${completionPercentage}%) items in ${currentCity.title}`);
+      }
       
+      // Log the size of the response data to monitor payload sizes
+      const responseSize = JSON.stringify(state).length;
+      const processingTime = Date.now() - startTime;
+      
+      console.log(`[PERFORMANCE] Bingo state retrieved for client ${clientId || 'unknown'} in ${processingTime}ms, response size: ${responseSize} bytes`);
       log(`[SERVER] Sending bingo state to client: current city=${state.currentCity}, cities=${JSON.stringify(citySummary)}`, 'state');
+      
       res.json(state);
     } catch (error) {
-      console.error("[SERVER] Error fetching bingo state:", error);
+      const processingTime = Date.now() - startTime;
+      console.error(`[SERVER ERROR] Error fetching bingo state for ${clientId || 'unknown'} after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}`);
       res.status(500).json({ error: "Failed to fetch bingo state" });
     }
   });
@@ -203,25 +238,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Toggle completion status of a bingo item
   app.post("/api/toggle-item", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       const schema = z.object({
         itemId: z.string(),
         cityId: z.string(),
         clientId: z.string().optional(),
-        forcedState: z.boolean().optional() // Add support for forcing a specific state
+        forcedState: z.boolean().optional(), // Add support for forcing a specific state
+        userPhoto: z.string().optional()     // Optional user photo in base64 format
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, cityId, clientId, forcedState } = validatedData;
+      const { itemId, cityId, clientId, forcedState, userPhoto } = validatedData;
       
-      console.log(`[TOGGLE-ITEM] Toggling item ${itemId} in city ${cityId}${forcedState !== undefined ? ` to state: ${forcedState}` : ''}`);
+      // Get state to retrieve item text for better logging
+      const state = await storage.getBingoState(undefined, clientId);
+      let itemText = "Unknown item";
+      let itemType = "regular";
+      
+      if (state.cities[cityId] && state.cities[cityId].items) {
+        const item = state.cities[cityId].items.find((it: any) => it.id === itemId);
+        if (item) {
+          itemText = item.text;
+          itemType = item.isCenterSpace ? "center space" : "regular";
+        }
+      }
+      
+      console.log(`[USER ACTION] Client ${clientId || 'unknown'} from ${requestIP} ${forcedState ? 'marked' : 'toggled'} ${itemType} item "${itemText}" (${itemId}) in ${cityId}`);
+      
+      if (userPhoto) {
+        console.log(`[USER PHOTO] Client ${clientId || 'unknown'} submitted a photo for item "${itemText}" (${itemId})`);
+      }
       
       // Use clientId if provided and pass the forcedState parameter
       await storage.toggleItemCompletion(itemId, cityId, undefined, clientId, forcedState);
       
+      const processingTime = Date.now() - startTime;
+      console.log(`[PERFORMANCE] Item toggle processed in ${processingTime}ms for client ${clientId || 'unknown'}`);
+      
       res.json({ success: true });
     } catch (error) {
-      console.error("Error toggling item completion:", error);
+      const processingTime = Date.now() - startTime;
+      console.error(`[SERVER ERROR] Error toggling item completion after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${(req.body && req.body.clientId) || 'unknown'}`);
+      
       res.status(500).json({ error: "Failed to toggle item completion" });
     }
   });
