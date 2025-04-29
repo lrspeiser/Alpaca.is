@@ -11,6 +11,9 @@ import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Track in-progress image generations to prevent duplicates
+const inProgressImageGenerations = new Map<string, number>();
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up image proxy for handling OpenAI image URLs
   setupImageProxy(app);
@@ -928,6 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Set default values outside try block so they're available in the catch block
     let cityId = 'unknown';
     let clientId = 'unknown';
+    let itemId = 'unknown';
     
     try {
       const schema = z.object({
@@ -942,17 +946,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, itemText: providedItemText, description: providedDescription, forceNewImage } = validatedData;
+      const { itemText: providedItemText, description: providedDescription, forceNewImage } = validatedData;
       
       // Update the variables declared outside try block
       cityId = validatedData.cityId;
       clientId = validatedData.clientId || 'unknown';
+      itemId = validatedData.itemId || 'text-only';
       
-      console.log(`[USER ACTION] Client ${clientId} from ${requestIP} is generating image for city ${cityId}`);
-      console.log(`[USER DEVICE] Client ${clientId} using: ${req.headers['user-agent']}`);
+      // Create a unique key for this image generation request
+      const generationKey = `${cityId}-${itemId}`;
       
-      // Get the current state
-      const state = await storage.getBingoState();
+      // Check if this item is already being processed
+      if (inProgressImageGenerations.has(generationKey)) {
+        const existingStartTime = inProgressImageGenerations.get(generationKey);
+        const elapsedTime = Date.now() - existingStartTime!;
+        console.log(`[BATCH-DEDUP] Detected duplicate request for item ${itemId} in city ${cityId}`);
+        console.log(`[BATCH-DEDUP] Original request has been processing for ${elapsedTime}ms`);
+        
+        // If it's been processing for too long (>2 minutes), allow a new generation to start
+        if (elapsedTime < 120000) { // 2 minutes in milliseconds
+          console.log(`[BATCH-DEDUP] Skipping duplicate image generation for ${itemId} to avoid race conditions`);
+          return res.json({
+            success: false,
+            error: "This item is already being processed",
+            inProgress: true,
+            message: `Image for ${itemId} is already being generated (started ${Math.round(elapsedTime/1000)}s ago)`
+          });
+        } else {
+          console.log(`[BATCH-DEDUP] Original request timeout (${elapsedTime}ms > 120000ms), allowing new request`);
+          // Continue with generation, but update the timestamp
+          inProgressImageGenerations.set(generationKey, Date.now());
+        }
+      } else {
+        // Mark this item as in-progress
+        inProgressImageGenerations.set(generationKey, Date.now());
+        console.log(`[BATCH-DEDUP] Starting image generation for ${itemId}, added to tracking map`);
+      }
+      
+      // Use a try-finally to ensure we always clean up the tracking map
+      try {
+        console.log(`[USER ACTION] Client ${clientId} from ${requestIP} is generating image for city ${cityId}`);
+        console.log(`[USER DEVICE] Client ${clientId} using: ${req.headers['user-agent']}`);
+        
+        // Get the current state
+        const state = await storage.getBingoState();
       
       // Enhanced logging around city lookup
       console.log(`[DEBUG] Attempting to generate image for city: ${cityId}`);
@@ -1261,12 +1298,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[PERFORMANCE] Image generation completed in ${processingTime}ms for client ${clientId || 'unknown'}`);
       console.log(`[USER SUCCESS] Client ${clientId || 'unknown'} generated image for "${itemText}" in ${city.title}`);
       
-      res.json({ 
+      return res.json({ 
         success: true, 
         imageUrl: imageUrl,
         message: `Generated image for "${itemText}" in ${city.title}`
       });
-    } catch (error) {
+    } finally {
+      // Always remove from in-progress map when done
+      if (itemId && cityId) {
+        const generationKey = `${cityId}-${itemId}`;
+        inProgressImageGenerations.delete(generationKey);
+        console.log(`[BATCH-DEDUP] Completed image generation for ${itemId}, removed from tracking map`);
+      }
+    }
+  } catch (error) {
       const processingTime = Date.now() - startTime;
       console.error(`[SERVER ERROR] Error generating image after ${processingTime}ms:`, error);
       console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}, city ${cityId || 'unknown'}`);
