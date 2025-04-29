@@ -1,16 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, AlertCircle } from 'lucide-react';
-import { useBingoStore } from '@/hooks/useBingoStore';
-import { useToast } from '@/hooks/use-toast';
-import type { BingoItem, City } from '@/types';
-
-// Define the expected response type from our API
-interface GenerateImageResponse {
-  success: boolean;
-  error?: string;
-  imageUrl?: string;
-}
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useBingoStore } from "@/hooks/useBingoStore";
+import { Image, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface FixMissingImagesButtonProps {
   cityId?: string;  // Optional cityId parameter
@@ -19,202 +13,171 @@ interface FixMissingImagesButtonProps {
 export default function FixMissingImagesButton({ cityId }: FixMissingImagesButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const { currentCity, cities, refreshState } = useBingoStore();
+  const [total, setTotal] = useState(0);
+  const [currentItem, setCurrentItem] = useState("");
   const { toast } = useToast();
-  
-  // Get the items from the specified city or current city
-  const targetCityId = cityId || currentCity;
-  const city = cities?.[targetCityId];
-  const items = city?.items || [];
-  
-  // Find items with placeholder images
-  const itemsWithPlaceholders = items.filter(item => 
-    item.image?.includes('/api/placeholder-image') || !item.image
-  );
-  
-  const totalPlaceholders = itemsWithPlaceholders.length;
-  
-  // Function to fix missing or placeholder images
+  const { fetchBingoState, cities } = useBingoStore();
+
+  // Function to find items missing images
+  const findMissingImages = (cityId: string) => {
+    if (!cities[cityId]) return [];
+    
+    return cities[cityId].items
+      .filter(item => {
+        // Skip center item
+        if (item.isCenterSpace) return false;
+        
+        // Find items with no image or placeholder images
+        return !item.image || item.image.includes("placeholder");
+      })
+      .map(item => ({
+        id: item.id,
+        text: item.text
+      }));
+  };
+
   const handleFixMissingImages = async () => {
-    if (!city || isGenerating || totalPlaceholders === 0) return;
-    
-    setIsGenerating(true);
-    setProgress(0);
-    
-    try {
-      // Show toast to indicate we're starting
-      toast({
-        title: "Fixing Missing Images",
-        description: `Generating images for ${totalPlaceholders} items with missing or placeholder images in ${city.title}.`,
-      });
-      
-      // Keep track of successful and failed generations
-      let successCount = 0;
-      let failCount = 0;
-      let currentProgress = 0;
-      
-      // Only process items with placeholder or missing images
-      console.log(`[FIX] Found ${totalPlaceholders} items with missing or placeholder images in ${city.title}`);
-      console.log(`[FIX] Item IDs to fix:`, itemsWithPlaceholders.map(item => item.id).join(', '));
-      
-      // Process each item one by one to ensure maximum reliability
-      for (const item of itemsWithPlaceholders) {
-        console.log(`[FIX] Processing item ${item.id}: "${item.text}"`);
-        
-        try {
-          // Generate the image with 3 retries if needed
-          await generateImageForItem(city.id, item.id, item.text, 3);
-          
-          // Update progress
-          successCount++;
-          currentProgress++;
-          setProgress(Math.round((currentProgress / totalPlaceholders) * 100));
-          console.log(`[FIX] Successfully fixed item ${item.id}`);
-          
-          // Refresh state after each item for maximum reliability
-          await refreshState();
-        } catch (error) {
-          console.error(`[FIX] Failed to fix item ${item.id}:`, error);
-          failCount++;
-          currentProgress++;
-          setProgress(Math.round((currentProgress / totalPlaceholders) * 100));
-        }
-        
-        // Add a small delay between items to prevent rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      // Final state refresh
-      console.log(`[FIX] All items processed! Refreshing state...`);
-      await refreshState();
-      
-      // Show completion toast
-      toast({
-        title: "Fix Operation Complete",
-        description: `Successfully fixed ${successCount} images. ${failCount > 0 ? `Failed to fix ${failCount} images.` : ''}`,
-        variant: failCount > 0 ? "destructive" : "default",
-      });
-    } catch (error) {
-      console.error("Error in fix missing images flow:", error);
+    // If no cityId specified, don't proceed
+    if (!cityId) {
       toast({
         title: "Error",
-        description: "Failed to fix missing images. Please try again.",
-        variant: "destructive",
+        description: "No city selected for image generation",
+        variant: "destructive"
       });
-    } finally {
-      setIsGenerating(false);
-      setProgress(0);
+      return;
     }
-  };
-  
-  // Generate a single image with improved error handling and retries
-  const generateImageForItem = async (cityId: string, itemId: string, itemText: string, maxRetries = 1) => {
-    let retryCount = 0;
-    let lastError;
     
-    while (retryCount <= maxRetries) {
-      try {
-        if (retryCount > 0) {
-          console.log(`[FIX] Retry ${retryCount}/${maxRetries} for item ${itemId}`);
-        }
+    // Find items that need images
+    const itemsNeedingImages = findMissingImages(cityId);
+    
+    if (itemsNeedingImages.length === 0) {
+      toast({
+        title: "No missing images",
+        description: `All items in ${cities[cityId]?.title || cityId} already have images.`,
+        duration: 3000
+      });
+      return;
+    }
+    
+    // Setup progress tracking
+    setIsGenerating(true);
+    setTotal(itemsNeedingImages.length);
+    setProgress(0);
+    
+    // Notify user we're starting
+    toast({
+      title: "Fixing missing images",
+      description: `Found ${itemsNeedingImages.length} items without proper images. This process will run in the background.`,
+      duration: 5000
+    });
+    
+    // Process each item sequentially 
+    let successCount = 0;
+    let errorCount = 0;
+    
+    try {
+      for (let i = 0; i < itemsNeedingImages.length; i++) {
+        const item = itemsNeedingImages[i];
+        setCurrentItem(item.text);
         
-        // Find the item in the city to get its description
-        const item = items.find(item => item.id === itemId);
-        const description = item?.description || "";
-        
-        console.log(`[FIX] Generating image for ${itemId}: "${itemText}" with description length: ${description.length}`);
-        
-        // Get client ID from localStorage to ensure backend can associate the request with the user
-        // Use empty string as fallback instead of undefined/null to avoid Zod validation errors
-        const clientId = localStorage.getItem('clientId') || "fix-missing-images";
-        
-        // Log the HTTP request details for debugging
-        console.log(`[FIX] Sending request with clientId: ${clientId}`);
-        
-        const response = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            cityId, 
-            itemId,
-            itemText, // Include both itemId and itemText to be safe
-            description, // Pass description to be used in image generation
-            clientId, // Include client ID for proper tracking in database
-            forceNewImage: true // Force new image generation
-          }),
-        });
-        
-        // Handle HTTP errors
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`[FIX] HTTP error (${response.status}): ${errorText}`);
-          throw new Error(`HTTP error ${response.status}: ${errorText}`);
-        }
-        
-        // Parse the response
-        let data;
         try {
-          data = await response.json() as GenerateImageResponse;
-        } catch (parseError) {
-          console.error(`[FIX] Error parsing JSON response: ${parseError}`);
-          throw new Error('Invalid server response');
+          console.log(`[FIX] Generating image for ${item.id}: ${item.text}`);
+          
+          // Call API to generate image
+          const response = await apiRequest(
+            "POST",
+            "/api/generate-image",
+            { itemId: item.id, cityId, forceNewImage: true }
+          );
+          
+          const data = await response.json();
+          if (data.success) {
+            successCount++;
+            console.log(`[FIX] Successfully generated image for ${item.id}`);
+          } else {
+            errorCount++;
+            console.error(`[FIX] Failed to generate image for ${item.id}:`, data.error);
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`[FIX] Error generating image for ${item.id}:`, error);
         }
         
-        // Check for API errors
-        if (!data.success) {
-          console.error(`[FIX] API error: ${data.error || 'Unknown error'}`);
-          throw new Error(data.error || 'Failed to generate image');
+        // Update progress
+        setProgress(i + 1);
+        
+        // Refresh state every 3 items to show progress
+        if ((i + 1) % 3 === 0 || i === itemsNeedingImages.length - 1) {
+          await fetchBingoState(true);
         }
         
-        console.log(`[FIX] Successfully generated image for ${itemId}: ${data.imageUrl ? data.imageUrl.substring(0, 30) + '...' : 'No URL returned'}`);
-        
-        // Verify we got a valid image URL back
-        if (!data.imageUrl) {
-          throw new Error('No image URL returned from server');
-        }
-        
-        return data.imageUrl;
-      } catch (error) {
-        console.error(`[FIX] Error generating image for ${itemId} (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
-        lastError = error;
-        retryCount++;
-        
-        // If we have retries left, wait before trying again
-        if (retryCount <= maxRetries) {
-          const backoffMs = 1000 * Math.pow(2, retryCount - 1); // Exponential backoff
-          console.log(`[FIX] Waiting ${backoffMs}ms before retry ${retryCount}...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        // Add a slight delay to prevent overwhelming the API
+        if (i < itemsNeedingImages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
+      
+      // Final status notification
+      toast({
+        title: "Image repair complete",
+        description: `Successfully fixed ${successCount} images${errorCount > 0 ? `, but ${errorCount} failed` : ''}.`,
+        duration: 5000
+      });
+    } catch (error) {
+      console.error("[FIX] Error in fix missing images process:", error);
+      toast({
+        title: "Process interrupted",
+        description: "An error occurred while fixing missing images. Some images may have been generated.",
+        variant: "destructive",
+        duration: 5000
+      });
+    } finally {
+      // Reset state
+      setIsGenerating(false);
+      setCurrentItem("");
+      
+      // Final refresh to show all changes
+      await fetchBingoState(true);
     }
-    
-    // If we've exhausted all retries, throw the last error
-    throw lastError || new Error(`Failed to generate image for ${itemId} after ${maxRetries + 1} attempts`);
   };
 
-  // Only show the button if there are items with placeholder images
-  if (totalPlaceholders === 0) {
-    return null;
-  }
+  // Calculate missing images count
+  const missingImagesCount = cityId ? findMissingImages(cityId).length : 0;
 
   return (
-    <Button
-      className="w-full mb-4 items-center gap-2"
-      onClick={handleFixMissingImages}
-      disabled={isGenerating}
-      variant="destructive"
-    >
+    <div className="space-y-2">
       {isGenerating ? (
-        <>
-          <ImageIcon className="h-4 w-4 animate-pulse" />
-          Fixing Images ({progress}%)
-        </>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-xs text-gray-500">
+            <span>Fixing images ({progress}/{total})</span>
+            <span>{Math.round((progress / total) * 100)}%</span>
+          </div>
+          <Progress value={(progress / total) * 100} className="h-2" />
+          {currentItem && (
+            <p className="text-xs truncate">{currentItem}</p>
+          )}
+        </div>
       ) : (
-        <>
-          <AlertCircle className="h-4 w-4" />
-          Fix {totalPlaceholders} Missing Images
-        </>
+        <Button
+          variant={missingImagesCount > 0 ? "destructive" : "outline"}
+          size="sm"
+          className="w-full"
+          onClick={handleFixMissingImages}
+          disabled={missingImagesCount === 0}
+        >
+          {missingImagesCount > 0 ? (
+            <>
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Fix {missingImagesCount} Missing Images
+            </>
+          ) : (
+            <>
+              <Image className="mr-2 h-4 w-4" />
+              No Missing Images
+            </>
+          )}
+        </Button>
       )}
-    </Button>
+    </div>
   );
 }

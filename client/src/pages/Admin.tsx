@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { BrainCircuit, ImagePlus, ArrowLeft } from "lucide-react";
+import { BrainCircuit, ImagePlus, ArrowLeft, Info, X, RefreshCw, Plus, Save } from "lucide-react";
 import type { BingoItem } from "@/types";
 import { Link } from "wouter";
 import GenerateAllImagesButton from "@/components/GenerateAllImagesButton";
 import FixMissingImagesButton from "@/components/FixMissingImagesButton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Admin() {
   const { cities, currentCity, saveState, fetchBingoState } = useBingoStore();
@@ -29,6 +31,11 @@ export default function Admin() {
 
   // For displaying progress
   const [creationInProgress, setCreationInProgress] = useState(false);
+  
+  // State for item generation form
+  const [generatingFor, setGeneratingFor] = useState("");
+  const [cityTheme, setCityTheme] = useState("");
+  const [generatedItems, setGeneratedItems] = useState<any[]>([]);
   
   // Handler for generating bingo items descriptions
   const handleGenerateDescriptions = async (cityId: string) => {
@@ -338,6 +345,12 @@ export default function Admin() {
 
     setIsLoading(true);
     try {
+      toast({
+        title: "Generating bingo items",
+        description: `Creating new bingo items for ${cities[generatingFor]?.title} with theme: ${cityTheme}`,
+        duration: 5000
+      });
+      
       const response = await apiRequest(
         "POST",
         "/api/generate-items",
@@ -346,14 +359,25 @@ export default function Admin() {
           theme: cityTheme
         }
       );
-
-      const data = await response.json();
-      setGeneratedItems(data.items || []);
       
-      toast({
-        title: "Items generated",
-        description: `${data.items?.length || 0} bingo items have been generated. Review and save them to the city.`,
-      });
+      const data = await response.json();
+      console.log("[ADMIN] Generated items:", data);
+      
+      if (data.success && data.items) {
+        setGeneratedItems(data.items);
+        toast({
+          title: "Items generated successfully",
+          description: `Generated ${data.items.length} bingo items. Review and save them to the city.`,
+          duration: 5000
+        });
+      } else {
+        toast({
+          title: "Generation failed",
+          description: data.error || "Failed to generate items",
+          variant: "destructive",
+          duration: 5000
+        });
+      }
     } catch (error) {
       console.error("Error generating items:", error);
       toast({
@@ -468,6 +492,18 @@ export default function Admin() {
                 className="h-full bg-blue-500 transition-all duration-500"
                 style={{ width: `${(city.items.filter(item => item.completed).length / city.items.length) * 100}%` }}
               ></div>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {/* Generate all images */}
+            <div className="md:w-1/2 w-full">
+              <GenerateAllImagesButton cityId={city.id} />
+            </div>
+            
+            {/* Fix missing images */}
+            <div className="md:w-1/2 w-full">
+              <FixMissingImagesButton cityId={city.id} />
             </div>
           </div>
         </div>
