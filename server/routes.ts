@@ -925,6 +925,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/generate-image", async (req: Request, res: Response) => {
     const startTime = Date.now();
     const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    // Set default values outside try block so they're available in the catch block
+    let cityId = 'unknown';
+    let clientId = 'unknown';
     
     try {
       const schema = z.object({
@@ -939,10 +942,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemId, itemText: providedItemText, description: providedDescription, cityId, clientId, forceNewImage } = validatedData;
+      const { itemId, itemText: providedItemText, description: providedDescription, forceNewImage } = validatedData;
       
-      console.log(`[USER ACTION] Client ${clientId || 'unknown'} from ${requestIP} is generating image for city ${cityId}`);
-      console.log(`[USER DEVICE] Client ${clientId || 'unknown'} using: ${req.headers['user-agent']}`);
+      // Update the variables declared outside try block
+      cityId = validatedData.cityId;
+      clientId = validatedData.clientId || 'unknown';
+      
+      console.log(`[USER ACTION] Client ${clientId} from ${requestIP} is generating image for city ${cityId}`);
+      console.log(`[USER DEVICE] Client ${clientId} using: ${req.headers['user-agent']}`);
       
       // Get the current state
       const state = await storage.getBingoState();
@@ -1220,7 +1227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       const processingTime = Date.now() - startTime;
       console.error(`[SERVER ERROR] Error generating image after ${processingTime}ms:`, error);
-      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}, city ${cityId}`);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId}, city ${cityId}`);
       
       // Check which OpenAI API key we're using (without revealing it)
       console.log(`[DEBUG] OPENAI_API_KEY availability: ${!!process.env.OPENAI_API_KEY}`);
