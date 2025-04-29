@@ -656,15 +656,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   await storage.saveBingoState(updatedState, undefined, clientId);
                   log(`[DB SUCCESS] Successfully updated image for item ${item.id} in city ${cityId}`, 'db-update');
                   console.log(`[DB-IMAGE] Successfully saved image URL to database: ${imageUrl.substring(0, 30)}... for item ${item.id} in city ${cityId}`);
+                  
+                  // Direct database verification step
+                  try {
+                    // Import necessary modules
+                    const { eq } = await import('drizzle-orm');
+                    const { bingoItems } = await import('@shared/schema');
+                    const { db } = await import('./db');
+                    
+                    // Verify the database has the image URL
+                    const [updatedItemDb] = await db
+                      .select({ id: bingoItems.id, image: bingoItems.image, text: bingoItems.text })
+                      .from(bingoItems)
+                      .where(eq(bingoItems.id, item.id));
+                    
+                    if (updatedItemDb && updatedItemDb.image === imageUrl) {
+                      // Log successful verification with DATABASE VERIFIED tag
+                      log(`[DB VERIFY] ✅ DATABASE VERIFIED: Image path correctly stored for item ${item.id}`, 'db-update');
+                      console.log(`[DB-IMAGE] ✅ DATABASE VERIFIED: Item "${updatedItemDb.text}" (${item.id}) contains image: ${imageUrl.substring(0, 30)}...`);
+                      
+                      // Verify the file exists
+                      if (imageUrl.startsWith('/images/')) {
+                        const imagePath = path.join(process.cwd(), 'public', imageUrl);
+                        if (fs.existsSync(imagePath)) {
+                          const fileSize = fs.statSync(imagePath).size;
+                          console.log(`[DB-IMAGE] ✅ IMAGE FILE VERIFIED: ${imagePath} exists (${fileSize} bytes)`);
+                        } else {
+                          console.log(`[DB-IMAGE] ⚠️ WARNING: Image file not found at ${imagePath} despite successful database update`);
+                        }
+                      }
+                    } else {
+                      // Log detailed error if verification failed
+                      const actualImageUrl = updatedItemDb?.image || 'null';
+                      log(`[DB VERIFY] ❌ VERIFICATION FAILED: Image URL mismatch for item ${item.id}`, 'db-update');
+                      console.error(`[DB-IMAGE] ❌ VERIFICATION FAILED: Expected "${imageUrl.substring(0, 30)}..." but database contains "${actualImageUrl.substring(0, 30)}..."`);
+                    }
+                  } catch (verifyError) {
+                    // Log error but continue since this is just verification
+                    log(`[DB VERIFY] Error during verification: ${verifyError instanceof Error ? verifyError.message : String(verifyError)}`, 'db-update');
+                    console.error(`[DB-IMAGE] VERIFICATION ERROR for item ${item.id}: Unable to verify database update`);
+                  }
+                  
                   completedImages++;
                   log(`Generated image for item ${item.id} (${completedImages}/${itemsWithDescriptions.length})`, 'city-creation');
                 } catch (dbError) {
-                  log(`[DB ERROR] Failed to save image update for item ${item.id}: ${dbError.message}`, 'db-update');
-                  console.error(`[DB-IMAGE] Database update FAILED for item ${item.id} in city ${cityId}: ${dbError.message}`);
-                  throw new Error(`Database update failed: ${dbError.message}`);
+                  log(`[DB ERROR] Failed to save image update for item ${item.id}: ${dbError instanceof Error ? dbError.message : String(dbError)}`, 'db-update');
+                  console.error(`[DB-IMAGE] Database update FAILED for item ${item.id} in city ${cityId}: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+                  throw new Error(`Database update failed: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
                 }
               } catch (error) {
-                log(`Error generating image for item ${item.id}: ${error.message}`, 'city-creation');
+                log(`Error generating image for item ${item.id}: ${error instanceof Error ? error.message : String(error)}`, 'city-creation');
                 failedImages++;
               }
             });
@@ -681,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           log(`Image generation complete: ${completedImages} successful, ${failedImages} failed`, 'city-creation');
         } catch (error) {
-          log(`Error during batch image generation: ${error.message}`, 'city-creation');
+          log(`Error during batch image generation: ${error instanceof Error ? error.message : String(error)}`, 'city-creation');
         }
       });
       
@@ -1131,9 +1172,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .set({ image: imageUrl })
             .where(eq(bingoItems.id, itemId));
           
-          // Log the result details
-          log(`[DB SUCCESS] Direct database update completed for item ${itemId}`, 'db-update');
-          console.log(`[DB-IMAGE] Direct database update successful for item ${itemId} in city ${cityId} with image: ${imageUrl.substring(0, 30)}...`);
+          // Verification step: Query the database to confirm the update was successful
+          const [updatedItemDb] = await db
+            .select({ id: bingoItems.id, image: bingoItems.image, text: bingoItems.text })
+            .from(bingoItems)
+            .where(eq(bingoItems.id, itemId));
+          
+          // Check if the image path in the database matches what we tried to save
+          if (updatedItemDb && updatedItemDb.image === imageUrl) {
+            // Log the result details with DATABASE VERIFIED tag to clearly indicate success
+            log(`[DB SUCCESS] ✅ DATABASE VERIFIED: Image update confirmed for item ${itemId}`, 'db-update');
+            console.log(`[DB-IMAGE] ✅ DATABASE VERIFIED: Item "${updatedItemDb.text}" (${itemId}) successfully updated with image: ${imageUrl.substring(0, 30)}...`);
+            console.log(`[DB-IMAGE] ✅ FULL PATH: ${imageUrl}`);
+            
+            // Log file existence verification
+            const imagePath = imageUrl.startsWith('/images/') ? 
+              path.join(process.cwd(), 'public', imageUrl) : null;
+            
+            if (imagePath && fs.existsSync(imagePath)) {
+              const fileSize = fs.statSync(imagePath).size;
+              console.log(`[DB-IMAGE] ✅ IMAGE FILE VERIFIED: ${imagePath} exists (${fileSize} bytes)`);
+            } else if (imagePath) {
+              console.log(`[DB-IMAGE] ⚠️ WARNING: Image file not found at ${imagePath} despite successful database update`);
+            }
+          } else {
+            // Log detailed error if the image URL doesn't match or is missing
+            const actualImageUrl = updatedItemDb?.image || 'null';
+            log(`[DB ERROR] ❌ VERIFICATION FAILED: Image URL mismatch for item ${itemId}`, 'db-update');
+            console.error(`[DB-IMAGE] ❌ VERIFICATION FAILED: Expected "${imageUrl.substring(0, 30)}..." but database contains "${actualImageUrl.substring(0, 30)}..."`);
+          }
         } catch (dbDirectError: any) {
           // Log the error but don't throw since the state update already succeeded
           log(`[DB ERROR] Error during direct database update: ${dbDirectError?.message || 'Unknown error'}`, 'db-update');
