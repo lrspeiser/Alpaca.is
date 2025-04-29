@@ -1024,13 +1024,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             forceNewImage
           );
           
-          log(`Image stored locally at ${localImageUrl}`, 'ai-generation');
+          if (!localImageUrl) {
+            throw new Error(`Failed to process and store image locally - empty URL returned`);
+          }
+          
+          // Verify image exists at expected location
+          const filename = localImageUrl.split('/').pop();
+          const fullPath = path.join(process.cwd(), 'public', 'images', filename || '');
+          
+          if (!fs.existsSync(fullPath)) {
+            throw new Error(`Image file does not exist at expected location: ${fullPath}`);
+          }
+          
+          const fileSize = fs.statSync(fullPath).size;
+          if (fileSize === 0) {
+            throw new Error(`Image file was created but is empty: ${fullPath}`);
+          }
+          
+          log(`[DB-IMAGE] Image stored locally at ${localImageUrl} (${fileSize} bytes)`, 'ai-generation');
+          console.log(`[DB-IMAGE] Successfully saved image for "${itemText}" at ${fullPath} (${fileSize} bytes)`);
           
           // Replace the OpenAI URL with our local URL
           imageUrl = localImageUrl;
         } catch (storageError: any) {
-          log(`Warning: Failed to store image locally: ${storageError.message}`, 'ai-generation');
-          log(`Falling back to original OpenAI URL (this may expire)`, 'ai-generation');
+          // Instead of falling back to the OpenAI URL, throw an error to ensure consistent handling
+          log(`[DB-IMAGE] ERROR: Failed to store image locally: ${storageError.message}`, 'ai-generation');
+          console.error(`[DB-IMAGE] Failed to store image for "${itemText}" in ${city.title}: ${storageError.message}`);
+          throw new Error(`Failed to save image file: ${storageError.message}`);
         }
       } catch (imageError: any) {
         const errorDetails = {
@@ -1085,11 +1105,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         log(`Final image URL check for ${itemId}: ${checkItem?.image ? 'URL present' : 'No URL'}`, 'ai-generation');
         
         // Save the updated state to the database with clientId if provided
-        await storage.saveBingoState(updatedState, undefined, clientId);
-        
-        // Also directly update the database item 
         try {
-          log(`Directly updating image URL in database for item ${itemId}`, 'ai-generation');
+          log(`[DB WRITE] Saving updated state with new image for item ${itemId} in city ${cityId}`, 'db-update');
+          await storage.saveBingoState(updatedState, undefined, clientId);
+          log(`[DB SUCCESS] Successfully updated image for item ${itemId} in city ${cityId} via state`, 'db-update');
+          console.log(`[DB-IMAGE] Successfully saved image URL to state: ${imageUrl.substring(0, 30)}... for item ${itemId} in city ${cityId}`);
+        } catch (dbStateError: any) {
+          log(`[DB ERROR] Failed to save state with updated image for item ${itemId}: ${dbStateError.message}`, 'db-update');
+          console.error(`[DB-IMAGE] State update FAILED for item ${itemId} in city ${cityId}: ${dbStateError.message}`);
+          throw new Error(`Database state update failed: ${dbStateError.message}`);
+        }
+        
+        // Also directly update the database item for redundancy
+        try {
+          log(`[DB DIRECT] Directly updating image URL in database for item ${itemId}`, 'db-update');
           
           // Import necessary modules
           const { eq } = await import('drizzle-orm');
@@ -1097,14 +1126,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { db } = await import('./db');
           
           // Update the database directly
-          await db
+          const result = await db
             .update(bingoItems)
             .set({ image: imageUrl })
             .where(eq(bingoItems.id, itemId));
-            
-          log(`Direct database update completed for item ${itemId}`, 'ai-generation');
-        } catch (error: any) {
-          log(`Error during direct database update: ${error?.message || 'Unknown error'}`, 'ai-generation');
+          
+          // Log the result details
+          log(`[DB SUCCESS] Direct database update completed for item ${itemId}`, 'db-update');
+          console.log(`[DB-IMAGE] Direct database update successful for item ${itemId} in city ${cityId} with image: ${imageUrl.substring(0, 30)}...`);
+        } catch (dbDirectError: any) {
+          // Log the error but don't throw since the state update already succeeded
+          log(`[DB ERROR] Error during direct database update: ${dbDirectError?.message || 'Unknown error'}`, 'db-update');
+          console.error(`[DB-IMAGE] Direct database update FAILED for item ${itemId}: ${dbDirectError.message}`);
         }
       }
       
