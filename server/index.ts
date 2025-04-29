@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { preloadCitiesFromDatabase, repairWashingtonDCImages } from "./preload";
+import { preloadCitiesFromDatabase } from "./preload";
 import { migrateCityMetadata } from "./migrate-city-metadata";
 import { updateCityMetadata } from "./updateCityMetadata";
 
