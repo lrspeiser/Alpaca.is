@@ -216,8 +216,8 @@ export async function generateItemImage(
     // Record start time for performance tracking
     const startTime = Date.now();
     
-    // Base prompt
-    let prompt = `Create a high-quality square image of "${itemText}" in ${cityName}.`;
+    // Base prompt optimized for DALL-E-3
+    let prompt = `Create a high-quality, detailed photorealistic image showing "${itemText}" in ${cityName}. Make it visually rich and engaging with good lighting and composition. No text or captions. No borders. Square format with 1:1 aspect ratio. Emphasize authenticity and realism.`;
     
     // If we have a style guide, choose an appropriate style based on the item text
     if (styleGuide && styleGuide.styleGuide && styleGuide.styleGuide.length > 0) {
@@ -247,13 +247,13 @@ export async function generateItemImage(
         }
       }
       
-      // Add the selected style to the prompt
-      prompt += ` Use the "${bestStyle.style}" style (${bestStyle.keywords}). No text overlay. Square 1:1 aspect ratio.`;
+      // Add the selected style to the prompt - optimized for DALL-E-3
+      prompt += ` Use the "${bestStyle.style}" style (${bestStyle.keywords}). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation.`;
       
       log(`Selected "${bestStyle.style}" style for "${itemText}"`, "openai-debug");
     } else {
-      // Default prompt if no style guide is available
-      prompt += ` Use the artistic style or photographic approach that best suits the subject matter and location. No text overlay. Square 1:1 aspect ratio. Choose between photography, illustration, painting, or other medium that works best for this specific subject.`;
+      // Default prompt if no style guide is available - optimized for DALL-E-3
+      prompt += ` Use photorealistic style with rich details and professional composition. Avoid any text, watermarks or borders. Maintain strong lighting and clear focus on the main subject.`;
     }
     
     // Add description details to the prompt if available
@@ -321,7 +321,13 @@ export async function generateItemImage(
         }
         
         // If we get here, the response was not OK
-        const errorText = await fetchResponse.text();
+        let errorText;
+        try {
+          errorText = await fetchResponse.text();
+        } catch (readError: any) {
+          // If we can't read the response body, create a generic error
+          errorText = `Unable to read error details: ${readError.message}`;
+        }
         log(`API error on attempt ${attempts}: ${errorText}`, "openai-debug");
         console.log(`[OPENAI ERROR] Attempt ${attempts} failed with: ${errorText.substring(0, 100)}...`);
         
@@ -366,19 +372,27 @@ export async function generateItemImage(
     }
     
     if (!fetchResponse.ok) {
-      const errorText = await fetchResponse.text();
-      log(`OpenAI API error (${fetchResponse.status}): ${errorText}`, "openai-debug");
-      
-      // Try to parse the error response
+      let errorText;
       try {
-        const errorJson = JSON.parse(errorText);
-        console.error('Detailed OpenAI error:', JSON.stringify(errorJson, null, 2));
-      } catch (e) {
-        // If it's not valid JSON, just use the raw text
-        console.error('OpenAI error (raw text):', errorText);
+        errorText = await fetchResponse.text();
+        log(`OpenAI API error (${fetchResponse.status}): ${errorText}`, "openai-debug");
+        
+        // Try to parse the error response
+        try {
+          const errorJson = JSON.parse(errorText);
+          console.error('Detailed OpenAI error:', JSON.stringify(errorJson, null, 2));
+        } catch (e) {
+          // If it's not valid JSON, just use the raw text
+          console.error('OpenAI error (raw text):', errorText);
+        }
+      } catch (readError: any) {
+        // If we can't read the response body, create a generic error
+        errorText = `Unable to read error details: ${readError.message}`;
+        log(`Failed to read error response: ${readError.message}`, "openai-debug");
+        console.error('Error reading response body:', readError.message);
       }
       
-      throw new Error(`OpenAI API error: ${fetchResponse.status} - ${errorText}`);
+      throw new Error(`OpenAI API error: ${fetchResponse.status} - ${errorText || 'Unknown error'}`);
     }
     
     // Process successful response
