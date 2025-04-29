@@ -99,7 +99,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
           // After each batch completes, refresh the state to ensure changes are reflected
           console.log(`[BATCH] Refreshing state after batch ${batchIndex + 1}`);
           try {
-            await refreshState(true); // Force refresh from server
+            await refreshState(); // This already forces a refresh in its implementation
             console.log(`[BATCH] Successfully refreshed state after batch ${batchIndex + 1}`);
           } catch (refreshError) {
             console.error(`[BATCH] Error refreshing state after batch ${batchIndex + 1}:`, refreshError);
@@ -119,7 +119,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       // Final state refresh to ensure all changes are reflected
       console.log(`[BATCH] All batches completed! Refreshing state...`);
       try {
-        await refreshState(true); // Force refresh from server
+        await refreshState(); // This already forces a refresh in its implementation
         console.log(`[BATCH] Successfully completed final state refresh`);
       } catch (finalRefreshError) {
         console.error(`[BATCH] Error during final state refresh:`, finalRefreshError);
