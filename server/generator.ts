@@ -59,7 +59,7 @@ export async function generateBingoItems(
 
     // Call OpenAI API with appropriate parameters
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // The newest OpenAI model is "gpt-4o" which was released May 13, 2024. Do not change this unless explicitly requested by the user
+      model: "gpt-4.1", // This is the most recent model since April 2025. DO NOT change to an older model like gpt-4o
       messages: [
         {
           role: "system",
@@ -150,7 +150,7 @@ export async function generateStyleGuide(cityName: string): Promise<any> {
 
     // Call OpenAI API to generate style guide
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // The newest OpenAI model is "gpt-4o" which was released May 13, 2024. Do not change this unless explicitly requested by the user
+      model: "gpt-4.1", // This is the most recent model since April 2025. DO NOT change to an older model like gpt-4o
       messages: [
         {
           role: "system",
@@ -270,11 +270,11 @@ export async function generateItemImage(
       prompt += ` Context: ${shortDescription}`;
     }
     
-    log(`Starting image generation via OpenAI API with dall-e-3 model, prompt: ${prompt}`, "openai-debug");
+    log(`Starting image generation via OpenAI API with gpt-image-1 model, prompt: ${prompt}`, "openai-debug");
     
     // Prepare request body with explicit square size - removed potentially unsupported parameters
     const reqBody = {
-      model: "dall-e-3", // Using dall-e-3 for image generation (most reliable option)
+      model: "gpt-image-1", // Using gpt-image-1 for image generation - DO NOT change to dall-e-3
       prompt,
       size: "1024x1024", // Force square aspect ratio
       n: 1
@@ -294,12 +294,12 @@ export async function generateItemImage(
         log(`API attempt ${attempts}/${maxRetries + 1} for item "${itemText}"`, "openai-debug");
         console.log(`[OPENAI ATTEMPT] Try #${attempts} for "${itemText}"`);
         
-        // Use AbortController to implement a timeout - 90s is usually enough
+        // Use AbortController to implement a timeout - 120s to ensure completion
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           controller.abort();
-          console.log(`[OPENAI TIMEOUT] Request timed out after 90s for "${itemText}"`);
-        }, 90000); // 90 second timeout
+          console.log(`[OPENAI TIMEOUT] Request timed out after 120s for "${itemText}"`);
+        }, 120000); // 120 second timeout
         
         // Include debugging headers
         fetchResponse = await fetch("https://api.openai.com/v1/images/generations", {
