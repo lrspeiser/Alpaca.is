@@ -50,7 +50,9 @@ export async function preloadCitiesFromDatabase(): Promise<void> {
         id: city.id,
         title: city.title || `${city.id} Bingo`,
         subtitle: city.subtitle || 'College Student Edition',
-        styleGuide: city.styleGuide ? JSON.parse(city.styleGuide) : { styleGuide: [] },
+        styleGuide: city.styleGuide && typeof city.styleGuide === 'string' 
+          ? JSON.parse(city.styleGuide) 
+          : city.styleGuide || { styleGuide: [] },
         items: cityItems.map(item => ({
           id: item.id,
           text: item.text || '',
@@ -84,55 +86,77 @@ export async function preloadCitiesFromDatabase(): Promise<void> {
 }
 
 /**
- * Check for Washington, D.C. and ensure it has at least placeholder images
+ * Check for Washington, D.C. items and ensure they have at least placeholder images
  */
 export async function repairWashingtonDCImages(): Promise<void> {
   try {
     console.log('[DC REPAIR] Checking Washington DC images');
     
-    // Get state
-    const state = await storage.getBingoState();
+    // Direct database lookup to get all Washington DC items
+    const washingtonItems = await db.select().from(bingoItems).where(eq(bingoItems.cityId, 'washingtondc'));
     
-    // Check if Washington DC exists
-    if (!state.cities['washingtondc']) {
-      console.log('[DC REPAIR] Washington DC not found in state, skipping repair');
+    if (washingtonItems.length === 0) {
+      console.log('[DC REPAIR] No Washington DC items found in database');
       return;
     }
     
-    console.log('[DC REPAIR] Found Washington DC in state');
+    console.log(`[DC REPAIR] Found ${washingtonItems.length} Washington DC items in database`);
     
-    // Check image status
-    const dcItems = state.cities['washingtondc'].items;
-    const missingImages = dcItems.filter(item => !item.image);
+    // Filter out items missing images
+    const itemsMissingImages = washingtonItems.filter(item => !item.image);
+    console.log(`[DC REPAIR] Found ${itemsMissingImages.length} items missing images`);
     
-    console.log(`[DC REPAIR] Washington DC has ${dcItems.length} items, ${missingImages.length} missing images`);
-    
-    if (missingImages.length === 0) {
+    if (itemsMissingImages.length === 0) {
       console.log('[DC REPAIR] No missing images found');
       return;
     }
     
-    // Add placeholder images
-    for (const item of missingImages) {
-      const placeholderUrl = `/api/placeholder-image?text=${encodeURIComponent(item.text)}&reason=${encodeURIComponent('Washington DC image being processed')}`;
-      item.image = placeholderUrl;
+    // Add placeholder images directly to the database
+    let updatedCount = 0;
+    for (const item of itemsMissingImages) {
+      const itemText = item.text || 'Washington DC Item';
+      const placeholderUrl = `/api/placeholder-image?text=${encodeURIComponent(itemText)}&reason=${encodeURIComponent('Washington DC image being processed')}`;
       
-      // Also update database
       try {
         await db
           .update(bingoItems)
           .set({ image: placeholderUrl })
           .where(eq(bingoItems.id, item.id));
         
+        updatedCount++;
         console.log(`[DC REPAIR] Added placeholder image for item ${item.id}`);
       } catch (dbError) {
         console.error(`[DC REPAIR] Database update failed for item ${item.id}:`, dbError);
       }
     }
     
-    // Save updated state
-    await storage.saveBingoState(state);
-    console.log('[DC REPAIR] Successfully saved updated state with Washington DC placeholder images');
+    console.log(`[DC REPAIR] Updated ${updatedCount} items in the database with placeholder images`);
+    
+    // Now update the application state
+    const appState = await storage.getBingoState();
+    
+    if (appState.cities['washingtondc']) {
+      console.log('[DC REPAIR] Updating Washington DC in application state');
+      
+      // Update the images in the application state
+      let stateUpdatedCount = 0;
+      for (const stateItem of appState.cities['washingtondc'].items) {
+        if (!stateItem.image) {
+          const itemText = stateItem.text || 'Washington DC Item';
+          const placeholderUrl = `/api/placeholder-image?text=${encodeURIComponent(itemText)}&reason=${encodeURIComponent('Washington DC image being processed')}`;
+          stateItem.image = placeholderUrl;
+          stateUpdatedCount++;
+        }
+      }
+      
+      console.log(`[DC REPAIR] Updated ${stateUpdatedCount} items in application state with placeholder images`);
+      
+      // Save updated application state
+      await storage.saveBingoState(appState);
+      console.log('[DC REPAIR] Successfully saved updated state with Washington DC placeholder images');
+    } else {
+      console.log('[DC REPAIR] Washington DC not found in application state, but database was updated');
+    }
     
   } catch (error) {
     console.error('[DC REPAIR ERROR]', error);
