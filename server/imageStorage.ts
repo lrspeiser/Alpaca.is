@@ -89,6 +89,34 @@ export async function downloadAndStoreImage(
       return `/images/${filename}`;
     }
     
+    // Special case: if the imageUrl is already a local path (starts with /images/), just copy it
+    if (imageUrl.startsWith('/images/')) {
+      log(`[IMAGE-STORAGE] Image URL is already local: ${imageUrl}`, 'image-storage');
+      console.log(`[DB-IMAGE] Local image URL provided for "${itemText}" in ${cityId}: ${imageUrl}`);
+      
+      // Extract the source filename and path
+      const sourceFilename = imageUrl.split('/').pop();
+      if (!sourceFilename) {
+        throw new Error('Invalid local image URL format');
+      }
+      
+      const sourcePath = path.join(getImageDir(), sourceFilename);
+      
+      // Check if the source file exists
+      if (!fs.existsSync(sourcePath)) {
+        throw new Error(`Source image does not exist at ${sourcePath}`);
+      }
+      
+      // Copy the file (if source and destination are different)
+      if (sourcePath !== localPath) {
+        fs.copyFileSync(sourcePath, localPath);
+        log(`[IMAGE-STORAGE] Copied image from ${sourcePath} to ${localPath}`, 'image-storage');
+        console.log(`[DB-IMAGE] Copied image for "${itemText}" in ${cityId} from ${sourcePath} to ${localPath}`);
+      }
+      
+      return `/images/${filename}`;
+    }
+    
     // Log URL starting point but truncate for privacy/security
     const loggableUrl = imageUrl.startsWith('data:') 
       ? `data:image (base64 data of length ${imageUrl.length})`

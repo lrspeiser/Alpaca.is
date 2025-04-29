@@ -1,0 +1,31 @@
+[STORE] Using saved city from localStorage: munich
+[STORE] Received bingo state from API 
+Object {currentCity: "munich", cities: Array(6)}
+[STORE] First city (munich) data: 
+Object {title: "Munich Bingo", itemCount: 25, itemsWithDescriptions: 25, itemsWithImages: 25}
+[STORE] Using saved city from localStorage: munich
+[STORE] Received bingo state from API 
+Object {currentCity: "munich", cities: Array(6)}
+[STORE] First city (munich) data: 
+Object {title: "Munich Bingo", itemCount: 25, itemsWithDescriptions: 25, itemsWithImages: 25}
+[STORE] Using saved city from localStorage: munich
+[STORE] Received bingo state from API 
+Object {currentCity: "munich", cities: Array(6)}
+[STORE] First city (munich) data: 
+Object {title: "Munich Bingo", itemCount: 25, itemsWithDescriptions: 25, itemsWithImages: 25}
+[STORE] Using saved city from localStorage: munich
+[ADMIN] Starting image generation for item: washingtondc-5e6ca2a1 in city: washingtondc
+[ADMIN] Network error during image generation: 
+Error {}
+
+at t.value (https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+[ADMIN] Error generating image: 
+Error {}
+
+at t.value (https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://8135d9c5-b2e8-48fe-b7a9-8e1c2517e61d-00-1z8c4xxq9h2l9.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
