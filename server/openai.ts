@@ -20,7 +20,7 @@ const openai = new OpenAI({
 export async function generateItemDescription(itemText: string, cityName: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // The newest OpenAI model is "gpt-4o" which was released May 13, 2024. Do not change this unless explicitly requested by the user
+      model: "gpt-4.1", // This is the most recent model since April 2025. DO NOT change to an older model like gpt-4o
       messages: [
         {
           role: "system",

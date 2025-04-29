@@ -45,10 +45,17 @@ async function testOpenAI() {
       size: "1024x1024",
     });
     
-    console.log("[TEST SUCCESS] Image response received:", JSON.stringify(imageResponse));
+    console.log("[TEST SUCCESS] Image response received from gpt-image-1");
     
-    // Safely access data if it exists
-    const imageUrl = imageResponse?.data?.[0]?.url || "No URL available";
+    // Handle both possible response formats for gpt-image-1
+    let imageUrl = "No URL available";
+    
+    // GPT-image-1 might return data in different formats than DALL-E-3
+    if (imageResponse?.data?.[0]?.url) {
+      imageUrl = imageResponse.data[0].url;
+    } else if (imageResponse?.data?.[0]?.b64_json) {
+      imageUrl = "Base64 image data received (not displaying for brevity)";
+    }
     console.log("[TEST SUCCESS] Image URL:", imageUrl);
     console.log("[TEST] OpenAI API test completed successfully");
     

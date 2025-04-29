@@ -389,10 +389,23 @@ export async function generateItemImage(
     const data = await fetchResponse.json();
     log(`OpenAI API success response received`, "openai-debug");
     
-    // DALL-E-3 returns a URL, not base64 data
+    // Process the response data from GPT-image-1
+    let imageUrl: string | null = null;
+    
+    // Handle URL format
     if (data.data && data.data.length > 0 && data.data[0].url) {
-      const imageUrl = data.data[0].url;
+      imageUrl = data.data[0].url;
       log(`Successfully generated image with URL: ${imageUrl}`, "openai-debug");
+    } 
+    // Handle base64 format
+    else if (data.data && data.data.length > 0 && data.data[0].b64_json) {
+      // Create a data URL from the base64 data
+      const b64Data = data.data[0].b64_json;
+      imageUrl = `data:image/png;base64,${b64Data}`;
+      log(`Successfully generated image with base64 data (length: ${b64Data.length})`, "openai-debug");
+    }
+    
+    if (imageUrl) {
       
       try {
         // Download and store the image locally
