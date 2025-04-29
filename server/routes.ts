@@ -757,20 +757,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate a description for a single bingo item
-  // Administrative endpoint to repair Washington DC images
-  // This is separate from startup to avoid slowing down the application
-  app.post("/api/repair-dc-images", async (req: Request, res: Response) => {
+  // Administrative endpoint to update city metadata
+  app.post("/api/update-city-metadata", async (req: Request, res: Response) => {
     try {
-      console.log('[DC REPAIR] Manual repair of Washington DC images requested');
-      const { repairWashingtonDCImages } = await import('./preload');
-      await repairWashingtonDCImages();
-      return res.json({ success: true, message: 'Washington DC image repair process completed' });
+      const { cityId } = req.body; // Optional city ID to update just one city
+      
+      // Run the updateCityMetadata function for the specified city or all cities
+      const result = await updateCityMetadata(cityId);
+      
+      res.json({
+        success: true,
+        message: cityId 
+          ? `Successfully updated metadata for city ${cityId}` 
+          : "Successfully updated metadata for all cities"
+      });
     } catch (error) {
-      console.error('[DC REPAIR ERROR]', error);
-      return res.status(500).json({ 
+      console.error("Error updating city metadata:", error);
+      res.status(500).json({ 
         success: false, 
-        error: 'Error during Washington DC image repair',
-        details: error instanceof Error ? error.message : String(error)
+        error: "Failed to update city metadata",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Administrative endpoint to repair missing images for any city
+  app.post("/api/repair-missing-images", async (req: Request, res: Response) => {
+    try {
+      const { cityId } = req.body; // Optional city ID to repair just one city
+      
+      // First, check for missing images
+      const repairInfo = await repairMissingImages(cityId);
+      
+      // If there are items to repair, generate images for them
+      if (repairInfo.itemsToRepair && repairInfo.itemsToRepair.length > 0) {
+        log(`[IMAGE REPAIR] Found ${repairInfo.itemsToRepair.length} images to repair`, 'server');
+        
+        // Return the information to the client, the actual image generation will be done
+        // through the normal image generation endpoint (which has rate limiting, etc.)
+        return res.json({
+          success: true,
+          message: `Found ${repairInfo.itemsToRepair.length} images that need repair`,
+          itemsToRepair: repairInfo.itemsToRepair,
+          repaired: 0,
+          needsRepair: repairInfo.itemsToRepair.length
+        });
+      }
+      
+      // No images to repair
+      return res.json({
+        success: true,
+        message: cityId 
+          ? `No missing images found for city ${cityId}` 
+          : "No missing images found in any city",
+        repaired: 0,
+        needsRepair: 0
+      });
+    } catch (error) {
+      console.error("Error repairing missing images:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to repair missing images",
+        message: error instanceof Error ? error.message : String(error)
       });
     }
   });

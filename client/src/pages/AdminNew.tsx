@@ -454,18 +454,24 @@ export default function Admin() {
                     )}
                     <div className="mt-4 grid grid-cols-3 gap-2 text-sm mb-6">
                       <div className="flex flex-col items-center p-2 bg-blue-50 rounded">
-                        <span className="font-bold text-lg">{city.items.length}</span>
+                        <span className="font-bold text-lg">{city.itemCount || city.items.length}</span>
                         <span className="text-xs text-blue-700">Items</span>
                       </div>
                       <div className="flex flex-col items-center p-2 bg-green-50 rounded">
                         <span className="font-bold text-lg">
-                          {city.items.filter(item => !!item.description).length}
+                          {city.itemsWithDescriptions || city.items.filter(item => !!item.description).length}
                         </span>
                         <span className="text-xs text-green-700">Descriptions</span>
                       </div>
-                      <div className="flex flex-col items-center p-2 bg-purple-50 rounded">
+                      <div className="flex flex-col items-center p-2 bg-purple-50 rounded relative">
                         <span className="font-bold text-lg">
-                          {city.items.filter(item => !!item.image).length}
+                          {city.itemsWithImages || city.items.filter(item => !!item.image).length}
+                          {city.itemsWithValidImageFiles !== undefined && 
+                           city.itemsWithValidImageFiles !== city.itemsWithImages && (
+                            <span className="text-xs text-red-500 absolute -right-3 -top-2">
+                              ({city.itemsWithValidImageFiles}/{city.itemsWithImages} files)
+                            </span>
+                          )}
                         </span>
                         <span className="text-xs text-purple-700">Images</span>
                       </div>

@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { preloadCitiesFromDatabase, repairWashingtonDCImages } from "./preload";
+import { migrateCityMetadata } from "./migrate-city-metadata";
+import { updateCityMetadata } from "./updateCityMetadata";
 
 const app = express();
 app.use(express.json());
@@ -57,14 +59,25 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Preload cities from database to ensure all cities are available
+  // Run database migrations and preload cities
   try {
+    // First, run the migration to add metadata columns
+    log('Running database migrations...', 'setup');
+    const migrationResult = await migrateCityMetadata();
+    if (migrationResult) {
+      log('Successfully completed database migrations', 'setup');
+      
+      // Update city metadata (count valid images, descriptions, etc.)
+      log('Updating city metadata...', 'setup');
+      await updateCityMetadata();
+      log('Successfully updated city metadata', 'setup');
+    }
+    
+    // Preload cities from database
     await preloadCitiesFromDatabase();
-    // Disable automatic image repair on startup (too resource-intensive)
-    // await repairWashingtonDCImages();
     log('Successfully preloaded cities', 'preload');
-  } catch (preloadError) {
-    console.error('Error during preloading:', preloadError);
+  } catch (setupError) {
+    console.error('Error during database setup:', setupError);
   }
 
   // ALWAYS serve the app on port 5000
