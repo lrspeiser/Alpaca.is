@@ -290,6 +290,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Reset all items for a city
   app.post("/api/reset-city", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       const schema = z.object({
         cityId: z.string(),
@@ -299,11 +302,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = schema.parse(req.body);
       const { cityId, clientId } = validatedData;
       
+      // Get state to retrieve city name for better logging
+      const state = await storage.getBingoState(undefined, clientId);
+      let cityName = cityId;
+      
+      if (state.cities[cityId]) {
+        cityName = state.cities[cityId].title;
+      }
+      
+      console.log(`[USER ACTION] Client ${clientId || 'unknown'} from ${requestIP} is resetting progress for city "${cityName}" (${cityId})`);
+      
       // Use clientId if provided
       await storage.resetCity(cityId, undefined, clientId);
+      
+      const processingTime = Date.now() - startTime;
+      console.log(`[PERFORMANCE] City reset processed in ${processingTime}ms for client ${clientId || 'unknown'}`);
+      
       res.json({ success: true });
     } catch (error) {
-      console.error("Error resetting city:", error);
+      const processingTime = Date.now() - startTime;
+      console.error(`[SERVER ERROR] Error resetting city after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${(req.body && req.body.clientId) || 'unknown'}`);
+      
       res.status(500).json({ error: "Failed to reset city" });
     }
   });
@@ -410,6 +430,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Create a new city with full automated generation
   app.post("/api/create-city", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       // Validate input - we only need cityId and cityName (plus optional clientId)
       const schema = z.object({
@@ -420,6 +443,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = schema.parse(req.body);
       const { cityId, cityName, clientId } = validatedData;
+      
+      console.log(`[USER ACTION] Client ${clientId || 'unknown'} from ${requestIP} is creating new city "${cityName}" (${cityId})`);
+      console.log(`[USER DEVICE] Client ${clientId || 'unknown'} using: ${req.headers['user-agent']}`);
       
       log(`Creating new city: ${cityName} (${cityId})`, 'city-creation');
       
@@ -635,6 +661,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      // Calculate performance metrics
+      const processingTime = Date.now() - startTime;
+      console.log(`[PERFORMANCE] City ${cityName} created in ${processingTime}ms with ${newCity.items.length} items by client ${clientId || 'unknown'}`);
+      
       res.json({
         success: true,
         cityId: cityId,
@@ -642,7 +672,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Created new city "${cityName}" with ${newCity.items.length} items. Image generation is running in the background.`
       });
     } catch (error) {
-      console.error("Error creating city:", error);
+      const processingTime = Date.now() - startTime;
+      console.error(`[SERVER ERROR] Error creating city ${cityId} after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}`);
+      
       res.status(500).json({ error: "Failed to create city" });
     }
   });
@@ -716,6 +749,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Save a user-captured photo for a bingo item
   app.post("/api/save-user-photo", async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+    
     try {
       const schema = z.object({
         itemId: z.string(),
@@ -732,6 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const city = state.cities[cityId];
       
       if (!city) {
+        console.log(`[USER ERROR] Client ${clientId || 'unknown'} tried to save photo for nonexistent city ${cityId}`);
         return res.status(404).json({ error: `City ${cityId} not found` });
       }
       
@@ -739,9 +776,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const item = city.items.find(item => item.id === itemId);
       
       if (!item) {
+        console.log(`[USER ERROR] Client ${clientId || 'unknown'} tried to save photo for nonexistent item ${itemId}`);
         return res.status(404).json({ error: `Item ${itemId} not found in city ${cityId}` });
       }
       
+      console.log(`[USER PHOTO] Client ${clientId || 'unknown'} from ${requestIP} is saving a photo for "${item.text}" (${itemId}) in ${city.title}`);
       log(`Saving user photo for item ${itemId} in ${cityId}`, 'user-photos');
       
       // Check if photoDataUrl is a valid data URL
@@ -800,13 +839,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save the updated state with clientId if provided
       await storage.saveBingoState(updatedState, undefined, clientId);
       
+      const processingTime = Date.now() - startTime;
+      console.log(`[PERFORMANCE] User photo saved in ${processingTime}ms for client ${clientId || 'unknown'}`);
+      console.log(`[USER MILESTONE] Client ${clientId || 'unknown'} completed item "${item.text}" with photo in ${city.title}`);
+      
       res.json({ 
         success: true, 
         photoUrl: localPhotoPath,
         message: `Saved user photo for "${item.text}" in ${city.title}`
       });
     } catch (error: any) {
-      console.error("Error saving user photo:", error);
+      const processingTime = Date.now() - startTime;
+      console.error(`[SERVER ERROR] Error saving user photo after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}`);
       res.status(500).json({ error: "Failed to save user photo" });
     }
   });
