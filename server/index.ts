@@ -60,8 +60,9 @@ app.use((req, res, next) => {
   // Preload cities from database to ensure all cities are available
   try {
     await preloadCitiesFromDatabase();
-    await repairWashingtonDCImages();
-    log('Successfully preloaded cities and fixed Washington DC images', 'preload');
+    // Disable automatic image repair on startup (too resource-intensive)
+    // await repairWashingtonDCImages();
+    log('Successfully preloaded cities', 'preload');
   } catch (preloadError) {
     console.error('Error during preloading:', preloadError);
   }

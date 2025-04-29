@@ -117,7 +117,7 @@ export async function repairWashingtonDCImages(): Promise<void> {
       console.log('[DC REPAIR] Verifying image paths in application state');
       
       // Check if images exist in the actual files
-      const fs = await import('fs');
+      const fs = await import('fs/promises');
       const path = await import('path');
       
       // Count items with invalid file paths
@@ -126,7 +126,10 @@ export async function repairWashingtonDCImages(): Promise<void> {
       for (const item of washingtonItems) {
         if (item.image && item.image.startsWith('/images/')) {
           const imagePath = path.join(process.cwd(), 'public', item.image);
-          if (!fs.existsSync(imagePath)) {
+          try {
+            await fs.access(imagePath);
+            // File exists
+          } catch (err) {
             invalidFilePaths++;
             console.log(`[DC REPAIR] ⚠️ Image file missing for ${item.id}: ${item.image}`);
           }
@@ -140,13 +143,18 @@ export async function repairWashingtonDCImages(): Promise<void> {
         console.log(`[DC REPAIR] Found ${invalidFilePaths} items with missing image files`);
         
         // Prepare a list of items that need image regeneration
+        // Use the previously identified items with missing files
         const itemsNeedingRegeneration = washingtonItems.filter(item => {
           if (!item.image || !item.image.startsWith('/images/')) return true;
           
-          const fs = require('fs');
-          const path = require('path');
-          const imagePath = path.join(process.cwd(), 'public', item.image);
-          return !fs.existsSync(imagePath);
+          const imagePath = process.cwd() + '/public' + item.image;
+          try {
+            // Synchronous check using requires built into Node
+            return !require('fs').existsSync(imagePath);
+          } catch (e) {
+            // If any error occurs, assume file doesn't exist
+            return true;
+          }
         });
         
         console.log(`[DC REPAIR] Will attempt to regenerate ${itemsNeedingRegeneration.length} images`);
@@ -229,7 +237,7 @@ export async function repairWashingtonDCImages(): Promise<void> {
           const refreshedItems = await db.select().from(bingoItems).where(eq(bingoItems.cityId, 'washingtondc'));
           
           // Create a lookup map of DB items by ID for quick access
-          const dbItemsMap = {};
+          const dbItemsMap: Record<string, typeof refreshedItems[0]> = {};
           for (const item of refreshedItems) {
             dbItemsMap[item.id] = item;
           }

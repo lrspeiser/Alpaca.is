@@ -756,6 +756,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate a description for a single bingo item
+  // Administrative endpoint to repair Washington DC images
+  // This is separate from startup to avoid slowing down the application
+  app.post("/api/repair-dc-images", async (req: Request, res: Response) => {
+    try {
+      console.log('[DC REPAIR] Manual repair of Washington DC images requested');
+      const { repairWashingtonDCImages } = await import('./preload');
+      await repairWashingtonDCImages();
+      return res.json({ success: true, message: 'Washington DC image repair process completed' });
+    } catch (error) {
+      console.error('[DC REPAIR ERROR]', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Error during Washington DC image repair',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   app.post("/api/generate-description", async (req: Request, res: Response) => {
     try {
       const schema = z.object({
