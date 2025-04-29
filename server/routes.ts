@@ -1152,66 +1152,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const checkItem = updatedState.cities[cityId].items.find(i => i.id === itemId);
         log(`Final image URL check for ${itemId}: ${checkItem?.image ? 'URL present' : 'No URL'}`, 'ai-generation');
         
-        // Save the updated state to the database with clientId if provided
-        try {
-          log(`[DB WRITE] Saving updated state with new image for item ${itemId} in city ${cityId}`, 'db-update');
-          await storage.saveBingoState(updatedState, undefined, clientId);
-          log(`[DB SUCCESS] Successfully updated image for item ${itemId} in city ${cityId} via state`, 'db-update');
-          console.log(`[DB-IMAGE] Successfully saved image URL to state: ${imageUrl.substring(0, 30)}... for item ${itemId} in city ${cityId}`);
-        } catch (dbStateError: any) {
-          log(`[DB ERROR] Failed to save state with updated image for item ${itemId}: ${dbStateError.message}`, 'db-update');
-          console.error(`[DB-IMAGE] State update FAILED for item ${itemId} in city ${cityId}: ${dbStateError.message}`);
-          throw new Error(`Database state update failed: ${dbStateError.message}`);
-        }
+        // Import necessary modules for database operations
+        const { eq } = await import('drizzle-orm');
+        const { bingoItems } = await import('@shared/schema');
+        const { db } = await import('./db');
         
-        // Also directly update the database item for redundancy
-        try {
-          log(`[DB DIRECT] Directly updating image URL in database for item ${itemId}`, 'db-update');
-          
-          // Import necessary modules
-          const { eq } = await import('drizzle-orm');
-          const { bingoItems } = await import('@shared/schema');
-          const { db } = await import('./db');
-          
-          // Update the database directly
-          const result = await db
-            .update(bingoItems)
-            .set({ image: imageUrl })
-            .where(eq(bingoItems.id, itemId));
-          
-          // Verification step: Query the database to confirm the update was successful
-          const [updatedItemDb] = await db
-            .select({ id: bingoItems.id, image: bingoItems.image, text: bingoItems.text })
-            .from(bingoItems)
-            .where(eq(bingoItems.id, itemId));
-          
-          // Check if the image path in the database matches what we tried to save
-          if (updatedItemDb && updatedItemDb.image === imageUrl) {
-            // Log the result details with DATABASE VERIFIED tag to clearly indicate success
-            log(`[DB SUCCESS] ✅ DATABASE VERIFIED: Image update confirmed for item ${itemId}`, 'db-update');
-            console.log(`[DB-IMAGE] ✅ DATABASE VERIFIED: Item "${updatedItemDb.text}" (${itemId}) successfully updated with image: ${imageUrl.substring(0, 30)}...`);
-            console.log(`[DB-IMAGE] ✅ FULL PATH: ${imageUrl}`);
+        // Function to verify database update was successful
+        const verifyDatabaseUpdate = async (): Promise<boolean> => {
+          try {
+            const [verifiedItem] = await db
+              .select({ id: bingoItems.id, image: bingoItems.image, text: bingoItems.text })
+              .from(bingoItems)
+              .where(eq(bingoItems.id, itemId));
             
-            // Log file existence verification
-            const imagePath = imageUrl.startsWith('/images/') ? 
-              path.join(process.cwd(), 'public', imageUrl) : null;
-            
-            if (imagePath && fs.existsSync(imagePath)) {
-              const fileSize = fs.statSync(imagePath).size;
-              console.log(`[DB-IMAGE] ✅ IMAGE FILE VERIFIED: ${imagePath} exists (${fileSize} bytes)`);
-            } else if (imagePath) {
-              console.log(`[DB-IMAGE] ⚠️ WARNING: Image file not found at ${imagePath} despite successful database update`);
+            if (verifiedItem && verifiedItem.image === imageUrl) {
+              log(`[VERIFY] Database verification successful for item ${itemId}`, 'db-update');
+              return true;
+            } else {
+              const actualImage = verifiedItem?.image || 'null';
+              log(`[VERIFY] Database verification failed. Expected: ${imageUrl.substring(0, 30)}..., Got: ${actualImage.substring(0, 30)}...`, 'db-update');
+              return false;
             }
-          } else {
-            // Log detailed error if the image URL doesn't match or is missing
-            const actualImageUrl = updatedItemDb?.image || 'null';
-            log(`[DB ERROR] ❌ VERIFICATION FAILED: Image URL mismatch for item ${itemId}`, 'db-update');
-            console.error(`[DB-IMAGE] ❌ VERIFICATION FAILED: Expected "${imageUrl.substring(0, 30)}..." but database contains "${actualImageUrl.substring(0, 30)}..."`);
+          } catch (verifyError: any) {
+            log(`[VERIFY] Database verification error: ${verifyError?.message || 'Unknown error'}`, 'db-update');
+            return false;
           }
-        } catch (dbDirectError: any) {
-          // Log the error but don't throw since the state update already succeeded
-          log(`[DB ERROR] Error during direct database update: ${dbDirectError?.message || 'Unknown error'}`, 'db-update');
-          console.error(`[DB-IMAGE] Direct database update FAILED for item ${itemId}: ${dbDirectError.message}`);
+        };
+        
+        // Function to update the database with retries
+        const updateDatabaseWithRetry = async (maxRetries = 3): Promise<boolean> => {
+          let retryCount = 0;
+          let updateSuccess = false;
+          
+          while (retryCount < maxRetries && !updateSuccess) {
+            try {
+              if (retryCount > 0) {
+                log(`[RETRY] Attempt ${retryCount + 1}/${maxRetries} to update database for item ${itemId}`, 'db-update');
+              }
+              
+              // First try the state update method
+              log(`[DB WRITE] Saving updated state with new image for item ${itemId} in city ${cityId}`, 'db-update');
+              await storage.saveBingoState(updatedState, undefined, clientId);
+              log(`[DB SUCCESS] Successfully updated image for item ${itemId} in city ${cityId} via state`, 'db-update');
+              
+              // Then try direct database update
+              log(`[DB DIRECT] Directly updating image URL in database for item ${itemId}`, 'db-update');
+              await db
+                .update(bingoItems)
+                .set({ image: imageUrl })
+                .where(eq(bingoItems.id, itemId));
+              
+              // Verify the update in the database
+              updateSuccess = await verifyDatabaseUpdate();
+              
+              if (updateSuccess) {
+                log(`[DB SUCCESS] ✅ DATABASE VERIFIED: Image update confirmed for item ${itemId}`, 'db-update');
+                const [updatedItemDb] = await db
+                  .select({ text: bingoItems.text })
+                  .from(bingoItems)
+                  .where(eq(bingoItems.id, itemId));
+                
+                console.log(`[DB-IMAGE] ✅ DATABASE VERIFIED: Item "${updatedItemDb?.text || itemText}" (${itemId}) successfully updated with image: ${imageUrl.substring(0, 30)}...`);
+                console.log(`[DB-IMAGE] ✅ FULL PATH: ${imageUrl}`);
+                
+                // Log file existence verification
+                const imagePath = imageUrl.startsWith('/images/') ? 
+                  path.join(process.cwd(), 'public', imageUrl) : null;
+                
+                if (imagePath && fs.existsSync(imagePath)) {
+                  const fileSize = fs.statSync(imagePath).size;
+                  console.log(`[DB-IMAGE] ✅ IMAGE FILE VERIFIED: ${imagePath} exists (${fileSize} bytes)`);
+                } else if (imagePath) {
+                  console.log(`[DB-IMAGE] ⚠️ WARNING: Image file not found at ${imagePath} despite successful database update`);
+                }
+                
+                break;
+              } else {
+                log(`[DB ERROR] Update verification failed on attempt ${retryCount + 1}/${maxRetries}`, 'db-update');
+              }
+            } catch (updateError: any) {
+              log(`[DB ERROR] Update failed on attempt ${retryCount + 1}/${maxRetries}: ${updateError?.message || 'Unknown error'}`, 'db-update');
+            }
+            
+            retryCount++;
+            if (retryCount < maxRetries && !updateSuccess) {
+              // Exponential backoff: 500ms, 1000ms, 2000ms...
+              const backoffMs = 500 * Math.pow(2, retryCount - 1);
+              log(`[RETRY] Waiting ${backoffMs}ms before next retry...`, 'db-update');
+              await new Promise(resolve => setTimeout(resolve, backoffMs));
+            }
+          }
+          
+          return updateSuccess;
+        };
+        
+        // Execute the database update with retries
+        const updateSuccessful = await updateDatabaseWithRetry();
+        
+        if (!updateSuccessful) {
+          log(`[DB ERROR] ❌ Failed to update database after maximum retries for item ${itemId}`, 'db-update');
+          console.error(`[DB-IMAGE] ❌ CRITICAL: Database update failed for item ${itemId} after multiple retries`);
+          // This is serious enough to throw an error to the client
+          throw new Error(`Failed to update database after multiple retries for item ${itemId}`);
         }
       }
       
