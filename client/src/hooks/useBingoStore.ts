@@ -356,6 +356,9 @@ export function useBingoStore() {
     }
   }, [state, state.currentCity, saveState, fetchBingoState, clientId]);
   
+  // Custom event for city reset notification
+  const CITY_RESET_EVENT = 'travelBingo:cityReset';
+  
   // Reset all items for a specific city (except center space)
   // If no cityId is provided, resets the current city
   const resetCity = useCallback(async (cityId?: string) => {
@@ -387,6 +390,14 @@ export function useBingoStore() {
       }
       
       console.log(`[STORE] Successfully reset city ${targetCityId} on server`);
+      
+      // Dispatch a custom event to notify components that a city has been reset
+      // This helps components like BingoItemModal to clear user photos
+      const resetEvent = new CustomEvent(CITY_RESET_EVENT, {
+        detail: { cityId: targetCityId, timestamp: Date.now() }
+      });
+      window.dispatchEvent(resetEvent);
+      console.log(`[STORE] Dispatched city reset event for ${targetCityId}`);
       
       // Fetch fresh state from the server to ensure consistency
       await fetchBingoState(true);

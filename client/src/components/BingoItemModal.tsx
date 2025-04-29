@@ -1,13 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCw, X, Camera, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBingoStore } from "@/hooks/useBingoStore";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import type { BingoItem } from "@/types";
 import { ImageDebugger, type ImageLoadInfo } from "./ImageDebugger";
 import { getProxiedImageUrl } from "../lib/imageUtils";
 import PhotoCaptureModal from "./PhotoCaptureModal";
 import { useClientId } from '@/hooks/useClientId';
-import { saveUserPhotoToIndexedDB, getUserPhotoFromIndexedDB } from "../lib/utils";
+import { saveUserPhotoToIndexedDB, getUserPhotoFromIndexedDB, deleteUserPhotoFromIndexedDB } from "../lib/utils";
+import { useLocalPhotos } from "@/hooks/useLocalPhotos";
 
 interface BingoItemModalProps {
   item: BingoItem | null;
@@ -18,14 +19,16 @@ interface BingoItemModalProps {
 }
 
 export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete, allItems = [] }: BingoItemModalProps) {
-  const { toggleItemCompletion, currentCity } = useBingoStore();
+  const { toggleItemCompletion, currentCity, resetCity } = useBingoStore();
   const { clientId } = useClientId();
+  const { deleteAllPhotosForCity } = useLocalPhotos();
   
   // All state declarations must come before any other code
   const [localItem, setLocalItem] = useState<BingoItem | null>(null);
   const [isToggling, setIsToggling] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isPhotoCaptureOpen, setIsPhotoCaptureOpen] = useState(false);
+  const [lastReset, setLastReset] = useState<string | null>(null);
   
   // We'll use the provided allItems or fetch them using the cityId from the provided item
   const items = allItems.length > 0 ? allItems : [];
@@ -170,6 +173,64 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     };
   }, [isOpen]);
   
+  // Listen for city reset events
+  useEffect(() => {
+    // Handler for the custom reset event
+    const handleCityReset = (event: CustomEvent<{ cityId: string, timestamp: number }>) => {
+      const { cityId, timestamp } = event.detail;
+      console.log(`[MODAL] Received city reset event for ${cityId} at ${new Date(timestamp).toISOString()}`);
+      
+      // Only clear local state if it affects the current item
+      if (localItem && (cityId === localItem.cityId || cityId === currentCity)) {
+        console.log(`[MODAL] Clearing user photo for item ${localItem.id} due to city reset`);
+        
+        // Update reset tracking
+        const resetKey = `${cityId}-${timestamp}`;
+        setLastReset(resetKey);
+        
+        // Clear user photo from local state
+        setLocalItem(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            userPhoto: undefined, // Remove user photo
+            completed: false      // Reset completion state
+          };
+        });
+      }
+    };
+    
+    // Register event listener for the custom reset event
+    window.addEventListener('travelBingo:cityReset', handleCityReset as EventListener);
+    
+    // Cleanup the event listener on component unmount
+    return () => {
+      window.removeEventListener('travelBingo:cityReset', handleCityReset as EventListener);
+    };
+  }, [localItem, currentCity]);
+  
+  // Monitor current city changes
+  useEffect(() => {
+    // Create a reset key that combines city and a timestamp
+    // This will help us detect when a city has been changed
+    const resetKey = `${currentCity}-change`;
+    
+    // Check if this is a new city
+    if (lastReset !== resetKey) {
+      console.log(`[MODAL] City context changed from ${lastReset} to ${resetKey}, clearing any stale user photos`);
+      setLastReset(resetKey);
+      
+      // Clear any existing user photo in the local state
+      setLocalItem(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          userPhoto: undefined // Clear the user photo
+        };
+      });
+    }
+  }, [currentCity, lastReset]);
+
   // Update image URL when item changes
   useEffect(() => {
     if (localItem) {

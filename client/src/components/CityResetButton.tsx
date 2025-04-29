@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { useBingoStore } from "@/hooks/useBingoStore";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -14,7 +13,8 @@ export default function CityResetButton({ cityId, cityName }: CityResetButtonPro
   const { deleteAllPhotosForCity } = useLocalPhotos();
   const [isResetting, setIsResetting] = useState(false);
 
-  const handleReset = async () => {
+  const handleReset = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
     if (window.confirm(`Are you sure you want to reset your progress for ${cityName}? This will clear all your marked items and photos for this city.`)) {
       setIsResetting(true);
       try {
@@ -35,15 +35,16 @@ export default function CityResetButton({ cityId, cityName }: CityResetButtonPro
   };
 
   return (
-    <Button 
-      variant="destructive" 
-      size="sm" 
+    <a 
+      href="#"
       onClick={handleReset} 
-      disabled={isResetting}
-      className="flex items-center gap-1 mt-4"
+      className={`text-red-500 hover:text-red-700 text-sm flex items-center gap-1 mt-2 ${isResetting ? 'opacity-50 pointer-events-none' : ''}`}
+      aria-disabled={isResetting}
     >
-      <Trash2 size={16} />
-      {isResetting ? "Resetting..." : `Reset ${cityName} Progress`}
-    </Button>
+      <Trash2 size={14} />
+      <span className="underline">
+        {isResetting ? "Resetting..." : `Reset ${cityName} progress`}
+      </span>
+    </a>
   );
 }
