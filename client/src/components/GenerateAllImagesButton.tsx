@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { ImageIcon } from 'lucide-react';
 import { useBingoStore } from '@/hooks/useBingoStore';
@@ -30,107 +30,6 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
   
   // Count items that already have images
   const itemsWithImages = items.filter(item => !!item.image).length;
-  
-  // Function to generate all images at once with new timing logic
-  const handleGenerateAllImages = async () => {
-    if (!city || isGenerating) return;
-    
-    setIsGenerating(true);
-    setProgress(0);
-    
-    try {
-      // Show toast to indicate we're starting
-      toast({
-        title: "Generating Images",
-        description: `Starting image generation for ${totalItems} items in ${city.title}.`,
-      });
-      
-      // Keep track of successful and failed generations
-      let successCount = 0;
-      let failCount = 0;
-      let currentProgress = 0;
-      
-      // Use all items for generation
-      const itemsToGenerate = items;
-      
-      // Prepare batches
-      const batchSize = 3;
-      const batches = [];
-      for (let i = 0; i < itemsToGenerate.length; i += batchSize) {
-        batches.push(itemsToGenerate.slice(i, i + batchSize));
-      }
-      
-      console.log(`[BATCH] Processing ${itemsToGenerate.length} items in ${batches.length} batches of up to ${batchSize} items each`);
-      
-      // The main batch processor function that runs as a separate promise chain
-      const processBatch = async (batchIndex: number) => {
-        const batch = batches[batchIndex];
-        console.log(`[BATCH] Starting batch ${batchIndex + 1}/${batches.length} with ${batch.length} items`);
-        
-        // Create promises for each item in the batch
-        const batchPromises = batch.map(async (item) => {
-          try {
-            await generateImageForItem(city.id, item.id, item.text);
-            successCount++;
-            currentProgress++;
-            setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-          } catch (error) {
-            console.error(`[BATCH] Error generating image for ${item.id}:`, error);
-            failCount++;
-            currentProgress++;
-            setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
-          }
-        });
-        
-        // Wait for all items in this batch to complete
-        await Promise.all(batchPromises);
-        console.log(`[BATCH] Completed batch ${batchIndex + 1}/${batches.length}`);
-        
-        // Refresh state after each batch
-        try {
-          await refreshState();
-          console.log(`[BATCH] State refreshed after batch ${batchIndex + 1}`);
-        } catch (error) {
-          console.error(`[BATCH] Error refreshing state after batch ${batchIndex + 1}:`, error);
-        }
-      };
-      
-      // Start all batches with a 5-second delay between starts
-      const batchStartPromises = batches.map((_, index) => {
-        return new Promise<void>((resolve) => {
-          // Schedule this batch to start after (index * 5000) milliseconds
-          setTimeout(async () => {
-            await processBatch(index);
-            resolve();
-          }, index * 5000);
-        });
-      });
-      
-      // Wait for all batches to complete
-      await Promise.all(batchStartPromises);
-      
-      // Final state refresh
-      console.log(`[BATCH] All batches completed! Refreshing state...`);
-      await refreshState();
-      
-      // Show completion toast
-      toast({
-        title: "Image Generation Complete",
-        description: `Successfully generated ${successCount} images. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''}`,
-        variant: failCount > 0 ? "destructive" : "default",
-      });
-    } catch (error) {
-      console.error("Error in generate all images flow:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate all images. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-      setProgress(0);
-    }
-  };
   
   // Generate a single image with improved error handling
   const generateImageForItem = async (cityId: string, itemId: string, itemText: string) => {
@@ -197,10 +96,95 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       throw error;
     }
   };
-
-  // Always show the button, even if all items have images
-  // We'll now allow regenerating all images, not just missing ones
-
+  
+  // Function to generate all images at once with new timing logic
+  const handleGenerateAllImages = async () => {
+    if (!city || isGenerating) return;
+    
+    setIsGenerating(true);
+    setProgress(0);
+    
+    try {
+      // Show toast to indicate we're starting
+      toast({
+        title: "Generating Images",
+        description: `Starting image generation for ${totalItems} items in ${city.title}.`,
+      });
+      
+      // Keep track of successful and failed generations
+      let successCount = 0;
+      let failCount = 0;
+      let currentProgress = 0;
+      
+      // Use all items for generation
+      const itemsToGenerate = items;
+      
+      // Process items sequentially with a 3-second delay between starts
+      console.log(`[BATCH] Processing ${itemsToGenerate.length} items sequentially with 3-second delay between each`);
+      
+      // Process items one at a time with fixed delay between starts
+      for (let i = 0; i < itemsToGenerate.length; i++) {
+        const item = itemsToGenerate[i];
+        console.log(`[BATCH] Starting item ${i + 1}/${itemsToGenerate.length}: ${item.text}`);
+        
+        // Start a timer for tracking generation time
+        const startTime = Date.now();
+        
+        try {
+          // Process this item
+          await generateImageForItem(city.id, item.id, item.text);
+          successCount++;
+          const timeElapsed = Math.round((Date.now() - startTime) / 1000);
+          console.log(`[BATCH] Successfully generated image for item ${i + 1}/${itemsToGenerate.length} in ${timeElapsed}s`);
+        } catch (error) {
+          console.error(`[BATCH] Error generating image for ${item.id}:`, error);
+          failCount++;
+        }
+        
+        // Update progress regardless of success/failure
+        currentProgress++;
+        setProgress(Math.round((currentProgress / itemsToGenerate.length) * 100));
+        
+        // Refresh state every 5 items
+        if (currentProgress % 5 === 0 || currentProgress === itemsToGenerate.length) {
+          try {
+            await refreshState();
+            console.log(`[BATCH] State refreshed after ${currentProgress} items`);
+          } catch (error) {
+            console.error(`[BATCH] Error refreshing state:`, error);
+          }
+        }
+        
+        // Wait 3 seconds before starting the next item (but skip the wait after the last item)
+        if (i < itemsToGenerate.length - 1) {
+          console.log(`[BATCH] Waiting 3 seconds before starting next item...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      }
+      
+      // Final state refresh
+      console.log(`[BATCH] All items completed! Refreshing state...`);
+      await refreshState();
+      
+      // Show completion toast
+      toast({
+        title: "Image Generation Complete",
+        description: `Successfully generated ${successCount} images. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''}`,
+        variant: failCount > 0 ? "destructive" : "default",
+      });
+    } catch (error) {
+      console.error("Error in generate all images flow:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate all images. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+      setProgress(0);
+    }
+  };
+  
   return (
     <Button
       className="w-full mb-4 items-center gap-2"
