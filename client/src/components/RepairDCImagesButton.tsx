@@ -35,7 +35,7 @@ export default function RepairDCImagesButton() {
       } else {
         toast({
           title: "Repair Failed",
-          description: response.error || "An error occurred during the repair process.",
+          description: data.error || "An error occurred during the repair process.",
           variant: "destructive",
         });
       }
