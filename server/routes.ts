@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { generateBulkDescriptions, generateItemDescription } from "./openai";
 import { generateBingoItems, generateItemImage, generateStyleGuide } from "./generator";
+import { updateCityMetadata, repairMissingImages } from "./updateCityMetadata";
 import { log } from "./vite";
 import { setupImageProxy } from "./imageProxy";
 import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";

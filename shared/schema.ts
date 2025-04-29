@@ -39,7 +39,15 @@ export const cities = pgTable("cities", {
   title: text("title").notNull(),
   subtitle: text("subtitle"),
   styleGuide: jsonb("style_guide"),  // Store the style guide as a JSON object
+  userId: integer("user_id").references(() => users.id),
+  isCurrentCity: boolean("is_current_city").default(false),
   isDefaultCity: boolean("is_default_city").default(false), // Is this the default city for new users
+  // Metadata for admin dashboard
+  itemCount: integer("item_count").default(0),
+  itemsWithDescriptions: integer("items_with_descriptions").default(0),
+  itemsWithImages: integer("items_with_images").default(0),
+  itemsWithValidImageFiles: integer("items_with_valid_image_files").default(0),
+  lastMetadataUpdate: text("last_metadata_update"),
 });
 
 // User-specific completions table to track which items each user has completed

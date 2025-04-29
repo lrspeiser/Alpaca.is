@@ -11,7 +11,7 @@ let fallbackImageDir = '/tmp/images';
 let currentImageDir = primaryImageDir;
 
 // Function to get the current image directory
-function getImageDir(): string {
+export function getImageDir(): string {
   return currentImageDir;
 }
 

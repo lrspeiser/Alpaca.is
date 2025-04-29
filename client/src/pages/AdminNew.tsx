@@ -443,9 +443,7 @@ export default function Admin() {
             <>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Manage Cities</h2>
-                <div className="flex gap-2">
-                  <RepairDCImagesButton />
-                </div>
+
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Object.values(cities).map((city) => (
