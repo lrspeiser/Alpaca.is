@@ -165,7 +165,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (!userId) {
-        console.log('[DB WARNING] No userId available after clientId lookup');
+        console.log('[DB] No userId available after clientId lookup');
         return emptyState;
       }
       
@@ -175,7 +175,7 @@ export class DatabaseStorage implements IStorage {
         const user = await this.getUser(userId);
         if (user && user.currentCity) {
           currentCity = user.currentCity;
-          console.log(`[DB LOOKUP] User ${userId} has current city: ${currentCity}`);
+          console.log(`[DB] User ${userId} has current city: ${currentCity}`);
         } else {
           // Try to find a default city
           const [defaultCity] = await db
@@ -185,7 +185,7 @@ export class DatabaseStorage implements IStorage {
             
           if (defaultCity) {
             currentCity = defaultCity.id;
-            console.log(`[DB LOOKUP] Using default city ${currentCity} for user ${userId}`);
+            console.log(`[DB] Using default city ${currentCity} for user ${userId}`);
             
             // Update the user's current city
             if (user) {
@@ -199,7 +199,7 @@ export class DatabaseStorage implements IStorage {
             const [firstCity] = await db.select().from(cities).limit(1);
             if (firstCity) {
               currentCity = firstCity.id;
-              console.log(`[DB LOOKUP] Using first city ${currentCity} for user ${userId}`);
+              console.log(`[DB] Using first city ${currentCity} for user ${userId}`);
               
               // Update the user's current city
               if (user) {
@@ -212,7 +212,7 @@ export class DatabaseStorage implements IStorage {
           }
         }
       } catch (error) {
-        console.error('[DB ERROR] Error getting user current city:', error);
+        console.error('[DB] Error getting user current city:', error);
       }
       
       // STEP 3: Get all cities and their items
@@ -284,11 +284,11 @@ export class DatabaseStorage implements IStorage {
         
         return reconstructedState;
       } catch (error) {
-        console.error('[DB ERROR] Error loading cities and items:', error);
+        console.error('[DB] Error loading cities and items:', error);
         return emptyState;
       }
     } catch (error) {
-      console.error('[DB ERROR] Error in getBingoState:', error);
+      console.error('[DB] Error in getBingoState:', error);
       return emptyState;
     }
   }
