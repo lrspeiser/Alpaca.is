@@ -1,120 +1,105 @@
 import { useState, useCallback } from 'react';
 import { 
   openPhotosDB, 
-  saveUserPhotoToIndexedDB, 
   getUserPhotoFromIndexedDB, 
-  PHOTOS_STORE 
+  deleteUserPhotoFromIndexedDB 
 } from '@/lib/utils';
 
 /**
- * Hook for managing user photos in IndexedDB
+ * Hook for managing local photos in IndexedDB
  */
 export const useLocalPhotos = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   /**
-   * Save a photo to IndexedDB
+   * Deletes all photos for a specific city
+   * @param cityId The city ID to delete photos for
+   * @returns Promise resolving to the number of deleted photos
    */
-  const savePhoto = useCallback(async (
-    cityId: string,
-    itemId: string,
-    photoDataUrl: string
-  ): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const success = await saveUserPhotoToIndexedDB(cityId, itemId, photoDataUrl);
-      return success;
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Unknown error saving photo');
-      setError(error);
-      console.error('Error saving photo:', error);
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Get a photo from IndexedDB
-   */
-  const getPhoto = useCallback(async (
-    cityId: string,
-    itemId: string
-  ): Promise<string | null> => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const photo = await getUserPhotoFromIndexedDB(cityId, itemId);
-      return photo;
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Unknown error getting photo');
-      setError(error);
-      console.error('Error getting photo:', error);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Delete all photos for a specific city
-   */
-  const deleteAllPhotosForCity = useCallback(async (cityId: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
+  const deleteAllPhotosForCity = useCallback(async (cityId: string): Promise<number> => {
+    console.log(`[PHOTOS] Deleting all photos for city ${cityId}`);
+    setIsDeleting(true);
     
     try {
       const db = await openPhotosDB();
       
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction([PHOTOS_STORE], 'readwrite');
-        const store = transaction.objectStore(PHOTOS_STORE);
-        const index = store.index('cityId');
+      return new Promise<number>((resolve, reject) => {
+        const transaction = db.transaction(['userPhotos'], 'readwrite');
+        const store = transaction.objectStore('userPhotos');
+        const cityIndex = store.index('cityId');
+        const request = cityIndex.getAllKeys(cityId);
         
-        const request = index.openCursor(IDBKeyRange.only(cityId));
-        let deleteCount = 0;
-        
-        request.onsuccess = (event: Event) => {
-          const cursor = (event.target as IDBRequest).result;
-          if (cursor) {
-            // Delete this photo entry
-            store.delete(cursor.primaryKey);
-            deleteCount++;
-            cursor.continue();
+        request.onsuccess = async () => {
+          const keys = request.result;
+          console.log(`[PHOTOS] Found ${keys.length} photos to delete for city ${cityId}`);
+          
+          let deletedCount = 0;
+          
+          // Process each key one by one
+          for (const key of keys) {
+            try {
+              await deleteUserPhotoFromIndexedDB(cityId, key.toString().split('-')[1]);
+              deletedCount++;
+            } catch (error) {
+              console.error(`[PHOTOS] Error deleting photo with key ${key}:`, error);
+            }
           }
+          
+          console.log(`[PHOTOS] Successfully deleted ${deletedCount} photos for city ${cityId}`);
+          resolve(deletedCount);
+        };
+        
+        request.onerror = (event) => {
+          console.error(`[PHOTOS] Error getting keys for city ${cityId}:`, event);
+          reject(new Error(`Failed to get keys for city ${cityId}`));
         };
         
         transaction.oncomplete = () => {
-          console.log(`[IndexedDB] Deleted ${deleteCount} photos for city ${cityId}`);
           db.close();
-          resolve(true);
-        };
-        
-        transaction.onerror = (event: Event) => {
-          console.error('Error deleting photos from IndexedDB:', event);
-          db.close();
-          reject(new Error('Failed to delete photos'));
         };
       });
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Unknown error deleting photos');
-      setError(error);
-      console.error('Error deleting photos for city:', error);
-      return false;
+    } catch (error) {
+      console.error(`[PHOTOS] Error opening IndexedDB:`, error);
+      return 0; // Return 0 deleted photos on error
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false);
     }
   }, []);
-  
+
+  /**
+   * Deletes a specific photo
+   * @param cityId The city ID
+   * @param itemId The item ID
+   * @returns Promise resolving to true if successful
+   */
+  const deletePhoto = useCallback(async (cityId: string, itemId: string): Promise<boolean> => {
+    try {
+      return await deleteUserPhotoFromIndexedDB(cityId, itemId);
+    } catch (error) {
+      console.error(`[PHOTOS] Error deleting photo for item ${itemId} in city ${cityId}:`, error);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Gets a photo from IndexedDB
+   * @param cityId The city ID
+   * @param itemId The item ID
+   * @returns Promise resolving to photo data URL or null
+   */
+  const getPhoto = useCallback(async (cityId: string, itemId: string): Promise<string | null> => {
+    try {
+      return await getUserPhotoFromIndexedDB(cityId, itemId);
+    } catch (error) {
+      console.error(`[PHOTOS] Error getting photo for item ${itemId} in city ${cityId}:`, error);
+      return null;
+    }
+  }, []);
+
   return {
-    savePhoto,
-    getPhoto,
+    isDeleting,
     deleteAllPhotosForCity,
-    isLoading,
-    error
+    deletePhoto,
+    getPhoto
   };
 };

@@ -21,7 +21,7 @@ interface BingoItemModalProps {
 export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete, allItems = [] }: BingoItemModalProps) {
   const { toggleItemCompletion, currentCity, resetCity } = useBingoStore();
   const { clientId } = useClientId();
-  const { deleteAllPhotosForCity } = useLocalPhotos();
+  const { deleteAllPhotosForCity, deletePhoto } = useLocalPhotos();
   
   // All state declarations must come before any other code
   const [localItem, setLocalItem] = useState<BingoItem | null>(null);
@@ -173,11 +173,19 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     };
   }, [isOpen]);
   
+  // Define an interface for our custom event
+  interface CityResetEvent extends Event {
+    detail: { cityId: string; timestamp: number };
+  }
+  
   // Listen for city reset events
   useEffect(() => {
     // Handler for the custom reset event
-    const handleCityReset = (event: CustomEvent<{ cityId: string, timestamp: number }>) => {
-      const { cityId, timestamp } = event.detail;
+    const handleCityReset = async (event: Event) => {
+      // Type cast the event to our custom event type
+      const customEvent = event as CityResetEvent;
+      const { cityId, timestamp } = customEvent.detail;
+      
       console.log(`[MODAL] Received city reset event for ${cityId} at ${new Date(timestamp).toISOString()}`);
       
       // Only clear local state if it affects the current item
@@ -188,7 +196,18 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         const resetKey = `${cityId}-${timestamp}`;
         setLastReset(resetKey);
         
-        // Clear user photo from local state
+        // Clear user photo both from local state and IndexedDB
+        try {
+          if (localItem.id) {
+            // Use the deletePhoto function from useLocalPhotos hook
+            await deletePhoto(cityId, localItem.id);
+            console.log(`[MODAL] Successfully deleted photo for item ${localItem.id} from IndexedDB`);
+          }
+        } catch (error) {
+          console.error(`[MODAL] Error deleting photo from IndexedDB:`, error);
+        }
+        
+        // Update local state to reflect the changes
         setLocalItem(prev => {
           if (!prev) return null;
           return {
@@ -201,13 +220,13 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
     };
     
     // Register event listener for the custom reset event
-    window.addEventListener('travelBingo:cityReset', handleCityReset as EventListener);
+    window.addEventListener('travelBingo:cityReset', handleCityReset);
     
     // Cleanup the event listener on component unmount
     return () => {
-      window.removeEventListener('travelBingo:cityReset', handleCityReset as EventListener);
+      window.removeEventListener('travelBingo:cityReset', handleCityReset);
     };
-  }, [localItem, currentCity]);
+  }, [localItem, currentCity, deletePhoto]);
   
   // Monitor current city changes
   useEffect(() => {
@@ -412,13 +431,21 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       console.log('[MODAL] Saving photo to IndexedDB');
       await saveUserPhoto(photoDataUrl);
       
-      // STEP 4: Do a full refresh to ensure we have the latest server state
+      // STEP 4: Dispatch an event to notify other components of the photo update
+      // This helps ensure consistent state across components
+      const photoEvent = new CustomEvent('travelBingo:photoUpdated', {
+        detail: { cityId, itemId, timestamp: Date.now() }
+      });
+      window.dispatchEvent(photoEvent);
+      console.log(`[MODAL] Dispatched photo update event for item ${itemId} in city ${cityId}`);
+      
+      // STEP 5: Do a full refresh to ensure we have the latest server state
       console.log('[MODAL] Refreshing state from server');
       if (onToggleComplete) {
         await onToggleComplete();
       }
       
-      // STEP 5: Update local UI with photo/completion state
+      // STEP 6: Update local UI with photo/completion state
       console.log('[MODAL] Updating UI state with completed=true and photo');
       setLocalItem(prev => {
         if (!prev) return null;
@@ -432,7 +459,7 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
         return updated;
       });
       
-      // STEP 6: Close both modals immediately after all operations complete
+      // STEP 7: Close both modals immediately after all operations complete
       console.log('[MODAL] Closing both modals');
       setIsToggling(false);
       setIsPhotoCaptureOpen(false);
