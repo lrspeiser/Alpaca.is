@@ -10,6 +10,7 @@ import { BrainCircuit, ImagePlus, ArrowLeft } from "lucide-react";
 import type { BingoItem } from "@/types";
 import { Link } from "wouter";
 import GenerateAllImagesButton from "@/components/GenerateAllImagesButton";
+import FixMissingImagesButton from "@/components/FixMissingImagesButton";
 
 export default function Admin() {
   const { cities, currentCity, saveState, fetchBingoState } = useBingoStore();
