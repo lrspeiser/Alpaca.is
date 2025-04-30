@@ -1093,13 +1093,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: z.string().optional(),
         cityId: z.string(),
         clientId: z.string().optional(),
-        forceNewImage: z.boolean().optional().default(false)
+        forceNewImage: z.boolean().optional().default(false),
+        styleGuide: z.any().optional() // Accept style guide from client side
       }).refine(data => data.itemId || data.itemText, {
         message: "Either itemId or itemText must be provided"
       });
       
       const validatedData = schema.parse(req.body);
-      const { itemText: providedItemText, description: providedDescription, forceNewImage } = validatedData;
+      const { 
+        itemText: providedItemText, 
+        description: providedDescription, 
+        forceNewImage,
+        styleGuide: clientStyleGuide 
+      } = validatedData;
       
       // Update the variables declared outside try block
       cityId = validatedData.cityId;
@@ -1235,12 +1241,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           log(`Including item description in image generation (length: ${description.length})`, 'ai-generation');
         }
         
+        // Log if we have a style guide to use
+        if (clientStyleGuide) {
+          log(`Using client-provided style guide for image generation`, 'ai-generation');
+        } else if (city.styleGuide) {
+          log(`Using city's stored style guide for image generation`, 'ai-generation');
+        } else {
+          log(`No style guide available for image generation`, 'ai-generation');
+        }
+        
         // Attempt to generate the image with description if available
+        // Prioritize client-provided style guide over city's stored style guide
         imageUrl = await generateItemImage(
           itemText!, 
           city.title, 
           description, 
-          city.styleGuide,  // Pass the style guide if available
+          clientStyleGuide || city.styleGuide,  // Prioritize client-provided style guide
           itemId, // Pass the actual item ID for consistent file naming
           forceNewImage // Pass the force flag from request body
         );

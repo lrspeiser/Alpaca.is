@@ -44,7 +44,11 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       const item = items.find(item => item.id === itemId);
       const description = item?.description || "";
       
-      console.log(`[IMAGE-GEN] Starting generation for ${itemId}: "${itemText}" with description length: ${description.length}`);
+      // Check if the city has a style guide
+      const styleGuide = city?.styleGuide;
+      const hasStyleGuide = !!(styleGuide && Object.keys(styleGuide).length > 0);
+      
+      console.log(`[IMAGE-GEN] Starting generation for ${itemId}: "${itemText}" with description length: ${description.length}, styleGuide: ${hasStyleGuide ? 'YES' : 'NO'}`);
       
       // Get client ID from localStorage to ensure backend can associate the request with the user
       // Use empty string as fallback instead of undefined/null to avoid Zod validation errors
@@ -62,7 +66,8 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
           itemText, // Include both itemId and itemText to be safe
           description, // Pass description to be used in image generation
           clientId, // Include client ID for proper tracking in database
-          forceNewImage: true // Force new image generation
+          forceNewImage: true, // Force new image generation
+          styleGuide: hasStyleGuide ? styleGuide : undefined // Explicitly include style guide if available
         }),
       });
       
