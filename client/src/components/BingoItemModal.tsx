@@ -377,12 +377,6 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       return;
     }
     
-    // Don't allow toggling center space
-    if (localItem?.isCenterSpace) {
-      console.log('[MODAL] Cannot toggle center space');
-      return;
-    }
-    
     // Start toggling transition
     setIsToggling(true);
     
