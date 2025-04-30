@@ -135,7 +135,9 @@ export default function AdminSimple() {
       
       toast({
         title: "Image Paths Updated",
-        description: `Updated ${response.updatedCount} image paths from files on disk.`,
+        description: response.updatedCount !== undefined 
+          ? `Updated ${response.updatedCount} image paths from files on disk.`
+          : "Image paths updated from files on disk.",
       });
     } catch (error) {
       console.error('[ADMIN] Error updating image paths:', error);
@@ -642,6 +644,13 @@ export default function AdminSimple() {
                             size="sm"
                           >
                             {generatingDescriptions[city.id] ? 'Generating...' : 'Gen Descriptions'}
+                          </Button>
+                          <Button
+                            onClick={() => handleUpdateImagePaths(city.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Fix DB Paths
                           </Button>
                           <Button
                             disabled={generatingImages[city.id]}
