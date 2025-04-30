@@ -56,15 +56,30 @@ export async function updateCityMetadata(cityId?: string) {
           
           try {
             // Extract filename from image URL/path
-            const imagePath = item.image.startsWith('/') 
-              ? path.join(imageDir, item.image.substring(1)) 
-              : path.join(imageDir, item.image);
+            let filename;
+            
+            if (item.image.startsWith('/images/')) {
+              // Format: /images/filename.png 
+              filename = path.basename(item.image);
+            } else if (item.image.startsWith('/')) {
+              // Other absolute paths
+              filename = item.image.substring(1);
+            } else {
+              // Relative paths or full URLs
+              filename = item.image;
+            }
+            
+            // Construct the path to the image file
+            const imagePath = path.join(process.cwd(), 'public', 'images', filename);
             
             // Check if file exists
             await fs.access(imagePath);
             itemsWithValidImageFiles++;
+            
+            // Debug: Log successful file access
+            log(`[METADATA] Successfully verified image file for item ${item.id}: ${imagePath}`, 'server');
           } catch (error) {
-            log(`[METADATA] Image file for item ${item.id} does not exist on disk: ${item.image}`, 'server');
+            log(`[METADATA] Image file for item ${item.id} does not exist on disk: ${item.image} (searched at ${process.cwd()}/public/images)`, 'server');
             // File doesn't exist, don't increment counter
           }
         }
@@ -140,13 +155,26 @@ export async function repairMissingImages(cityId?: string) {
         
         try {
           // Extract filename from image URL/path
-          const imagePath = item.image.startsWith('/') 
-            ? path.join(imageDir, item.image.substring(1)) 
-            : path.join(imageDir, item.image);
+          let filename;
+            
+          if (item.image.startsWith('/images/')) {
+            // Format: /images/filename.png 
+            filename = path.basename(item.image);
+          } else if (item.image.startsWith('/')) {
+            // Other absolute paths
+            filename = item.image.substring(1);
+          } else {
+            // Relative paths or full URLs
+            filename = item.image;
+          }
+          
+          // Construct the path to the image file
+          const imagePath = path.join(process.cwd(), 'public', 'images', filename);
           
           // Check if file exists
           await fs.access(imagePath);
           // File exists, continue
+          log(`[IMAGE REPAIR] Item ${item.id} has valid image at ${imagePath}`, 'server');
         } catch (error) {
           // File doesn't exist, add to repair list
           log(`[IMAGE REPAIR] Adding item to repair list: ${item.id} (${item.text})`, 'server');
