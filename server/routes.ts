@@ -1241,22 +1241,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           log(`Including item description in image generation (length: ${description.length})`, 'ai-generation');
         }
         
-        // Log if we have a style guide to use
+        // Get style guide from database if not available in the city object
+        let styleGuideToUse = clientStyleGuide || city.styleGuide;
+        
+        // If we still don't have a style guide, check directly in the database
+        if (!styleGuideToUse) {
+          try {
+            // Fetch style guide from database
+            const [cityData] = await db.select().from(cities).where(eq(cities.id, cityId));
+            if (cityData && cityData.styleGuide) {
+              styleGuideToUse = cityData.styleGuide;
+              log(`Retrieved style guide directly from database for ${cityId}`, 'ai-generation');
+            }
+          } catch (styleGuideError) {
+            log(`Error fetching style guide from database: ${styleGuideError}`, 'ai-generation');
+          }
+        }
+        
+        // Log style guide status 
         if (clientStyleGuide) {
           log(`Using client-provided style guide for image generation`, 'ai-generation');
-        } else if (city.styleGuide) {
-          log(`Using city's stored style guide for image generation`, 'ai-generation');
+        } else if (styleGuideToUse) {
+          log(`Using style guide for image generation: ${JSON.stringify(styleGuideToUse).substring(0, 100)}...`, 'ai-generation');
         } else {
           log(`No style guide available for image generation`, 'ai-generation');
         }
         
-        // Attempt to generate the image with description if available
-        // Prioritize client-provided style guide over city's stored style guide
+        // Attempt to generate the image with description and style guide if available
         imageUrl = await generateItemImage(
           itemText!, 
           city.title, 
           description, 
-          clientStyleGuide || city.styleGuide,  // Prioritize client-provided style guide
+          styleGuideToUse,
           itemId, // Pass the actual item ID for consistent file naming
           forceNewImage // Pass the force flag from request body
         );
