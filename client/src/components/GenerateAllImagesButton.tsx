@@ -110,7 +110,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
     }
   };
   
-  // Function to handle generating images with exactly 3 seconds between starts
+  // Function to handle generating images simultaneously for all items
   const handleGenerateAllImages = async () => {
     if (!city || isGenerating) return;
     
@@ -127,7 +127,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
     try {
       toast({
         title: "Generating Images",
-        description: `Starting image generation for ${totalItems} items in ${city.title}.`,
+        description: `Starting SIMULTANEOUS image generation for ${totalItems} items in ${city.title}.`,
       });
       
       // Filter to get only items that need images
@@ -154,19 +154,17 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
           title: "No Images Needed",
           description: `All ${totalItems} items in ${city.title} already have images.`,
         });
+        setIsGenerating(false);
         return;
       }
       
-      console.log(`[BATCH] Processing ${itemsToGenerate.length} items with exactly 3 seconds between each start time`);
+      console.log(`[BATCH] Processing ${itemsToGenerate.length} items SIMULTANEOUSLY - sending all requests at once`);
       console.log(`[BATCH] Items for generation: ${itemsToGenerate.map(i => i.id).join(', ')}`);
       
-      // Track when to start each item
-      let nextStartTime = Date.now();
-      
-      // Array to collect all generation promises and track completion
+      // Array to collect all generation promises
       const generationPromises = [];
       
-      // Start each item exactly 3 seconds apart
+      // Create all promises at once without waiting between them
       for (let i = 0; i < itemsToGenerate.length; i++) {
         const item = itemsToGenerate[i];
         const itemIndex = i;
@@ -180,21 +178,10 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
         // Mark this item as being processed
         processedItemIds.add(item.id);
         
-        // Wait until we reach the scheduled start time for this item
-        const now = Date.now();
-        const waitTime = Math.max(0, nextStartTime - now);
-        if (waitTime > 0) {
-          console.log(`[BATCH] Waiting ${waitTime}ms before starting next item...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-        
-        // Set next start time to exactly 3 seconds from now
-        nextStartTime = Date.now() + 3000;
-        
-        console.log(`[BATCH] Starting item ${itemIndex + 1}/${itemsToGenerate.length}: ${item.text} (ID: ${item.id})`);
+        console.log(`[BATCH] Queueing item ${itemIndex + 1}/${itemsToGenerate.length}: ${item.text} (ID: ${item.id})`);
         const startTime = Date.now();
         
-        // Create a promise for this item but don't await it yet
+        // Create a promise for this item and add it to the array immediately
         const itemPromise = (async () => {
           try {
             await generateImageForItem(city.id, item.id, item.text);
@@ -223,7 +210,10 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
         generationPromises.push(itemPromise);
       }
       
-      // Wait for all generation promises to complete
+      // All requests are now in flight!
+      console.log(`[BATCH] All ${generationPromises.length} image generation requests have been sent!`);
+      
+      // Now wait for all of them to complete
       await Promise.all(generationPromises);
       
       // Final refresh when everything is done
