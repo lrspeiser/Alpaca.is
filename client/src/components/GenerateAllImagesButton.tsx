@@ -131,33 +131,22 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
     
     try {
       toast({
-        title: "Generating Images",
-        description: `Starting SIMULTANEOUS image generation for ${totalItems} items in ${city.title}.`,
+        title: "Regenerating All Images",
+        description: `Starting SIMULTANEOUS image generation with style guide for ALL ${totalItems} items in ${city.title}.`,
       });
       
-      // Filter to get only items that need images
-      // Prioritize items without images or with broken/placeholder images
-      const itemsWithoutImages = items.filter(item => 
-        !processedItemIds.has(item.id) && 
-        (
-          !item.image || 
-          item.image === null || 
-          item.image === "" || 
-          item.image.includes('placeholder') || 
-          item.image.includes('api/placeholder')
-        )
-      );
+      // Process ALL items, regardless of whether they already have images
+      // This allows for regenerating all images with the new style guide
+      const itemsToGenerate = items.filter(item => !processedItemIds.has(item.id));
       
-      // Only use itemsWithoutImages, don't fall back to all items
-      // This helps prevent duplicate generations for items that already have images
-      const itemsToGenerate = itemsWithoutImages;
+      console.log(`[BATCH] Will regenerate ALL images for ${itemsToGenerate.length} items in ${city.title}`);
       
-      // Early return if no items need images
+      // Early return if no items
       if (itemsToGenerate.length === 0) {
-        console.log(`[BATCH] No items need images, skipping generation`);
+        console.log(`[BATCH] No items found, skipping generation`);
         toast({
-          title: "No Images Needed",
-          description: `All ${totalItems} items in ${city.title} already have images.`,
+          title: "No Items Found",
+          description: `No bingo items found for ${city.title}.`,
         });
         setIsGenerating(false);
         return;
@@ -226,8 +215,8 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       await refreshState();
       
       toast({
-        title: "Image Generation Complete",
-        description: `Successfully generated ${successCount} images. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''}`,
+        title: "Image Regeneration Complete",
+        description: `Successfully regenerated ${successCount} images with style guides. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''}`,
         variant: failCount > 0 ? "destructive" : "default",
       });
     } catch (error) {
@@ -253,7 +242,7 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       <ImageIcon className="h-4 w-4" />
       {isGenerating 
         ? `Generating Images (${progress}%)` 
-        : `Generate All Images (${totalItems} items)`
+        : `Regenerate ALL Images (${totalItems} items)`
       }
     </Button>
   );
