@@ -12,7 +12,7 @@ import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
 import * as fs from 'fs';
 import * as path from 'path';
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { cities, bingoItems, userCompletions } from "@shared/schema";
 
 // Track in-progress image generations to prevent duplicates
@@ -1013,35 +1013,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For each city, get the count of completed items
       const result = await Promise.all(citiesData.map(async (city) => {
-        // Get items for this city
-        const cityItems = await db.select().from(bingoItems).where(eq(bingoItems.cityId, city.id));
-        
-        // Get user completions for this city
-        const completions = await db.select().from(userCompletions).where(eq(userCompletions.cityId, city.id));
-        
-        // Calculate completion statistics
-        const completedItemsCount = new Set(completions.map(c => c.itemId)).size;
-        
-        return {
-          id: city.id,
-          title: city.title,
-          subtitle: city.subtitle,
-          itemCount: city.itemCount,
-          itemsWithDescriptions: city.itemsWithDescriptions,
-          itemsWithImages: city.itemsWithImages,
-          itemsWithValidImageFiles: city.itemsWithValidImageFiles,
-          completedItemsCount,
-          lastMetadataUpdate: city.lastMetadataUpdate,
-          items: cityItems.map(item => ({
-            id: item.id,
-            text: item.text,
-            description: item.description,
-            image: item.image,
-            isCenterSpace: item.isCenterSpace,
-            gridRow: item.gridRow,
-            gridCol: item.gridCol
-          }))
-        };
+        try {
+          // Get items for this city
+          const cityItems = await db.select().from(bingoItems).where(eq(bingoItems.cityId, city.id));
+          
+          // Get all completions for all items in this city
+          // We need to first get the IDs of all items in this city
+          const cityItemIds = cityItems.map(item => item.id);
+          
+          // Now get all completions for these items
+          const completions = cityItemIds.length > 0 
+            ? await db.select().from(userCompletions)
+                .where(inArray(userCompletions.itemId, cityItemIds))
+            : [];
+
+          // Calculate completion statistics
+          const completedItemsCount = new Set(completions.map(c => c.itemId)).size;
+          
+          return {
+            id: city.id,
+            title: city.title,
+            subtitle: city.subtitle,
+            itemCount: city.itemCount || cityItems.length,
+            itemsWithDescriptions: city.itemsWithDescriptions || cityItems.filter(item => !!item.description).length,
+            itemsWithImages: city.itemsWithImages || cityItems.filter(item => !!item.image).length,
+            itemsWithValidImageFiles: city.itemsWithValidImageFiles,
+            completedItemsCount,
+            lastMetadataUpdate: city.lastMetadataUpdate,
+            items: cityItems.map(item => ({
+              id: item.id,
+              text: item.text,
+              description: item.description,
+              image: item.image,
+              isCenterSpace: item.isCenterSpace,
+              gridRow: item.gridRow,
+              gridCol: item.gridCol
+            }))
+          };
+        } catch (cityError) {
+          console.error(`[ADMIN] Error processing city ${city.id}:`, cityError);
+          // Return partial data for this city if there's an error
+          return {
+            id: city.id,
+            title: city.title,
+            subtitle: city.subtitle,
+            itemCount: city.itemCount || 0,
+            itemsWithDescriptions: city.itemsWithDescriptions || 0,
+            itemsWithImages: city.itemsWithImages || 0,
+            itemsWithValidImageFiles: city.itemsWithValidImageFiles || 0,
+            completedItemsCount: 0,
+            lastMetadataUpdate: city.lastMetadataUpdate,
+            items: []
+          };
+        }
       }));
       
       res.json({
