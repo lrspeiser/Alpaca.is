@@ -443,16 +443,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Validate input - we only need cityId and cityName (plus optional clientId)
       const schema = z.object({
-        cityId: z.string(),
-        cityName: z.string(),
+        id: z.string(),
+        name: z.string(),
         clientId: z.string().optional()
       });
       
       const validatedData = schema.parse(req.body);
-      const { cityId, cityName, clientId } = validatedData;
+      // Map the field names to our internal naming
+      const cityId = validatedData.id;
+      const cityName = validatedData.name;
+      const clientId = validatedData.clientId;
       
-      console.log(`[USER ACTION] Client ${clientId || 'unknown'} from ${requestIP} is creating new city "${cityName}" (${cityId})`);
-      console.log(`[USER DEVICE] Client ${clientId || 'unknown'} using: ${req.headers['user-agent']}`);
+      console.log(`[USER ACTION] Client ${validatedData.clientId || 'unknown'} from ${requestIP} is creating new city "${cityName}" (${cityId})`);
+      console.log(`[USER DEVICE] Client ${validatedData.clientId || 'unknown'} using: ${req.headers['user-agent']}`);
       
       log(`Creating new city: ${cityName} (${cityId})`, 'city-creation');
       
