@@ -139,7 +139,7 @@ export default function AdminSimple() {
     }
   };
   
-  // Handle generating a single image
+  // Handle generating a single image with UI updates (used from detail view)
   const handleGenerateImage = async (cityId: string, itemId: string, itemText: string) => {
     try {
       setProcessingItemId(itemId);
@@ -178,6 +178,30 @@ export default function AdminSimple() {
     }
   };
   
+  // Handle generating a single image in batch mode (no UI updates for each item)
+  const handleGenerateImageBatch = async (cityId: string, itemId: string, itemText: string) => {
+    try {
+      console.log(`[ADMIN-BATCH] Starting generation for item ${itemId}: "${itemText}"`);
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-image",
+        { 
+          cityId, 
+          itemId,
+          itemText,
+          forceNewImage: true 
+        }
+      );
+      
+      console.log(`[ADMIN-BATCH] Successfully generated image for item ${itemId}`);
+      return true;
+    } catch (error) {
+      console.error(`[ADMIN-BATCH] Error generating image for item ${itemId}:`, error);
+      return false;
+    }
+  };
+  
   // Handle generating all images for a city
   const handleGenerateAllImages = async (cityId: string) => {
     try {
@@ -206,20 +230,28 @@ export default function AdminSimple() {
         return;
       }
       
-      // Generate all images sequentially
-      for (let i = 0; i < allItems.length; i++) {
-        const item = allItems[i];
-        await handleGenerateImage(cityId, item.id, item.text);
-        
-        // Wait 3 seconds between each image
-        if (i < allItems.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-      }
+      // Generate all images SIMULTANEOUSLY - send all 25 requests at once
+      console.log(`[ADMIN-BATCH] Sending ALL ${allItems.length} image requests simultaneously for ${city.title}`);
+      
+      const generationPromises = allItems.map(item => {
+        return handleGenerateImageBatch(cityId, item.id, item.text);
+      });
+      
+      // Wait for all generation promises to complete
+      const results = await Promise.all(generationPromises);
+      
+      // Count successes and failures
+      const successCount = results.filter(result => result).length;
+      const failureCount = allItems.length - successCount;
+      
+      console.log(`[ADMIN-BATCH] All ${allItems.length} image requests completed! Success: ${successCount}, Failed: ${failureCount}`);
+      
+      // Update the UI with the latest data
+      await fetchAdminData();
       
       toast({
         title: "Image Regeneration Complete",
-        description: `Regenerated ${allItems.length} images for ${city.title} with style guides.`,
+        description: `Regenerated ${successCount} images for ${city.title} with style guides. ${failureCount > 0 ? `Failed: ${failureCount}` : ''}`,
       });
     } catch (error) {
       console.error('[ADMIN] Error generating all images:', error);
