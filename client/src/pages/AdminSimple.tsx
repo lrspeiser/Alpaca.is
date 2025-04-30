@@ -1,0 +1,584 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { ImageIcon, ArrowLeft, RefreshCw } from "lucide-react";
+import { Link } from "wouter";
+
+// Types for our admin data
+interface AdminItem {
+  id: string;
+  text: string;
+  description: string | null;
+  image: string | null;
+  isCenterSpace: boolean | null;
+  gridRow: number | null;
+  gridCol: number | null;
+}
+
+interface AdminCity {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  itemCount: number;
+  itemsWithDescriptions: number;
+  itemsWithImages: number;
+  itemsWithValidImageFiles: number;
+  completedItemsCount: number;
+  lastMetadataUpdate: string | null;
+  items: AdminItem[];
+}
+
+interface AdminData {
+  success: boolean;
+  cities: AdminCity[];
+}
+
+export default function AdminSimple() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [adminData, setAdminData] = useState<AdminData | null>(null);
+  const [activeTab, setActiveTab] = useState("manage");
+  const [viewingCity, setViewingCity] = useState<string | null>(null);
+  const [generatingImages, setGeneratingImages] = useState<{[key: string]: boolean}>({});
+  const [generatingDescriptions, setGeneratingDescriptions] = useState<{[key: string]: boolean}>({});
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
+  const { toast } = useToast();
+  
+  // New city form state - simplified to just ID and name
+  const [newCity, setNewCity] = useState({
+    id: "",
+    cityName: "",
+  });
+  
+  // Fetch admin data
+  const fetchAdminData = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin-data');
+      const data = await response.json();
+      setAdminData(data);
+    } catch (error) {
+      console.error('[ADMIN] Failed to fetch admin data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load admin data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Load admin data on component mount
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
+  
+  // Handle refreshing metadata
+  const handleRefreshMetadata = async () => {
+    try {
+      setIsLoading(true);
+      const response = await apiRequest(
+        "POST",
+        "/api/update-city-metadata",
+        {}
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "Metadata Updated",
+        description: "City metadata has been refreshed successfully.",
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error updating metadata:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update metadata. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle generating descriptions for a city
+  const handleGenerateDescriptions = async (cityId: string) => {
+    try {
+      setGeneratingDescriptions({ ...generatingDescriptions, [cityId]: true });
+      toast({
+        title: "Generating Descriptions",
+        description: "Please wait while we generate descriptions...",
+        duration: 5000
+      });
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-descriptions",
+        { cityId }
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "Descriptions Generated",
+        description: "Successfully generated descriptions for this city.",
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error generating descriptions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate descriptions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingDescriptions({ ...generatingDescriptions, [cityId]: false });
+    }
+  };
+  
+  // Handle generating a single image
+  const handleGenerateImage = async (cityId: string, itemId: string, itemText: string) => {
+    try {
+      setProcessingItemId(itemId);
+      toast({
+        title: "Generating Image",
+        description: "Please wait while we create an image...",
+        duration: 10000
+      });
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-image",
+        { 
+          cityId, 
+          itemId,
+          itemText,
+          forceNewImage: true 
+        }
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "Image Generated",
+        description: "Successfully generated image for this item.",
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error generating image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingItemId(null);
+    }
+  };
+  
+  // Handle generating all images for a city
+  const handleGenerateAllImages = async (cityId: string) => {
+    try {
+      setGeneratingImages({ ...generatingImages, [cityId]: true });
+      const city = adminData?.cities.find(c => c.id === cityId);
+      
+      if (!city) {
+        throw new Error(`City ${cityId} not found`);
+      }
+      
+      toast({
+        title: "Starting Image Generation",
+        description: `Starting to generate images for ${city.title}. This will take a while.`,
+        duration: 5000
+      });
+      
+      // Find items without images
+      const itemsWithoutImages = city.items.filter(item => !item.image);
+      
+      if (itemsWithoutImages.length === 0) {
+        toast({
+          title: "No Images Needed",
+          description: "All items already have images.",
+        });
+        setGeneratingImages({ ...generatingImages, [cityId]: false });
+        return;
+      }
+      
+      // Generate 5 images at a time with 3 second delay
+      for (let i = 0; i < itemsWithoutImages.length; i++) {
+        const item = itemsWithoutImages[i];
+        await handleGenerateImage(cityId, item.id, item.text);
+        
+        // Wait 3 seconds between each image
+        if (i < itemsWithoutImages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      }
+      
+      toast({
+        title: "Image Generation Complete",
+        description: `Generated ${itemsWithoutImages.length} images for ${city.title}.`,
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error generating all images:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate all images. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingImages({ ...generatingImages, [cityId]: false });
+    }
+  };
+  
+  // Handle repairing missing images
+  const handleRepairMissingImages = async (cityId: string) => {
+    try {
+      toast({
+        title: "Repairing Missing Images",
+        description: "Attempting to repair missing image files...",
+        duration: 5000
+      });
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/repair-missing-images",
+        { cityId }
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "Repair Complete",
+        description: "Image repair process complete.",
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error repairing images:', error);
+      toast({
+        title: "Error",
+        description: "Failed to repair images. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Handle creating a new city
+  const handleCreateCity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newCity.id || !newCity.cityName) {
+      toast({
+        title: "Validation Error",
+        description: "Both city ID and name are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/create-city",
+        {
+          id: newCity.id,
+          name: newCity.cityName,
+        }
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "City Created",
+        description: `Successfully created city: ${newCity.cityName}`,
+      });
+      
+      // Reset form
+      setNewCity({ id: "", cityName: "" });
+      
+      // Switch to manage tab
+      setActiveTab("manage");
+    } catch (error) {
+      console.error('[ADMIN] Error creating city:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create city. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Render city details view
+  const renderCityDetails = () => {
+    if (!adminData) return null;
+    
+    const city = adminData.cities.find(c => c.id === viewingCity);
+    if (!city) return null;
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => setViewingCity(null)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Cities
+          </Button>
+          <h2 className="text-2xl font-bold">{city.title}</h2>
+          {city.subtitle && <span className="text-gray-500">({city.subtitle})</span>}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {city.items.map(item => (
+            <Card key={item.id} className="p-4 flex flex-col h-full">
+              <div className="mb-2 flex-grow">
+                <h3 className="font-bold text-sm">{item.text}</h3>
+                {item.isCenterSpace && <span className="text-xs text-blue-500">Center Space</span>}
+                {item.description && (
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-3">{item.description}</p>
+                )}
+              </div>
+              
+              {item.image ? (
+                <div className="aspect-square bg-gray-100 rounded-md overflow-hidden relative">
+                  <img 
+                    src={item.image} 
+                    alt={item.text} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/placeholder-image.svg";
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="aspect-square bg-gray-100 rounded-md flex items-center justify-center">
+                  <span className="text-gray-400 text-xs">No image</span>
+                </div>
+              )}
+              
+              <div className="mt-2 space-y-2">
+                {!item.description && (
+                  <Button 
+                    size="sm" 
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => handleGenerateItemDescription(city.id, item.id)}
+                    disabled={processingItemId === item.id}
+                  >
+                    Generate Description
+                  </Button>
+                )}
+                
+                <Button 
+                  size="sm" 
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => handleGenerateImage(city.id, item.id, item.text)}
+                  disabled={processingItemId === item.id}
+                >
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  {processingItemId === item.id ? 'Generating...' : 'Generate Image'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  };
+  
+  // Handle generating a description for a single item
+  const handleGenerateItemDescription = async (cityId: string, itemId: string) => {
+    try {
+      setProcessingItemId(itemId);
+      toast({
+        title: "Generating Description",
+        description: "Please wait while we create a description...",
+        duration: 5000
+      });
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-description",
+        { cityId, itemId }
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "Description Generated",
+        description: "Successfully generated description for this item.",
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error generating description:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate description. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingItemId(null);
+    }
+  };
+  
+  // Loading state
+  if (isLoading && !adminData) {
+    return (
+      <div className="container mx-auto py-8 flex justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-8 w-64 bg-gray-200 rounded mb-4"></div>
+          <div className="h-48 w-full max-w-3xl bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto py-8 px-4 max-w-7xl">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Bingo Admin</h1>
+        <div className="flex gap-2">
+          <Button onClick={handleRefreshMetadata} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Metadata
+          </Button>
+          <Link href="/">
+            <Button variant="outline">Return to Bingo</Button>
+          </Link>
+        </div>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-8 w-full justify-start">
+          <TabsTrigger value="manage">Manage Cities</TabsTrigger>
+          <TabsTrigger value="create">Create City</TabsTrigger>
+        </TabsList>
+        
+        {/* ===== MANAGE CITIES TAB ===== */}
+        <TabsContent value="manage">
+          {viewingCity ? (
+            renderCityDetails()
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {adminData?.cities.map((city) => (
+                <Card key={city.id} className="p-6 hover:shadow-md transition-shadow duration-200">
+                  <h3 className="text-xl font-bold mb-1">{city.title}</h3>
+                  {city.subtitle && (
+                    <p className="text-gray-500 text-sm mb-4">{city.subtitle}</p>
+                  )}
+                  
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-sm mb-6">
+                    <div className="flex flex-col items-center p-2 bg-blue-50 rounded">
+                      <span className="font-bold text-lg">{city.itemCount}</span>
+                      <span className="text-xs text-blue-700">Items</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-green-50 rounded">
+                      <span className="font-bold text-lg">{city.itemsWithDescriptions}</span>
+                      <span className="text-xs text-green-700">Descriptions</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 bg-purple-50 rounded relative">
+                      <span className="font-bold text-lg">{city.itemsWithImages}</span>
+                      {city.itemsWithValidImageFiles !== undefined && 
+                        city.itemsWithValidImageFiles !== city.itemsWithImages && (
+                          <span className="text-xs text-red-500 absolute -right-3 -top-2">
+                            ({city.itemsWithValidImageFiles}/{city.itemsWithImages} files)
+                          </span>
+                        )}
+                      <span className="text-xs text-purple-700">Images</span>
+                    </div>
+                  </div>
+                  
+                  {city.lastMetadataUpdate && (
+                    <p className="text-xs text-gray-500 mb-4">
+                      Last updated: {new Date(city.lastMetadataUpdate).toLocaleString()}
+                    </p>
+                  )}
+                  
+                  <div className="flex flex-col items-stretch gap-2">
+                    <Button 
+                      onClick={() => setViewingCity(city.id)}
+                      variant="outline"
+                    >
+                      View Details
+                    </Button>
+                    <Button
+                      disabled={generatingDescriptions[city.id]}
+                      onClick={() => handleGenerateDescriptions(city.id)}
+                      variant="outline"
+                    >
+                      {generatingDescriptions[city.id] ? 'Generating...' : 'Generate All Descriptions'}
+                    </Button>
+                    <Button
+                      disabled={generatingImages[city.id]}
+                      onClick={() => handleGenerateAllImages(city.id)}
+                      variant="outline"
+                    >
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      {generatingImages[city.id] ? 'Generating...' : `Generate All Images (${city.itemCount})`}
+                    </Button>
+                    {city.itemsWithValidImageFiles !== undefined && 
+                      city.itemsWithValidImageFiles !== city.itemsWithImages && (
+                        <Button
+                          onClick={() => handleRepairMissingImages(city.id)}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          Repair Missing Images
+                        </Button>
+                      )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+        
+        {/* ===== CREATE CITY TAB ===== */}
+        <TabsContent value="create">
+          <div className="max-w-md mx-auto">
+            <Card className="p-6">
+              <h2 className="text-xl font-bold mb-4">Create New City</h2>
+              <form onSubmit={handleCreateCity} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="cityId" className="text-sm font-medium">
+                    City ID
+                  </label>
+                  <Input
+                    id="cityId"
+                    placeholder="e.g. paris"
+                    value={newCity.id}
+                    onChange={(e) => setNewCity({ ...newCity, id: e.target.value })}
+                    required
+                  />
+                  <p className="text-xs text-gray-500">
+                    Use lowercase letters with no spaces or special characters
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <label htmlFor="cityName" className="text-sm font-medium">
+                    City Name
+                  </label>
+                  <Input
+                    id="cityName"
+                    placeholder="e.g. Paris Bingo"
+                    value={newCity.cityName}
+                    onChange={(e) => setNewCity({ ...newCity, cityName: e.target.value })}
+                    required
+                  />
+                </div>
+                
+                <Button type="submit" disabled={isLoading} className="w-full">
+                  {isLoading ? "Creating..." : "Create City"}
+                </Button>
+              </form>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

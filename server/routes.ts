@@ -11,6 +11,9 @@ import { setupImageProxy } from "./imageProxy";
 import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
 import * as fs from 'fs';
 import * as path from 'path';
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import { cities, bingoItems, userCompletions } from "@shared/schema";
 
 // Track in-progress image generations to prevent duplicates
 const inProgressImageGenerations = new Map<string, number>();
@@ -999,6 +1002,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate an image for a bingo item
+  // Dedicated admin API that provides all necessary data in one call
+  app.get("/api/admin-data", async (req: Request, res: Response) => {
+    try {
+      const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
+      console.log(`[ADMIN] Admin data requested from ${requestIP}`);
+      
+      // Get city metadata directly from database
+      const citiesData = await db.select().from(cities);
+      
+      // For each city, get the count of completed items
+      const result = await Promise.all(citiesData.map(async (city) => {
+        // Get items for this city
+        const cityItems = await db.select().from(bingoItems).where(eq(bingoItems.cityId, city.id));
+        
+        // Get user completions for this city
+        const completions = await db.select().from(userCompletions).where(eq(userCompletions.cityId, city.id));
+        
+        // Calculate completion statistics
+        const completedItemsCount = new Set(completions.map(c => c.itemId)).size;
+        
+        return {
+          id: city.id,
+          title: city.title,
+          subtitle: city.subtitle,
+          itemCount: city.itemCount,
+          itemsWithDescriptions: city.itemsWithDescriptions,
+          itemsWithImages: city.itemsWithImages,
+          itemsWithValidImageFiles: city.itemsWithValidImageFiles,
+          completedItemsCount,
+          lastMetadataUpdate: city.lastMetadataUpdate,
+          items: cityItems.map(item => ({
+            id: item.id,
+            text: item.text,
+            description: item.description,
+            image: item.image,
+            isCenterSpace: item.isCenterSpace,
+            gridRow: item.gridRow,
+            gridCol: item.gridCol
+          }))
+        };
+      }));
+      
+      res.json({
+        success: true,
+        cities: result
+      });
+    } catch (error) {
+      console.error("Error fetching admin data:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch admin data" });
+    }
+  });
+
   app.post("/api/generate-image", async (req: Request, res: Response) => {
     const startTime = Date.now();
     const requestIP = req.ip || req.connection.remoteAddress || 'unknown';
