@@ -752,8 +752,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       const processingTime = Date.now() - startTime;
-      console.error(`[SERVER ERROR] Error creating city ${cityId} after ${processingTime}ms:`, error);
-      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}`);
+      console.error(`[SERVER ERROR] Error creating city after ${processingTime}ms:`, error);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}`);
       
       res.status(500).json({ error: "Failed to create city" });
     }
@@ -1022,7 +1022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       const processingTime = Date.now() - startTime;
       console.error(`[SERVER ERROR] Error saving user photo after ${processingTime}ms:`, error);
-      console.log(`[ERROR DETAILS] Request from IP ${requestIP}, client ${clientId || 'unknown'}`);
+      console.log(`[ERROR DETAILS] Request from IP ${requestIP}`);
       res.status(500).json({ error: "Failed to save user photo" });
     }
   });
