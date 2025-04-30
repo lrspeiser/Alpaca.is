@@ -40,43 +40,49 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       return;
     }
     
+    // If we have no items to navigate through, exit early
+    if (items.length <= 1) {
+      console.log(`[MODAL] Not enough items to navigate: ${items.length} items`);
+      return;
+    }
+    
+    // Even if we can't find the exact item (first click issue), we can still navigate
+    // Just pick the first or last item to start
+    if (!localItem.id) {
+      console.log(`[MODAL] Item missing ID, defaulting to first item for navigation`);
+      const defaultItem = {
+        ...items[0],
+        cityId: currentCity
+      };
+      setLocalItem(defaultItem);
+      return;
+    }
+    
     // Find current item index, use both id and cityId for a more robust match
     const currentIndex = items.findIndex(i => i.id === localItem.id);
     
     if (currentIndex === -1) {
-      console.log(`[MODAL] Cannot navigate: item ${localItem.id} not found in items array of length ${items.length}`);
+      console.log(`[MODAL] Cannot find item ${localItem.id} in items array of length ${items.length}`);
       console.log(`[MODAL] Item cityId: ${localItem.cityId}, Current City: ${currentCity}`);
       
-      // Attempt a recovery by manually setting cityId on all items
-      const enhancedItems = items.map(item => ({
-        ...item,
-        cityId: currentCity
-      }));
-      
-      // Try finding the item again
-      const recoveryIndex = enhancedItems.findIndex(i => i.id === localItem.id);
-      if (recoveryIndex === -1) {
-        console.log(`[MODAL] Navigation recovery failed`);
-        return;
-      }
-      
-      console.log(`[MODAL] Navigation recovery succeeded, found item at index ${recoveryIndex}`);
-      
-      let newIndex;
-      if (direction === 'prev') {
-        newIndex = recoveryIndex === 0 ? enhancedItems.length - 1 : recoveryIndex - 1;
+      // For first click navigation - just use a fixed position since we can't find the item
+      // This ensures navigation works even on first click
+      let defaultIndex = 0;
+      if (direction === 'next') {
+        console.log(`[MODAL] First click navigation - moving to item at index 1`);
+        defaultIndex = 1; // Go to second item when clicking "next"
       } else {
-        newIndex = recoveryIndex === enhancedItems.length - 1 ? 0 : recoveryIndex + 1;
+        console.log(`[MODAL] First click navigation - moving to item at last index`);
+        defaultIndex = items.length - 1; // Go to last item when clicking "prev"
       }
       
-      // Update with an enhanced item that has the correct cityId
-      const enhancedItem = {
-        ...enhancedItems[newIndex],
+      // Ensure the cityId is set
+      const defaultItem = {
+        ...items[defaultIndex],
         cityId: currentCity
       };
       
-      console.log(`[MODAL] Navigating ${direction} to recovered item ${enhancedItem.id}`);
-      setLocalItem(enhancedItem);
+      setLocalItem(defaultItem);
       return;
     }
     
