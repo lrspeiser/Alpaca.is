@@ -78,20 +78,26 @@ export default function AdminSimple() {
   }, []);
   
   // Handle refreshing metadata
-  const handleRefreshMetadata = async () => {
+  const handleRefreshMetadata = async (cityId?: string) => {
     try {
       setIsLoading(true);
+      
+      // If a cityId is provided, only refresh that city, otherwise refresh all cities
+      const payload = cityId ? { cityId } : {};
+      
       const response = await apiRequest(
         "POST",
         "/api/update-city-metadata",
-        {}
+        payload
       );
       
       await fetchAdminData();
       
       toast({
         title: "Metadata Updated",
-        description: "City metadata has been refreshed successfully.",
+        description: cityId 
+          ? `Metadata for ${cityId} has been updated successfully.`
+          : "Metadata for all cities has been refreshed successfully.",
       });
     } catch (error) {
       console.error('[ADMIN] Error updating metadata:', error);
@@ -574,6 +580,15 @@ export default function AdminSimple() {
                                 Repair Images
                               </Button>
                           )}
+                          
+                          <Button
+                            onClick={() => handleRefreshMetadata(city.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Update Metadata
+                          </Button>
                         </div>
                       </td>
                     </tr>

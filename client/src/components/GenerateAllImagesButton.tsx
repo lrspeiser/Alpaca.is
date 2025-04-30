@@ -214,9 +214,29 @@ export default function GenerateAllImagesButton({ cityId }: GenerateAllImagesBut
       console.log(`[BATCH] All ${generationPromises.length} items completed! Refreshing state...`);
       await refreshState();
       
+      // Update city metadata to reflect new image count
+      try {
+        console.log(`[BATCH] Updating city metadata after image regeneration...`);
+        const metadataResponse = await fetch('/api/update-city-metadata', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ cityId: targetCityId }),
+        });
+        
+        if (metadataResponse.ok) {
+          console.log(`[BATCH] Successfully updated metadata for ${targetCityId}`);
+        } else {
+          console.error(`[BATCH] Failed to update metadata for ${targetCityId}`);
+        }
+      } catch (metadataError) {
+        console.error(`[BATCH] Error updating metadata:`, metadataError);
+      }
+      
       toast({
         title: "Image Regeneration Complete",
-        description: `Successfully regenerated ${successCount} images with style guides. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''}`,
+        description: `Successfully regenerated ${successCount} images with style guides. ${failCount > 0 ? `Failed to generate ${failCount} images.` : ''} Metadata updated.`,
         variant: failCount > 0 ? "destructive" : "default",
       });
     } catch (error) {
