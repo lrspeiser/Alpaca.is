@@ -1238,8 +1238,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       log(`Generating image for "${itemText}" in ${city.title}`, 'ai-generation');
       
-      // Generate image
+      // Two-phase approach: First generate file path, save to DB, then generate the actual image
       let imageUrl = "";
+      let predefinedImagePath = "";
+      
       try {
         log(`Starting image generation for "${itemText}" in ${city.title}`, 'ai-generation');
         
@@ -1284,14 +1286,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           log(`No style guide available for image generation`, 'ai-generation');
         }
         
-        // Attempt to generate the image with description and style guide if available
+        // Import necessary modules at the beginning of the try block to avoid scoping issues
+        const { generateImageFilename } = await import('./imageStorage');
+        const { eq } = await import('drizzle-orm');
+        const { bingoItems } = await import('@shared/schema');
+        const { db } = await import('./db');
+        
+        // STEP 1: Pre-generate the image path and save to database
+        // Generate a unique filename using the exported function from imageStorage
+        const filename = generateImageFilename(cityId, itemId, itemText!);
+        predefinedImagePath = `/images/${filename}`;
+        
+        log(`[PRE-GENERATION] Created predefined image path: ${predefinedImagePath}`, 'ai-generation');
+        
+        // Update the database with the predefined path BEFORE generating the image
+        log(`[PRE-GENERATION] Updating database with predefined image path for item ${itemId}`, 'ai-generation');
+        await db.update(bingoItems)
+          .set({ image: predefinedImagePath })
+          .where(eq(bingoItems.id, itemId));
+          
+        log(`[PRE-GENERATION] Database updated successfully with predefined path`, 'ai-generation');
+        
+        // STEP 2: Generate the actual image and save it to the predefined path
         imageUrl = await generateItemImage(
           itemText!, 
           city.title, 
           description, 
           styleGuideToUse,
           itemId, // Pass the actual item ID for consistent file naming
-          forceNewImage // Pass the force flag from request body
+          forceNewImage, // Pass the force flag from request body
+          predefinedImagePath // Pass the predefined path where the image should be saved
         );
         
         if (!imageUrl) {
@@ -1373,11 +1397,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const checkItem = updatedState.cities[cityId].items.find(i => i.id === itemId);
         log(`Final image URL check for ${itemId}: ${checkItem?.image ? 'URL present' : 'No URL'}`, 'ai-generation');
         
-        // Import necessary modules for database operations
-        const { eq } = await import('drizzle-orm');
-        const { bingoItems } = await import('@shared/schema');
-        const { db } = await import('./db');
-        
         // Function to verify database update was successful
         const verifyDatabaseUpdate = async (): Promise<boolean> => {
           try {
@@ -1411,17 +1430,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 log(`[RETRY] Attempt ${retryCount + 1}/${maxRetries} to update database for item ${itemId}`, 'db-update');
               }
               
-              // First try the state update method
-              log(`[DB WRITE] Saving updated state with new image for item ${itemId} in city ${cityId}`, 'db-update');
+              // Since we already updated the database with predefinedImagePath before generating the image,
+              // we only need to update the state object here, not the database again
+              log(`[DB WRITE] Updating state with image URL for item ${itemId} in city ${cityId}`, 'db-update');
               await storage.saveBingoState(updatedState, undefined, clientId);
-              log(`[DB SUCCESS] Successfully updated image for item ${itemId} in city ${cityId} via state`, 'db-update');
+              log(`[DB SUCCESS] Successfully updated state for item ${itemId} in city ${cityId}`, 'db-update');
               
-              // Then try direct database update
-              log(`[DB DIRECT] Directly updating image URL in database for item ${itemId}`, 'db-update');
-              await db
-                .update(bingoItems)
-                .set({ image: imageUrl })
-                .where(eq(bingoItems.id, itemId));
+              // We only need to verify that the database still has our predefined path (should be unchanged)
+              log(`[DB VERIFY] Verifying database still has correct image path for item ${itemId}`, 'db-update');
               
               // Verify the update in the database
               updateSuccess = await verifyDatabaseUpdate();
