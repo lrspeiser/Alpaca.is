@@ -396,11 +396,8 @@ export default function BingoItemModal({ item, isOpen, onClose, onToggleComplete
       
       console.log('[MODAL] Server update successful');
       
-      // STEP 3: If marking as complete, show photo capture modal
-      if (completed) {
-        console.log('[MODAL] Opening photo capture');
-        setIsPhotoCaptureOpen(true);
-      }
+      // No longer automatically opening photo capture when marking as complete
+      // Users can use the "Add Your Photo" button if they wish to add a photo
       
       // Only refresh the grid when marking as not complete
       // Don't refresh when marking as complete to avoid overriding our local UI state
