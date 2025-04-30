@@ -49,8 +49,9 @@ function ensureImageDir() {
 
 /**
  * Generates a filename for an image based on its metadata
+ * Exposed as an export to allow pre-creation of filenames before image generation
  */
-function generateImageFilename(cityId: string, itemId: string, itemText: string): string {
+export function generateImageFilename(cityId: string, itemId: string, itemText: string): string {
   // Create a consistent but unique filename based on the item details
   const hash = crypto
     .createHash('md5')
@@ -58,7 +59,10 @@ function generateImageFilename(cityId: string, itemId: string, itemText: string)
     .digest('hex')
     .substring(0, 10);
   
-  return `${cityId}-${itemId}-${hash}.png`;
+  // Add timestamp to ensure uniqueness across multiple generations
+  const timestamp = Date.now();
+  
+  return `${cityId}bingo-${itemId}-${timestamp}-${hash}.png`;
 }
 
 /**
@@ -227,7 +231,8 @@ export async function processOpenAIImageUrl(
   cityId: string, 
   itemId: string, 
   itemText: string,
-  forceNewImage: boolean = false
+  forceNewImage: boolean = false,
+  predefinedPath?: string // New parameter to use a predefined path
 ): Promise<string> {
   try {
     log(`[IMAGE-STORAGE] Processing image for "${itemText}" in ${cityId}`, 'image-storage');
@@ -241,6 +246,81 @@ export async function processOpenAIImageUrl(
       }
     }
     
+    // If a predefined path is provided, use it directly
+    if (predefinedPath && predefinedPath.startsWith('/images/')) {
+      log(`[IMAGE-STORAGE] Using predefined path: ${predefinedPath} for "${itemText}"`, 'image-storage');
+      
+      // Extract the filename from the predefined path
+      const predefinedFilename = predefinedPath.split('/').pop();
+      if (!predefinedFilename) {
+        throw new Error('Invalid predefined path format');
+      }
+      
+      // Define the full path where the image will be saved
+      const fullPath = path.join(getImageDir(), predefinedFilename);
+      
+      // Ensure the directory exists
+      ensureImageDir();
+      
+      // Download and process the image data
+      let imageBuffer: Buffer;
+      
+      // Handle both URL and data URL formats
+      if (imageUrl.startsWith('data:')) {
+        // Extract base64 data from data URL
+        const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+          throw new Error('Invalid data URL format');
+        }
+        
+        // Convert base64 to buffer
+        imageBuffer = Buffer.from(matches[2], 'base64');
+        log(`[IMAGE-STORAGE] Extracted image data from data URL (${imageBuffer.length} bytes)`, 'image-storage');
+      } else {
+        // Fetch the image from URL with a generous timeout (30 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+        
+        try {
+          const response = await fetch(imageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; BingoAppProxy/1.0)',
+            },
+            signal: controller.signal,
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+          }
+          
+          // Get the image data
+          imageBuffer = await response.buffer();
+          log(`[IMAGE-STORAGE] Downloaded image from URL (${imageBuffer.length} bytes)`, 'image-storage');
+        } finally {
+          clearTimeout(timeoutId); // Clean up the timeout
+        }
+      }
+      
+      // Write the image to the predefined path
+      fs.writeFileSync(fullPath, imageBuffer);
+      
+      // Verify file was written successfully
+      if (!fs.existsSync(fullPath)) {
+        throw new Error(`File was not created at ${fullPath}`);
+      }
+      
+      const fileSize = fs.statSync(fullPath).size;
+      if (fileSize === 0) {
+        throw new Error(`File was created but is empty: ${fullPath}`);
+      }
+      
+      log(`[IMAGE-STORAGE] Successfully saved image to predefined path: ${fullPath} (${fileSize} bytes)`, 'image-storage');
+      console.log(`[DB-IMAGE] Saved image for "${itemText}" in ${cityId} at predefined path: ${fullPath} (${fileSize} bytes)`);
+      
+      return predefinedPath;
+    }
+    
+    // No predefined path, generate our own
     // Add a timestamp to make the filename unique for regenerated images
     const uniqueItemId = forceNewImage ? `${itemId}-${Date.now()}` : itemId;
     

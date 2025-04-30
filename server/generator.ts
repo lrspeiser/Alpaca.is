@@ -206,7 +206,8 @@ export async function generateItemImage(
   description?: string,
   styleGuide?: any,
   actualItemId?: string,
-  forceNewImage: boolean = false
+  forceNewImage: boolean = false,
+  predefinedPath?: string // Added parameter for a predefined path
 ): Promise<string> {
   // We used to have special handling for Washington DC, but now we'll generate 
   // images for all cities including Washington DC
@@ -445,7 +446,8 @@ export async function generateItemImage(
           cityId,
           effectiveItemId, // Use the actual or temp item ID
           itemText,
-          forceNewImage // Use the force flag parameter
+          forceNewImage, // Use the force flag parameter
+          predefinedPath // Use the predefined path if available
         );
         
         if (localImageUrl) {

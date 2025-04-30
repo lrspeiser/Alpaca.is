@@ -22,38 +22,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up image proxy for handling OpenAI image URLs
   setupImageProxy(app);
   
-  // Add a placeholder image endpoint
-  app.get('/api/placeholder-image', (req, res) => {
-    const text = req.query.text || 'No image';
-    const reason = req.query.reason || 'Unknown reason';
-    
-    // Create a more informative SVG placeholder
-    const svg = `
-      <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="#f0f0f0"/>
-        <rect x="10" y="10" width="280" height="280" fill="#fcfcfc" stroke="#ddd" stroke-width="1"/>
-        
-        <!-- Camera icon with slash (indicating image unavailable) -->
-        <g transform="translate(150, 120)" fill="none" stroke="#888" stroke-width="3">
-          <circle cx="0" cy="0" r="35"/>
-          <circle cx="0" cy="0" r="15"/>
-          <line x1="-30" y1="-30" x2="30" y2="30" stroke="#d32f2f" stroke-width="4"/>
-        </g>
-        
-        <!-- Text for primary message -->
-        <text x="50%" y="190" font-family="Arial" font-size="16" fill="#555" text-anchor="middle">${text}</text>
-        
-        <!-- Text for reason (smaller) -->
-        <text x="50%" y="215" font-family="Arial" font-size="12" fill="#777" text-anchor="middle">${reason}</text>
-        
-        <!-- Try again message -->
-        <text x="50%" y="240" font-family="Arial" font-size="12" fill="#2196f3" text-anchor="middle">Try again later</text>
-      </svg>
-    `;
-    
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.send(svg);
-  });
+  // No placeholder images - we'll use predefined paths instead
 
   // Set up image serving
   try {
@@ -63,14 +32,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Set up static serving for the images directory
     app.use('/images', express.static(imageDir));
     
-    // Add a fallback for missing images
+    // Handle missing images with a clear error
     app.use('/images/:filename', (req, res) => {
       // If we got here, the image wasn't found
-      log(`[IMAGE-FALLBACK] Image not found: ${req.params.filename}, using fallback`, 'image-fallback');
+      log(`[IMAGE-FALLBACK] Image not found: ${req.params.filename}, sending 404 error`, 'image-fallback');
       
-      // Send a placeholder image or redirect to a default image
-      res.redirect('/api/placeholder-image?text=' + encodeURIComponent('Image not available') + 
-                   '&reason=' + encodeURIComponent('The requested image file could not be found on the server'));
+      // Return a 404 error - no placeholders
+      res.status(404).json({
+        error: "Image not found",
+        message: "The requested image file could not be found on the server",
+        path: req.params.filename
+      });
     });
   } catch (error) {
     log(`[IMAGE-ERROR] Failed to set up image serving: ${error.message}`, 'error');
