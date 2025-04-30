@@ -166,11 +166,24 @@ export default function AdminSimple() {
         }
       );
       
+      // Update metadata after generating an image
+      try {
+        console.log(`[ADMIN] Updating metadata for ${cityId} after single image generation...`);
+        await apiRequest(
+          "POST", 
+          "/api/update-city-metadata",
+          { cityId }
+        );
+        console.log(`[ADMIN] Successfully updated metadata for ${cityId} after image generation`);
+      } catch (metadataError) {
+        console.error('[ADMIN] Error updating metadata after image generation:', metadataError);
+      }
+      
       await fetchAdminData();
       
       toast({
         title: "Image Generated",
-        description: "Successfully generated image for this item.",
+        description: "Successfully generated image for this item. Metadata updated.",
       });
     } catch (error) {
       console.error('[ADMIN] Error generating image:', error);
@@ -252,12 +265,25 @@ export default function AdminSimple() {
       
       console.log(`[ADMIN-BATCH] All ${allItems.length} image requests completed! Success: ${successCount}, Failed: ${failureCount}`);
       
+      // Update metadata for this city to reflect new image files
+      try {
+        console.log(`[ADMIN-BATCH] Updating metadata for ${cityId} after image regeneration...`);
+        await apiRequest(
+          "POST",
+          "/api/update-city-metadata",
+          { cityId }
+        );
+        console.log(`[ADMIN-BATCH] Successfully updated metadata for ${cityId}`);
+      } catch (metadataError) {
+        console.error('[ADMIN-BATCH] Error updating metadata:', metadataError);
+      }
+      
       // Update the UI with the latest data
       await fetchAdminData();
       
       toast({
         title: "Image Regeneration Complete",
-        description: `Regenerated ${successCount} images for ${city.title} with style guides. ${failureCount > 0 ? `Failed: ${failureCount}` : ''}`,
+        description: `Regenerated ${successCount} images for ${city.title} with style guides. ${failureCount > 0 ? `Failed: ${failureCount}` : ''} Metadata updated.`,
       });
     } catch (error) {
       console.error('[ADMIN] Error generating all images:', error);
@@ -286,11 +312,24 @@ export default function AdminSimple() {
         { cityId }
       );
       
+      // Update metadata after repair to reflect fixed image counts
+      try {
+        console.log(`[ADMIN] Updating metadata for ${cityId} after image repair...`);
+        await apiRequest(
+          "POST",
+          "/api/update-city-metadata",
+          { cityId }
+        );
+        console.log(`[ADMIN] Successfully updated metadata for ${cityId} after repair`);
+      } catch (metadataError) {
+        console.error('[ADMIN] Error updating metadata after repair:', metadataError);
+      }
+      
       await fetchAdminData();
       
       toast({
         title: "Repair Complete",
-        description: "Image repair process complete.",
+        description: "Image repair process complete. Metadata updated.",
       });
     } catch (error) {
       console.error('[ADMIN] Error repairing images:', error);
@@ -479,9 +518,14 @@ export default function AdminSimple() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Travel Bingo Admin</h1>
         <div className="flex gap-2">
-          <Button onClick={handleRefreshMetadata} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Metadata
+          <Button 
+            onClick={() => handleRefreshMetadata()} 
+            variant="outline" 
+            size="sm"
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Updating...' : 'Refresh All Metadata'}
           </Button>
           <Link href="/">
             <Button variant="outline">Return to Bingo</Button>
