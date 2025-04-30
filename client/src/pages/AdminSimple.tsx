@@ -189,37 +189,37 @@ export default function AdminSimple() {
       }
       
       toast({
-        title: "Starting Image Generation",
-        description: `Starting to generate images for ${city.title}. This will take a while.`,
+        title: "Starting Image Regeneration",
+        description: `Regenerating ALL images for ${city.title} with style guides. This will take a while.`,
         duration: 5000
       });
       
-      // Find items without images
-      const itemsWithoutImages = city.items.filter(item => !item.image);
+      // Process ALL items, regardless of whether they already have images
+      const allItems = city.items;
       
-      if (itemsWithoutImages.length === 0) {
+      if (allItems.length === 0) {
         toast({
-          title: "No Images Needed",
-          description: "All items already have images.",
+          title: "No Items Found",
+          description: "No bingo items found for this city.",
         });
         setGeneratingImages({ ...generatingImages, [cityId]: false });
         return;
       }
       
-      // Generate 5 images at a time with 3 second delay
-      for (let i = 0; i < itemsWithoutImages.length; i++) {
-        const item = itemsWithoutImages[i];
+      // Generate all images sequentially
+      for (let i = 0; i < allItems.length; i++) {
+        const item = allItems[i];
         await handleGenerateImage(cityId, item.id, item.text);
         
         // Wait 3 seconds between each image
-        if (i < itemsWithoutImages.length - 1) {
+        if (i < allItems.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
       
       toast({
-        title: "Image Generation Complete",
-        description: `Generated ${itemsWithoutImages.length} images for ${city.title}.`,
+        title: "Image Regeneration Complete",
+        description: `Regenerated ${allItems.length} images for ${city.title} with style guides.`,
       });
     } catch (error) {
       console.error('[ADMIN] Error generating all images:', error);
@@ -530,7 +530,7 @@ export default function AdminSimple() {
                             size="sm"
                           >
                             <ImageIcon className="h-3 w-3 mr-1" />
-                            {generatingImages[city.id] ? 'Generating...' : `Gen Images`}
+                            {generatingImages[city.id] ? 'Regenerating...' : `Regen ALL Images`}
                           </Button>
                           {city.itemsWithValidImageFiles !== undefined && 
                             city.itemsWithValidImageFiles !== city.itemsWithImages && (
