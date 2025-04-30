@@ -1,0 +1,30 @@
+m washingtondc-0d414881
+[DB WARNING] No userId available after clientId lookup
+2:37:55 AM [db-update] [DB ERROR] City washingtondc no longer exists, stopping image generation for item washingtondc-0d414881
+[DB-IMAGE] Database update failed: City washingtondc does not exist for item washingtondc-0d414881
+2:37:55 AM [city-creation] Batch 2 complete. Waiting 5 seconds before starting next batch...
+2:38:00 AM [city-creation] Processing batch 3/9 with 3 images...
+2:38:00 AM [openai-debug] [CITY DEBUG] Generating image for Washington DC item: Attend a concert at the 9:30 Club
+[DC PROCESSING] Processing Washington DC item: "Attend a concert at the 9:30 Club"
+2:38:00 AM [openai-debug] Selected "Monumental Majesty" style for "Attend a concert at the 9:30 Club"
+2:38:00 AM [openai-debug] Starting image generation via OpenAI API with gpt-image-1 model, prompt: Create a high-quality square image of "Attend a concert at the 9:30 Club" in Washington, D.C.. Use the "Monumental Majesty" style (Grand, symmetrical, iconic, awe-inspiring, timeless). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation. Context: Step into the legendary 9:30 Club, where punk rock roots and indie icons collide in a space that pulses with D.C.’s rebellious spirit. Legendary acts and unforgettable crowds make every show an electr...
+2:38:00 AM [openai-debug] Direct API call with params: {"model":"gpt-image-1","prompt":"Create a high-quality square image of \"Attend a concert at the 9:30 Club\" in Washington, D.C.. Use the \"Monumental Majesty\" style (Grand, symmetrical, iconic, awe-inspiring, timeless). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation. Context: Step into the legendary 9:30 Club, where punk rock roots and indie icons collide in a space that pulses with D.C.’s rebellious spirit. Legendary acts and unforgettable crowds make every show an electr...","size":"1024x1024","n":1,"output_format":"png","background":"auto"}
+[OPENAI IMAGE] Generating image for: "Attend a concert at the 9:30 Club" in Washington, D.C.
+2:38:00 AM [openai-debug] API attempt 1/3 for item "Attend a concert at the 9:30 Club"
+[OPENAI ATTEMPT] Try #1 for "Attend a concert at the 9:30 Club"
+2:38:00 AM [openai-debug] [CITY DEBUG] Generating image for Washington DC item: Explore the murals of U Street Corridor
+[DC PROCESSING] Processing Washington DC item: "Explore the murals of U Street Corridor"
+2:38:00 AM [openai-debug] Selected "Monumental Majesty" style for "Explore the murals of U Street Corridor"
+2:38:00 AM [openai-debug] Starting image generation via OpenAI API with gpt-image-1 model, prompt: Create a high-quality square image of "Explore the murals of U Street Corridor" in Washington, D.C.. Use the "Monumental Majesty" style (Grand, symmetrical, iconic, awe-inspiring, timeless). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation. Context: Wander through the U Street Corridor and let massive, colorful murals tell you stories of jazz legends, civil rights heroes, and D.C.’s rebellious spirit. Each wall is a visual chapter in African Amer...
+2:38:00 AM [openai-debug] Direct API call with params: {"model":"gpt-image-1","prompt":"Create a high-quality square image of \"Explore the murals of U Street Corridor\" in Washington, D.C.. Use the \"Monumental Majesty\" style (Grand, symmetrical, iconic, awe-inspiring, timeless). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation. Context: Wander through the U Street Corridor and let massive, colorful murals tell you stories of jazz legends, civil rights heroes, and D.C.’s rebellious spirit. Each wall is a visual chapter in African Amer...","size":"1024x1024","n":1,"output_format":"png","background":"auto"}
+[OPENAI IMAGE] Generating image for: "Explore the murals of U Street Corridor" in Washington, D.C.
+2:38:00 AM [openai-debug] API attempt 1/3 for item "Explore the murals of U Street Corridor"
+[OPENAI ATTEMPT] Try #1 for "Explore the murals of U Street Corridor"
+2:38:00 AM [openai-debug] [CITY DEBUG] Generating image for Washington DC item: Visit the panda exhibit at National Zoo
+[DC PROCESSING] Processing Washington DC item: "Visit the panda exhibit at National Zoo"
+2:38:00 AM [openai-debug] Selected "Monumental Majesty" style for "Visit the panda exhibit at National Zoo"
+2:38:00 AM [openai-debug] Starting image generation via OpenAI API with gpt-image-1 model, prompt: Create a high-quality square image of "Visit the panda exhibit at National Zoo" in Washington, D.C.. Use the "Monumental Majesty" style (Grand, symmetrical, iconic, awe-inspiring, timeless). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation. Context: Dive into the heart of global conservation at the National Zoo’s giant panda exhibit, where you can watch these rare, bamboo-munching legends in action. Seeing pandas up close isn’t just adorable—it c...
+2:38:00 AM [openai-debug] Direct API call with params: {"model":"gpt-image-1","prompt":"Create a high-quality square image of \"Visit the panda exhibit at National Zoo\" in Washington, D.C.. Use the \"Monumental Majesty\" style (Grand, symmetrical, iconic, awe-inspiring, timeless). Create a professional-quality image with no text, watermarks or borders. Emphasize visual clarity and authentic representation. Context: Dive into the heart of global conservation at the National Zoo’s giant panda exhibit, where you can watch these rare, bamboo-munching legends in action. Seeing pandas up close isn’t just adorable—it c...","size":"1024x1024","n":1,"output_format":"png","background":"auto"}
+[OPENAI IMAGE] Generating image for: "Visit the panda exhibit at National Zoo" in Washington, D.C.
+2:38:00 AM [openai-debug] API attempt 1/3 for item "Visit the panda exhibit at National Zoo"
+[OPENAI ATTEMPT] Try #1 for "Visit the panda exhibit at National Zoo"
