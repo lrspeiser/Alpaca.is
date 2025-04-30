@@ -111,6 +111,44 @@ export default function AdminSimple() {
     }
   };
   
+  // Handle updating image paths from files on disk
+  const handleUpdateImagePaths = async (cityId?: string) => {
+    try {
+      setIsLoading(true);
+      
+      // If a cityId is provided, only update that city, otherwise update all cities
+      const payload = cityId ? { cityId } : {};
+      
+      toast({
+        title: "Updating Image Paths",
+        description: "Scanning disk for image files and updating database records...",
+        duration: 3000
+      });
+      
+      const response = await apiRequest(
+        "POST",
+        "/api/update-image-paths",
+        payload
+      );
+      
+      await fetchAdminData();
+      
+      toast({
+        title: "Image Paths Updated",
+        description: `Updated ${response.updatedCount} image paths from files on disk.`,
+      });
+    } catch (error) {
+      console.error('[ADMIN] Error updating image paths:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update image paths. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Handle generating descriptions for a city
   const handleGenerateDescriptions = async (cityId: string) => {
     try {

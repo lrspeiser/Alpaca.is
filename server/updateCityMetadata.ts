@@ -5,6 +5,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getImageDir } from "./imageStorage";
 import { log } from "./vite";
+import * as fsSync from 'fs';
 
 /**
  * Function to update city metadata with accurate counts of:
@@ -111,6 +112,111 @@ export async function updateCityMetadata(cityId?: string) {
 }
 
 /**
+ * Fix database records by linking to existing image files
+ * Searches for images on disk that match item IDs but aren't properly linked in the database
+ * @param cityId Optional city ID to update, if not provided updates all cities
+ */
+export async function updateImagePathsFromDisk(cityId?: string): Promise<{
+  success: boolean;
+  message: string;
+  updatedCount: number;
+}> {
+  try {
+    log(`[IMAGE PATH UPDATE] Beginning update of image paths from disk${cityId ? ` for ${cityId}` : ' for all cities'}`, 'server');
+    
+    // Get the image directory
+    const imageDir = path.join(process.cwd(), 'public', 'images');
+    
+    // Check if the directory exists
+    try {
+      await fs.access(imageDir);
+    } catch (error) {
+      return {
+        success: false,
+        message: `Image directory not accessible: ${imageDir}`,
+        updatedCount: 0
+      };
+    }
+    
+    // Read all files in the image directory
+    const files = await fs.readdir(imageDir);
+    
+    // Track updates
+    let updatedCount = 0;
+    
+    // If specific cityId provided, only update that city
+    const cityQuery = cityId 
+      ? db.select().from(cities).where(eq(cities.id, cityId))
+      : db.select().from(cities);
+    
+    const allCities = await cityQuery;
+    log(`[IMAGE PATH UPDATE] Processing ${allCities.length} cities`, 'server');
+    
+    // Process each city
+    for (const city of allCities) {
+      // Get items for this city with placeholder images
+      const cityItems = await db.select().from(bingoItems)
+        .where(eq(bingoItems.cityId, city.id));
+      
+      // Look for items with placeholder images
+      const placeholderItems = cityItems.filter(item => 
+        item.image && (
+          item.image.includes('/api/placeholder-image') ||
+          item.image.includes('being%20processed')
+        )
+      );
+      
+      if (placeholderItems.length === 0) {
+        log(`[IMAGE PATH UPDATE] No placeholder images found for city ${city.id}`, 'server');
+        continue;
+      }
+      
+      log(`[IMAGE PATH UPDATE] Found ${placeholderItems.length} items with placeholder images in ${city.id}`, 'server');
+      
+      // For each item with a placeholder, look for a matching file on disk
+      for (const item of placeholderItems) {
+        // Create a pattern to match the item ID in filenames
+        const pattern = `${city.id}bingo-${item.id}`;
+        
+        // Find files that match this pattern
+        const matchingFiles = files.filter(file => file.includes(pattern));
+        
+        if (matchingFiles.length > 0) {
+          // Use the first matching file
+          const matchingFile = matchingFiles[0];
+          const newImagePath = `/images/${matchingFile}`;
+          
+          log(`[IMAGE PATH UPDATE] Updating item ${item.id} with image from disk: ${newImagePath}`, 'server');
+          
+          // Update the database with the correct image path
+          await db.update(bingoItems)
+            .set({ image: newImagePath })
+            .where(eq(bingoItems.id, item.id));
+          
+          updatedCount++;
+        }
+      }
+    }
+    
+    // Update metadata to reflect the changes
+    await updateCityMetadata(cityId);
+    
+    return {
+      success: true,
+      message: `Updated ${updatedCount} image paths from files on disk`,
+      updatedCount
+    };
+  } catch (error) {
+    log(`[IMAGE PATH UPDATE] Error updating image paths: ${error instanceof Error ? error.message : String(error)}`, 'server');
+    return {
+      success: false,
+      message: `Error updating image paths: ${error instanceof Error ? error.message : String(error)}`,
+      updatedCount: 0
+    };
+  }
+}
+
+/**
  * Fix missing images for any city
  * Identifies items with image URLs in the database but no actual files on disk
  * @param cityId Optional city ID to repair, if not provided repairs all cities
@@ -119,7 +225,13 @@ export async function repairMissingImages(cityId?: string) {
   try {
     log(`[IMAGE REPAIR] Beginning check for missing images${cityId ? ` for ${cityId}` : ' for all cities'}`, 'server');
     
-    // First update metadata to ensure we have accurate counts
+    // First try to update any image paths from disk
+    const updateResult = await updateImagePathsFromDisk(cityId);
+    if (updateResult.updatedCount > 0) {
+      log(`[IMAGE REPAIR] Updated ${updateResult.updatedCount} image paths from disk before checking for missing images`, 'server');
+    }
+    
+    // Then update metadata to ensure we have accurate counts
     await updateCityMetadata(cityId);
     
     // Fetch the cities that need repair

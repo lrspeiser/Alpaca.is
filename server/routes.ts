@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { generateBulkDescriptions, generateItemDescription } from "./openai";
 import { generateBingoItems, generateItemImage, generateStyleGuide } from "./generator";
-import { updateCityMetadata, repairMissingImages } from "./updateCityMetadata";
+import { updateCityMetadata, repairMissingImages, updateImagePathsFromDisk } from "./updateCityMetadata";
 import { log } from "./vite";
 import { setupImageProxy } from "./imageProxy";
 import { setupImageServing, processOpenAIImageUrl } from "./imageStorage";
@@ -779,6 +779,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: "Failed to update city metadata",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Administrative endpoint to update image paths from disk files
+  app.post("/api/update-image-paths", async (req: Request, res: Response) => {
+    try {
+      const { cityId } = req.body; // Optional city ID to update just one city
+      
+      // First update image paths from disk
+      const updateResult = await updateImagePathsFromDisk(cityId);
+      
+      // Then update metadata to reflect the changes
+      await updateCityMetadata(cityId);
+      
+      res.json({
+        success: true,
+        message: updateResult.message,
+        updatedCount: updateResult.updatedCount
+      });
+    } catch (error) {
+      console.error("Error updating image paths:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to update image paths",
         message: error instanceof Error ? error.message : String(error)
       });
     }
