@@ -619,69 +619,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   return;
                 }
                 
-                // Get the latest state to ensure we have the latest data
-                // Use clientId if available for consistency
-                log(`Retrieving current state for database update after image generation for item ${item.id}`, 'db-update');
-                const currentState = clientId 
-                  ? await storage.getBingoState(undefined, clientId)
-                  : await storage.getBingoState();
-                  
-                const currentCity = currentState.cities[cityId];
+                // DIRECT DATABASE UPDATE APPROACH
+                // Instead of relying on the current state, update the database directly
+                log(`[DB UPDATE] Directly updating database with image for item ${item.id} in city ${cityId}`, 'db-update');
                 
-                if (!currentCity) {
-                  log(`[DB ERROR] City ${cityId} no longer exists, stopping image generation for item ${item.id}`, 'db-update');
-                  console.error(`[DB-IMAGE] Database update failed: City ${cityId} does not exist for item ${item.id}`);
-                  return;
-                }
-                
-                // Find the item to update
-                const targetItem = currentCity.items.find(i => i.id === item.id);
-                if (!targetItem) {
-                  log(`[DB ERROR] Item ${item.id} does not exist in city ${cityId}`, 'db-update');
-                  console.error(`[DB-IMAGE] Database update failed: Item ${item.id} does not exist in city ${cityId}`);
-                  return;
-                }
-                
-                // Log the current image state before updating
-                log(`[DB UPDATE] Updating image for item ${item.id} in city ${cityId}`, 'db-update');
-                log(`[DB UPDATE] Previous image: ${targetItem.image || 'none'}`, 'db-update');
-                log(`[DB UPDATE] New image: ${imageUrl}`, 'db-update');
-                
-                // Update the item with the image URL
-                const updatedItems = currentCity.items.map(i => 
-                  i.id === item.id ? { ...i, image: imageUrl } : i
-                );
-                
-                // Update the city
-                const updatedCity = {
-                  ...currentCity,
-                  items: updatedItems
-                };
-                
-                // Update the state
-                const updatedState = {
-                  ...currentState,
-                  cities: {
-                    ...currentState.cities,
-                    [cityId]: updatedCity
-                  }
-                };
-                
-                // Save the updated state with clientId if provided
                 try {
-                  log(`[DB WRITE] Saving updated state with new image for item ${item.id} in city ${cityId}`, 'db-update');
-                  await storage.saveBingoState(updatedState, undefined, clientId);
-                  log(`[DB SUCCESS] Successfully updated image for item ${item.id} in city ${cityId}`, 'db-update');
+                  // Import necessary modules
+                  const { eq } = await import('drizzle-orm');
+                  const { bingoItems } = await import('@shared/schema');
+                  const { db } = await import('./db');
+                  
+                  // First verify the item exists
+                  const [existingItem] = await db
+                    .select()
+                    .from(bingoItems)
+                    .where(eq(bingoItems.id, item.id));
+                  
+                  if (!existingItem) {
+                    log(`[DB ERROR] Item ${item.id} does not exist in database, cannot update image`, 'db-update');
+                    console.error(`[DB-IMAGE] Item ${item.id} not found in database`);
+                    return;
+                  }
+                  
+                  // Log the current image state before updating
+                  log(`[DB UPDATE] Updating image for item ${item.id} in city ${cityId}`, 'db-update');
+                  log(`[DB UPDATE] Previous image: ${existingItem.image || 'none'}`, 'db-update');
+                  log(`[DB UPDATE] New image: ${imageUrl}`, 'db-update');
+                  
+                  // Update the item with the new image URL directly in the database
+                  await db
+                    .update(bingoItems)
+                    .set({ image: imageUrl })
+                    .where(eq(bingoItems.id, item.id));
+                  
+                  log(`[DB SUCCESS] Successfully updated image directly in database for item ${item.id}`, 'db-update');
                   console.log(`[DB-IMAGE] Successfully saved image URL to database: ${imageUrl.substring(0, 30)}... for item ${item.id} in city ${cityId}`);
+                  
+                  // Also update the state if it exists, but this is secondary and won't fail the operation
+                  try {
+                    const currentState = clientId 
+                      ? await storage.getBingoState(undefined, clientId)
+                      : await storage.getBingoState();
+                    
+                    const currentCity = currentState.cities[cityId];
+                    
+                    if (currentCity) {
+                      const targetItem = currentCity.items.find(i => i.id === item.id);
+                      
+                      if (targetItem) {
+                        // Update the state object as well
+                        const updatedItems = currentCity.items.map(i => 
+                          i.id === item.id ? { ...i, image: imageUrl } : i
+                        );
+                        
+                        const updatedCity = {
+                          ...currentCity,
+                          items: updatedItems
+                        };
+                        
+                        const updatedState = {
+                          ...currentState,
+                          cities: {
+                            ...currentState.cities,
+                            [cityId]: updatedCity
+                          }
+                        };
+                        
+                        // Save the updated state with clientId if provided
+                        await storage.saveBingoState(updatedState, undefined, clientId);
+                        log(`[DB SUCCESS] Also updated state object with new image`, 'db-update');
+                      }
+                    }
+                  } catch (stateError) {
+                    // Log but don't fail if state update fails - the direct database update already succeeded
+                    log(`[DB INFO] State object update skipped or failed: ${stateError instanceof Error ? stateError.message : 'Unknown error'}`, 'db-update');
+                  }
                   
                   // Direct database verification step
                   try {
-                    // Import necessary modules
-                    const { eq } = await import('drizzle-orm');
-                    const { bingoItems } = await import('@shared/schema');
-                    const { db } = await import('./db');
-                    
-                    // Verify the database has the image URL
+                    // Verify the database has the image URL (imports already done above)
                     const [updatedItemDb] = await db
                       .select({ id: bingoItems.id, image: bingoItems.image, text: bingoItems.text })
                       .from(bingoItems)
