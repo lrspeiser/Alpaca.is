@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Remove any background images and set a clean background */
+body {
+  background-color: #f8f9fa; 
+  background-image: none !important;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 20 14.3% 4.1%;
@@ -54,10 +60,8 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-image: url('https://images.unsplash.com/photo-1541849546-216549ae216d?auto=format&fit=crop&q=80&w=1000&ixlib=rb-4.0.3');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
+    background-image: none !important;
+    background-color: #f8f9fa;
   }
 }
 

@@ -437,9 +437,9 @@ export default function AdminSimple() {
   }
   
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div className="container mx-auto py-8 px-4 max-w-7xl bg-white">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Bingo Admin</h1>
+        <h1 className="text-3xl font-bold">Travel Bingo Admin</h1>
         <div className="flex gap-2">
           <Button onClick={handleRefreshMetadata} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -462,76 +462,92 @@ export default function AdminSimple() {
           {viewingCity ? (
             renderCityDetails()
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {adminData?.cities.map((city) => (
-                <Card key={city.id} className="p-6 hover:shadow-md transition-shadow duration-200">
-                  <h3 className="text-xl font-bold mb-1">{city.title}</h3>
-                  {city.subtitle && (
-                    <p className="text-gray-500 text-sm mb-4">{city.subtitle}</p>
-                  )}
-                  
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-sm mb-6">
-                    <div className="flex flex-col items-center p-2 bg-blue-50 rounded">
-                      <span className="font-bold text-lg">{city.itemCount}</span>
-                      <span className="text-xs text-blue-700">Items</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 bg-green-50 rounded">
-                      <span className="font-bold text-lg">{city.itemsWithDescriptions}</span>
-                      <span className="text-xs text-green-700">Descriptions</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 bg-purple-50 rounded relative">
-                      <span className="font-bold text-lg">{city.itemsWithImages}</span>
-                      {city.itemsWithValidImageFiles !== undefined && 
-                        city.itemsWithValidImageFiles !== city.itemsWithImages && (
-                          <span className="text-xs text-red-500 absolute -right-3 -top-2">
-                            ({city.itemsWithValidImageFiles}/{city.itemsWithImages} files)
-                          </span>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr className="border-b">
+                    <th className="py-3 px-4 text-left font-semibold">City</th>
+                    <th className="py-3 px-4 text-center font-semibold">Items</th>
+                    <th className="py-3 px-4 text-center font-semibold">Descriptions</th>
+                    <th className="py-3 px-4 text-center font-semibold">Images</th>
+                    <th className="py-3 px-4 text-left font-semibold">Last Updated</th>
+                    <th className="py-3 px-4 text-right font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminData?.cities.map((city) => (
+                    <tr key={city.id} className="border-b hover:bg-muted/50">
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="font-semibold">{city.title}</p>
+                          {city.subtitle && <p className="text-xs text-gray-500">{city.subtitle}</p>}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">{city.itemCount}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={city.itemsWithDescriptions < city.itemCount ? "text-amber-600" : "text-green-600"}>
+                          {city.itemsWithDescriptions}/{city.itemCount}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={city.itemsWithImages < city.itemCount ? "text-amber-600" : "text-green-600"}>
+                          {city.itemsWithImages}/{city.itemCount}
+                        </span>
+                        {city.itemsWithValidImageFiles !== undefined && 
+                          city.itemsWithValidImageFiles !== city.itemsWithImages && (
+                            <p className="text-xs text-red-600 font-medium">
+                              {city.itemsWithValidImageFiles}/{city.itemsWithImages} files found
+                            </p>
                         )}
-                      <span className="text-xs text-purple-700">Images</span>
-                    </div>
-                  </div>
-                  
-                  {city.lastMetadataUpdate && (
-                    <p className="text-xs text-gray-500 mb-4">
-                      Last updated: {new Date(city.lastMetadataUpdate).toLocaleString()}
-                    </p>
-                  )}
-                  
-                  <div className="flex flex-col items-stretch gap-2">
-                    <Button 
-                      onClick={() => setViewingCity(city.id)}
-                      variant="outline"
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      disabled={generatingDescriptions[city.id]}
-                      onClick={() => handleGenerateDescriptions(city.id)}
-                      variant="outline"
-                    >
-                      {generatingDescriptions[city.id] ? 'Generating...' : 'Generate All Descriptions'}
-                    </Button>
-                    <Button
-                      disabled={generatingImages[city.id]}
-                      onClick={() => handleGenerateAllImages(city.id)}
-                      variant="outline"
-                    >
-                      <ImageIcon className="h-4 w-4 mr-2" />
-                      {generatingImages[city.id] ? 'Generating...' : `Generate All Images (${city.itemCount})`}
-                    </Button>
-                    {city.itemsWithValidImageFiles !== undefined && 
-                      city.itemsWithValidImageFiles !== city.itemsWithImages && (
-                        <Button
-                          onClick={() => handleRepairMissingImages(city.id)}
-                          variant="destructive"
-                          size="sm"
-                        >
-                          Repair Missing Images
-                        </Button>
-                      )}
-                  </div>
-                </Card>
-              ))}
+                      </td>
+                      <td className="py-3 px-4 text-xs text-gray-600">
+                        {city.lastMetadataUpdate ? 
+                          new Date(city.lastMetadataUpdate).toLocaleString() : 
+                          'Not updated'
+                        }
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            onClick={() => setViewingCity(city.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            View
+                          </Button>
+                          <Button
+                            disabled={generatingDescriptions[city.id]}
+                            onClick={() => handleGenerateDescriptions(city.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {generatingDescriptions[city.id] ? 'Generating...' : 'Gen Descriptions'}
+                          </Button>
+                          <Button
+                            disabled={generatingImages[city.id]}
+                            onClick={() => handleGenerateAllImages(city.id)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <ImageIcon className="h-3 w-3 mr-1" />
+                            {generatingImages[city.id] ? 'Generating...' : `Gen Images`}
+                          </Button>
+                          {city.itemsWithValidImageFiles !== undefined && 
+                            city.itemsWithValidImageFiles !== city.itemsWithImages && (
+                              <Button
+                                onClick={() => handleRepairMissingImages(city.id)}
+                                variant="destructive"
+                                size="sm"
+                              >
+                                Repair Images
+                              </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </TabsContent>
