@@ -1,10 +1,10 @@
-# Travel Bingo - Interactive City Exploration App
+# Alpaca.is - Interactive City Exploration App
 
 ## Overview
 
-Travel Bingo is a mobile-first web application that gamifies tourism experiences through AI-powered, interactive city-specific bingo cards. The platform enables users to explore destinations by completing engaging local activities with intelligent content generation and personalized travel challenges.
+Alpaca is a mobile-first web application that gamifies tourism experiences through AI-powered, interactive city-specific bingo cards. The platform enables users to explore destinations by completing engaging local activities with intelligent content generation and personalized travel challenges.
 
-Designed for college students and travelers, Travel Bingo transforms standard tourism into an engaging game where users can:
+Designed for college students and travelers, Alpaca transforms standard tourism into an engaging game where users can:
 - Explore activities unique to each city
 - Mark items as completed with optional photo uploads
 - Navigate between different city bingo cards
